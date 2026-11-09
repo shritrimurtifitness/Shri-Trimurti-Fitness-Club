@@ -35,8 +35,7 @@ export interface Booking {
 /** Static fallback map for known types */
 const knownLabels: Record<string, string> = {
   cricket: "Cricket Turf",
-  snooker: "Snooker Table",
-  pool: "Pool Table",
+  football: "Football Turf",
 };
 
 /** Dynamic label resolver - uses known map or capitalizes the raw type */
@@ -57,13 +56,13 @@ export const facilityLabels: Record<string, string> = new Proxy(knownLabels, {
 
 
 export const revenueData = [
-  { name: "Mon", cricket: 12400, snooker: 3200, pool: 2400 },
-  { name: "Tue", cricket: 9800, snooker: 2800, pool: 1800 },
-  { name: "Wed", cricket: 11200, snooker: 3400, pool: 2200 },
-  { name: "Thu", cricket: 13600, snooker: 3000, pool: 2600 },
-  { name: "Fri", cricket: 18200, snooker: 4800, pool: 3600 },
-  { name: "Sat", cricket: 24400, snooker: 5600, pool: 4200 },
-  { name: "Sun", cricket: 21800, snooker: 5200, pool: 3800 },
+  { name: "Mon", cricket: 12400, football: 8200 },
+  { name: "Tue", cricket: 9800, football: 7400 },
+  { name: "Wed", cricket: 11200, football: 8900 },
+  { name: "Thu", cricket: 13600, football: 9500 },
+  { name: "Fri", cricket: 18200, football: 14000 },
+  { name: "Sat", cricket: 24400, football: 19800 },
+  { name: "Sun", cricket: 21800, football: 17600 },
 ];
 
 export const peakHoursData = [

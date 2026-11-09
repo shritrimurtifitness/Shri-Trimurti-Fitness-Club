@@ -63,7 +63,7 @@ export default function FooterSection() {
               </span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              Premium sports arena with cricket turf, snooker & pool. Book online, show up, and play.
+              Premium sports arena with box cricket turf & football arena. Book online, show up, and play.
             </p>
             {socials.length > 0 && (
               <div className="flex items-center gap-2">
@@ -102,7 +102,7 @@ export default function FooterSection() {
           <div className="col-span-1">
             <h4 className="font-heading font-semibold text-foreground mb-4">Our Sports</h4>
             <ul className="space-y-2">
-              {["Cricket Nets", "Snooker Tables", "Pool Tables", "Tournaments"].map((s) => (
+              {["Box Cricket Turf", "Football Arena", "Practice Nets", "Tournaments"].map((s) => (
                 <li key={s} className="text-sm text-muted-foreground">{s}</li>
               ))}
             </ul>

@@ -16,8 +16,7 @@ import Navbar from "@/components/Navbar";
 import FooterSection from "@/components/landing/FooterSection";
 import { toast } from "sonner";
 import cricketImg from "@/assets/cricket-turf.jpg";
-import snookerImg from "@/assets/snooker-room.jpg";
-import poolImg from "@/assets/pool-room.jpg";
+import footballImg from "@/assets/football-turf.jpg";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { Download, Share2, MessageSquare } from "lucide-react";
@@ -27,8 +26,7 @@ import confetti from "canvas-confetti";
 /** Fallback images for known sport types */
 const knownImages: Record<string, string> = {
   cricket: cricketImg,
-  snooker: snookerImg,
-  pool: poolImg,
+  football: footballImg,
 };
 const defaultImage = "https://images.unsplash.com/photo-1461896836934-bd45ba8bf8bd?q=80&w=2000&auto=format&fit=crop";
 

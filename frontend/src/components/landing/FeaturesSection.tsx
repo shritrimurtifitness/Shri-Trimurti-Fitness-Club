@@ -5,7 +5,7 @@ const features = [
   { icon: Lightbulb, title: "LED Lighting", desc: "Professional-grade lighting across all facilities for day and night sessions." },
   { icon: Car, title: "Free Parking", desc: "Spacious parking area for 40+ vehicles right at the arena entrance." },
   { icon: Shield, title: "Safety Nets", desc: "Full perimeter netting on cricket turf for player safety." },
-  { icon: Wind, title: "AC Lounge", desc: "Climate-controlled snooker & pool area for maximum comfort." },
+  { icon: Wind, title: "Player Dugout & Lounge", desc: "Comfortable covered dugout and seating lounge for teams and spectators." },
   { icon: Coffee, title: "Café & Refreshments", desc: "On-site café with snacks, beverages, and energy drinks." },
   { icon: Shirt, title: "Changing Rooms", desc: "Clean changing rooms with lockers, showers, and fresh towels." },
   { icon: Wifi, title: "Free Wi-Fi", desc: "High-speed connectivity throughout the entire arena." },

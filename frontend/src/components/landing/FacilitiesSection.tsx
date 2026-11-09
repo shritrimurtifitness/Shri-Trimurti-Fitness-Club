@@ -5,16 +5,14 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import cricketImg from "@/assets/cricket-turf.jpg";
-import snookerImg from "@/assets/snooker-room.jpg";
-import poolImg from "@/assets/pool-room.jpg";
+import footballImg from "@/assets/football-turf.jpg";
 
 import { useSocket } from "@/hooks/useSocket";
 
 /** Fallback images for known sport types */
 const knownImages: Record<string, string> = {
   cricket: cricketImg,
-  snooker: snookerImg,
-  pool: poolImg,
+  football: footballImg,
 };
 
 /** Generic placeholder for unknown sports */

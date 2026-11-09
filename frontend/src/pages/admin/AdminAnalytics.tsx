@@ -8,8 +8,7 @@ import { cn } from "@/lib/utils";
 
 const SPORT_COLORS: Record<string, string> = {
   cricket: "hsl(142 76% 36%)",
-  snooker: "hsl(84 80% 55%)",
-  pool: "hsl(200 80% 50%)",
+  football: "hsl(217 91% 60%)",
 };
 
 const tooltipStyle = {
