@@ -204,7 +204,17 @@ export default function FooterSection() {
         </div>
 
         <div className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} Shri Trimurti Sports Arena. All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <p>© {new Date().getFullYear()} Shri Trimurti Sports Arena. All rights reserved.</p>
+            <span>•</span>
+            <Link to="/privacy" className="hover:text-primary transition-colors underline-offset-4 hover:underline">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link to="/terms" className="hover:text-primary transition-colors underline-offset-4 hover:underline">
+              Terms of Service
+            </Link>
+          </div>
           <p className="flex items-center gap-1">
             Crafted for sports lovers in Kolhapur & Koparde <Heart className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500" />
           </p>

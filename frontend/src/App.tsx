@@ -33,6 +33,8 @@ import StaffLogin from "./pages/StaffLogin";
 import ForgotPassword from "./pages/admin/ForgotPassword";
 import ResetPassword from "./pages/admin/ResetPassword";
 import MyBookings from "./pages/MyBookings";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
 import ScrollToTop from "./components/ScrollToTop";
 import { CursorGlow } from "./components/CursorGlow";
@@ -58,6 +60,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/book" element={<BookingPage />} />
             <Route path="/my-bookings" element={<MyBookings />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="/tournaments/:id" element={<TournamentDetails />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/staff-login" element={<StaffLogin />} />
