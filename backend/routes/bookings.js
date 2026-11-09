@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/auth');
 const cache = require('../config/cache');
 const { bookingLimiter } = require('../middleware/rateLimiter');
 const mailer = require('../utils/mailer');
+const whatsappService = require('../services/whatsapp');
 
 router.post('/', bookingLimiter, async (req, res) => {
   try {
@@ -833,6 +834,20 @@ router.post('/:id/verify-upi', authMiddleware, async (req, res) => {
           slots: [slotTime],
           totalAmount: b.paid_amount,
         }).catch(err => console.error('[MAILER ERROR on confirm]', err));
+      }
+
+      if (b.customer_phone) {
+        const slotTime = `${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}`;
+        const dateFormatted = typeof b.date === 'string' ? b.date.substring(0, 10) : new Date(b.date).toISOString().split('T')[0];
+        whatsappService.sendBookingConfirmationTicket({
+          phone: b.customer_phone,
+          bookingId: b.id.substring(0, 8).toUpperCase(),
+          turfName: b.turf_name || b.facility_type,
+          date: dateFormatted,
+          slots: [slotTime],
+          totalAmount: b.paid_amount,
+          utrNumber: b.utr_number,
+        }).catch(err => console.error('[WHATSAPP CONFIRM ERROR]', err.message));
       }
     } else {
       await pool.query(`

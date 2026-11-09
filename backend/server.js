@@ -50,6 +50,7 @@ const settingsRoutes = require('./routes/settings');
 const tournamentsRoutes = require('./routes/tournaments');
 const staffRoutes = require('./routes/staff');
 const expenseRoutes = require('./routes/expenses');
+const whatsappRoutes = require('./routes/whatsapp');
 
 const app = express();
 const server = http.createServer(app);
@@ -123,6 +124,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/tournaments', tournamentsRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
