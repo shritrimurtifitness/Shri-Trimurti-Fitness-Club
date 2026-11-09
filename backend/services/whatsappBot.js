@@ -3,6 +3,7 @@ const {
   sendTextMessage,
   sendInteractiveButtons,
 } = require('./whatsapp');
+const { generateAIResponse } = require('./aiAgent');
 
 /**
  * Returns today's date formatted as YYYY-MM-DD
@@ -109,6 +110,21 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
 async function handleIncomingMessage({ from, text = '', buttonPayload = '' }) {
   const normalizedText = (text || '').trim().toLowerCase();
   const payload = buttonPayload || '';
+
+  // 0. AI Conversational Assistant (for natural language text and multi-lingual questions)
+  if (!payload && text.trim().length > 1) {
+    const isPureGreeting = ['hi', 'hello', 'hey', 'start', 'menu', 'options'].includes(normalizedText);
+    if (!isPureGreeting) {
+      try {
+        const aiReply = await generateAIResponse({ phone: from, userMessage: text });
+        if (aiReply) {
+          return sendTextMessage({ to: from, text: aiReply });
+        }
+      } catch (aiErr) {
+        console.warn('[AI BOT BYPASS] Falling back to rule engine:', aiErr.message);
+      }
+    }
+  }
 
   // 1. Cricket Slots Handler
   if (
