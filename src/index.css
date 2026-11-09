@@ -1,0 +1,210 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 6%;
+    --foreground: 0 0% 95%;
+
+    --card: 220 18% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 16%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 220 14% 14%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 84 80% 55%;
+    --accent-foreground: 220 20% 6%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 16% 18%;
+    --input: 220 16% 18%;
+    --ring: 142 76% 36%;
+
+    --radius: 0.75rem;
+
+    --turf: 142 76% 36%;
+    --turf-light: 142 70% 50%;
+    --turf-dark: 142 80% 22%;
+    --turf-glow: 142 76% 36%;
+    --surface: 220 18% 12%;
+    --surface-hover: 220 16% 16%;
+
+    --sidebar-background: 220 20% 8%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 142 76% 36%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 16% 14%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 220 16% 18%;
+    --sidebar-ring: 142 76% 36%;
+
+    --gradient-turf: linear-gradient(135deg, hsl(142 76% 36%), hsl(84 80% 55%));
+    --gradient-dark: linear-gradient(180deg, hsl(220 20% 6%), hsl(220 20% 10%));
+    --shadow-turf: 0 0 40px -10px hsl(142 76% 36% / 0.4);
+    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.3);
+  }
+
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 220 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
+
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 220 20% 20%;
+
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 10% 40%;
+
+    --accent: 84 80% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 88%;
+    --input: 220 14% 88%;
+    --ring: 142 76% 36%;
+
+    --turf: 142 76% 36%;
+    --turf-light: 142 70% 50%;
+    --turf-dark: 142 80% 22%;
+    --turf-glow: 142 76% 36%;
+    --surface: 220 14% 96%;
+    --surface-hover: 220 14% 92%;
+
+    --sidebar-background: 0 0% 97%;
+    --sidebar-foreground: 220 20% 20%;
+    --sidebar-primary: 142 76% 36%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 93%;
+    --sidebar-accent-foreground: 220 20% 20%;
+    --sidebar-border: 220 14% 88%;
+    --sidebar-ring: 142 76% 36%;
+
+    --gradient-turf: linear-gradient(135deg, hsl(142 76% 36%), hsl(84 80% 55%));
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 98%), hsl(220 14% 95%));
+    --shadow-turf: 0 0 40px -10px hsl(142 76% 36% / 0.3);
+    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.08);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
+    font-family: 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  
+  /* Custom Scrollbar for all overflow elements */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+}
+
+@layer utilities {
+  .text-gradient-turf {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(142 76% 36%), hsl(84 80% 55%));
+  }
+  .bg-gradient-turf {
+    background-image: linear-gradient(135deg, hsl(142 76% 36%), hsl(84 80% 55%));
+  }
+  .bg-gradient-turf-dark {
+    background-image: linear-gradient(135deg, hsl(142 80% 22%), hsl(142 76% 36%));
+  }
+  .shadow-turf {
+    box-shadow: 0 0 40px -10px hsl(142 76% 36% / 0.4);
+  }
+  .shadow-turf-lg {
+    box-shadow: 0 0 60px -10px hsl(142 76% 36% / 0.5);
+  }
+  .glow-turf {
+    box-shadow: 0 0 20px hsl(142 76% 36% / 0.3), 0 0 60px hsl(142 76% 36% / 0.1);
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  .glass {
+    @apply bg-card/90 border border-border/50 md:bg-card/80 md:backdrop-blur-xl;
+  }
+  .glass-strong {
+    @apply bg-card/95 border border-border/60 md:bg-card/90 md:backdrop-blur-2xl;
+  }
+  .hero-text-shadow {
+    text-shadow: 0 2px 20px hsl(var(--background) / 0.6), 0 1px 3px hsl(var(--background) / 0.4);
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Disable expensive animations & blurs on small screens for smooth UX */
+@media (max-width: 767px) {
+  .mobile-no-anim {
+    animation: none !important;
+    transition: none !important;
+  }
+  .mobile-no-blur {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px hsl(142 76% 36% / 0.3); }
+  50% { box-shadow: 0 0 40px hsl(142 76% 36% / 0.6); }
+}

@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# Database dumps with data
+*.dump
+*.backup
+*.sql.bak
+clean_backup.sql
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sw?
+
+# Misc
+*.tgz
