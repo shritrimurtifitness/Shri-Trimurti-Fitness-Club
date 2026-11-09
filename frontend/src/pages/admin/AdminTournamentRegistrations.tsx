@@ -76,7 +76,8 @@ export default function AdminTournamentRegistrations({ tournament, onBack }: { t
     fetchRegistrations();
 
     // Listen for real-time registration updates
-    const socket: Socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000");
+    const socketUrl = (import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, '')) || import.meta.env.VITE_API_URL || "http://localhost:5000";
+    const socket: Socket = io(socketUrl);
     socket.on("tournament_registration_success", () => {
       fetchRegistrations();
     });
