@@ -1,49 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { Menu, X, Sun, Moon, Phone, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
 import logoImage from "@/assets/logo.png";
+import api from "@/lib/api";
 
 const navLinks = [
-  { name: "Home", path: "/" },
-  { name: "Book Now", path: "/book" },
-  { name: "My Bookings", path: "/my-bookings" },
-  { name: "Facilities", path: "/#facilities" },
-  { name: "Pricing", path: "/#pricing" },
-  { name: "Contact", path: "/#contact-section" },
+  { name: "Home", path: "/", hash: "" },
+  { name: "Tournaments", path: "/#tournaments", hash: "tournaments" },
+  { name: "Facilities", path: "/#facilities", hash: "facilities" },
+  { name: "Pricing", path: "/#pricing", hash: "pricing" },
+  { name: "FAQs", path: "/#faq", hash: "faq" },
+  { name: "Contact", path: "/#contact-section", hash: "contact-section" },
 ];
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [phone, setPhone] = useState("+917083738373");
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
 
+  useEffect(() => {
+    api.get("/settings/contact")
+      .then((res) => {
+        if (res.data?.phone) setPhone(res.data.phone);
+      })
+      .catch(() => {});
+  }, []);
+
+  const cleanPhone = phone.replace(/[^0-9]/g, "");
+
+  const isLinkActive = (link: typeof navLinks[0]) => {
+    if (link.hash) {
+      return location.pathname === "/" && location.hash === `#${link.hash}`;
+    }
+    return location.pathname === link.path && !location.hash;
+  };
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/40 dark:bg-black/40 backdrop-blur-xl border-b border-zinc-200 dark:border-white/10">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/70 dark:bg-black/60 backdrop-blur-xl border-b border-zinc-200/80 dark:border-white/10 transition-colors">
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Link to="/" className="flex items-center gap-2">
+          {/* Logo & Brand */}
+          <Link to="/" className="flex items-center gap-2.5">
             <img
               src={logoImage}
               alt="Shri Trimurti Sports Arena logo"
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#39FF14]/40 shadow-turf"
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#39FF14]/50 shadow-turf"
             />
-            <span className="font-heading font-bold text-xl text-zinc-900 dark:text-white">
-              Shri Trimurti Sports <span className="text-gradient-turf">Arena</span>
+            <span className="font-heading font-extrabold text-base sm:text-xl text-zinc-900 dark:text-white tracking-tight">
+              <span className="hidden sm:inline">Shri Trimurti Sports </span>
+              <span className="sm:hidden">Trimurti </span>
+              <span className="text-gradient-turf">Arena</span>
             </span>
           </Link>
 
+          {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
                 to={link.path}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname === link.path
-                    ? "text-emerald-600 bg-emerald-50 dark:text-[#39FF14] dark:bg-[#39FF14]/15"
-                    : "text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isLinkActive(link)
+                    ? "text-emerald-600 bg-emerald-50 dark:text-[#39FF14] dark:bg-[#39FF14]/15 font-semibold"
+                    : "text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
                 }`}
               >
                 {link.name}
@@ -51,36 +74,76 @@ export default function Navbar() {
             ))}
           </div>
 
+          {/* Desktop Right CTAs */}
           <div className="hidden md:flex items-center gap-3">
+            <a
+              href={`https://wa.me/${cleanPhone}?text=Hi%20Shri%20Trimurti%20Sports%20Arena,%20I%20would%20like%20to%20inquire%20about%20turf%20booking.`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-emerald-500 dark:hover:text-[#39FF14] hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
+              title="Chat on WhatsApp"
+              aria-label="WhatsApp"
+            >
+              <MessageCircle className="w-5 h-5 text-emerald-500" />
+            </a>
+
             <button
               onClick={toggleTheme}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               aria-label="Toggle theme"
             >
               {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
+
             <Link to="/book">
-              <Button size="sm" className="bg-gradient-turf text-primary-foreground font-semibold shadow-turf hover:opacity-90 transition-opacity">
+              <Button size="sm" className="bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-95 transition-opacity px-5">
                 Book Now
               </Button>
             </Link>
           </div>
 
-          <div className="flex md:hidden items-center gap-2">
+          {/* Mobile Right Quick Actions */}
+          <div className="flex md:hidden items-center gap-1">
+            <a
+              href={`tel:${phone}`}
+              aria-label="Call arena"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/10"
+            >
+              <Phone className="w-4 h-4 text-emerald-500" />
+            </a>
+
+            <a
+              href={`https://wa.me/${cleanPhone}?text=Hi,%20I%20want%20to%20book%20a%20turf%20slot.`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="WhatsApp arena"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-emerald-500 hover:bg-zinc-100 dark:hover:bg-white/10"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </a>
+
             <button
               onClick={toggleTheme}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-900 dark:text-white"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-800 dark:text-zinc-100"
+              title="Toggle theme"
               aria-label="Toggle theme"
             >
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
-            <button className="text-zinc-900 dark:text-white" onClick={() => setIsOpen(!isOpen)}>
-              {isOpen ? <X size={24} /> : <Menu size={24} />}
+
+            <button
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-900 dark:text-white ml-0.5"
+              onClick={() => setIsOpen(!isOpen)}
+              aria-label="Toggle menu"
+            >
+              {isOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Mobile Drawer */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -88,18 +151,37 @@ export default function Navbar() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="md:hidden bg-card border-t border-border"
+            className="md:hidden bg-card/95 backdrop-blur-xl border-t border-border shadow-2xl"
           >
-            <div className="container mx-auto px-4 py-4 space-y-2">
+            <div className="container mx-auto px-4 py-4 space-y-1.5">
               {navLinks.map((link) => (
-                <Link key={link.name} to={link.path} onClick={() => setIsOpen(false)}
-                  className="block px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  onClick={() => setIsOpen(false)}
+                  className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isLinkActive(link)
+                      ? "text-emerald-500 bg-emerald-500/10 font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  }`}
+                >
                   {link.name}
                 </Link>
               ))}
-              <div className="pt-2 flex gap-2">
-                <Link to="/book" className="flex-1" onClick={() => setIsOpen(false)}>
-                  <Button size="sm" className="w-full bg-gradient-turf text-primary-foreground">Book Now</Button>
+
+              <Link
+                to="/my-bookings"
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+              >
+                My Bookings
+              </Link>
+
+              <div className="pt-3 pb-1">
+                <Link to="/book" onClick={() => setIsOpen(false)}>
+                  <Button size="lg" className="w-full bg-gradient-turf text-primary-foreground font-bold shadow-turf">
+                    Book Slot Now
+                  </Button>
                 </Link>
               </div>
             </div>
