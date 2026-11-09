@@ -79,6 +79,40 @@ app.use(compression()); // Gzip compression
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev')); // Logging
 app.use(cors({ origin: corsOriginChecker, credentials: true }));
 app.use(express.json({ limit: '10kb' })); // Payload limit
+// Root & Health check endpoints (placed before rate limiter for uptime monitors & Render probes)
+const handleHealthCheck = async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.status(200).json({
+      status: 'healthy',
+      uptime: `${Math.floor(process.uptime())}s`,
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'unhealthy',
+      uptime: `${Math.floor(process.uptime())}s`,
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: err.message
+    });
+  }
+};
+
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Shri Trimurti Sports Arena API',
+    status: 'online',
+    version: '1.0.0',
+    uptime: `${Math.floor(process.uptime())}s`,
+    health: '/health'
+  });
+});
+
+app.get('/health', handleHealthCheck);
+app.get('/api/health', handleHealthCheck);
+
 app.use('/api', globalLimiter); // Global rate limiter
 
 // Connect Routes
@@ -99,9 +133,6 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/tournaments', tournamentsRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/expenses', expenseRoutes);
-
-// Health check
-app.get('/api/health', (_, res) => res.json({ status: 'ok' }));
 
 // Global Error Handler
 app.use((err, req, res, next) => {
