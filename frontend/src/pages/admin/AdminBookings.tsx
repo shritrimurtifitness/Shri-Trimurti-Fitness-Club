@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Search, XCircle, Plus, CheckCircle2, IndianRupee, Smartphone, Wallet, Banknote, ArrowUp, ArrowDown, Filter, User, Calendar, Check, Copy, AlertCircle, Clock, MessageSquare } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import AdminWhatsAppModal from "@/components/AdminWhatsAppModal";
@@ -285,9 +286,96 @@ export default function AdminBookings() {
           </Button>
         </div>
 
-        {/* Row 2: Advanced Filters (Refined) */}
-        <div className="bg-card/30 rounded-xl border border-border/50 overflow-hidden">
-          <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-border/50">
+        {/* Mobile: Compact Dropdown Filters */}
+        <div className="lg:hidden space-y-2">
+          <div className="flex items-center justify-between text-xs px-0.5">
+            <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
+              <Filter className="w-3.5 h-3.5 text-primary" />
+              <span>Filters</span>
+              {(timelineFilter !== 'all' || paymentFilter !== 'all' || facilityFilter !== 'all') && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                  {(timelineFilter !== 'all' ? 1 : 0) + (paymentFilter !== 'all' ? 1 : 0) + (facilityFilter !== 'all' ? 1 : 0)} active
+                </span>
+              )}
+            </div>
+            {(timelineFilter !== 'all' || paymentFilter !== 'all' || facilityFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTimelineFilter('all');
+                  setPaymentFilter('all');
+                  setFacilityFilter('all');
+                }}
+                className="text-[11px] font-semibold text-primary hover:underline"
+              >
+                Reset all
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+            {/* Timeline Filter */}
+            <Select value={timelineFilter} onValueChange={(t: any) => setTimelineFilter(t)}>
+              <SelectTrigger className={`h-9 px-2 text-[11px] sm:text-xs font-semibold rounded-xl bg-card border transition-all ${
+                timelineFilter !== 'all' 
+                  ? 'border-primary bg-primary/10 text-primary' 
+                  : 'border-border/80 text-foreground'
+              }`}>
+                <SelectValue placeholder="Timeline" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="past">Past</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Payment Filter */}
+            <Select value={paymentFilter} onValueChange={(p: any) => setPaymentFilter(p)}>
+              <SelectTrigger className={`h-9 px-2 text-[11px] sm:text-xs font-semibold rounded-xl bg-card border transition-all ${
+                paymentFilter === 'needs_review'
+                  ? 'border-amber-500 bg-amber-500/10 text-amber-500 font-bold'
+                  : paymentFilter !== 'all'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border/80 text-foreground'
+              }`}>
+                <SelectValue placeholder="Payment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payments</SelectItem>
+                <SelectItem value="needs_review">
+                  Verify UPI {pendingApprovalCount > 0 ? `(${pendingApprovalCount})` : ''}
+                </SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="pending">Balance Due</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Facility Filter */}
+            <Select value={facilityFilter} onValueChange={setFacilityFilter}>
+              <SelectTrigger className={`h-9 px-2 text-[11px] sm:text-xs font-semibold rounded-xl bg-card border transition-all ${
+                facilityFilter !== 'all'
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border/80 text-foreground'
+              }`}>
+                <SelectValue placeholder="Sports" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sports</SelectItem>
+                {facilityTypes.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {getFacilityLabel(f)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Desktop: Advanced Filters Tabs (1-Click Pills) */}
+        <div className="hidden lg:block bg-card/30 rounded-xl border border-border/50 overflow-hidden">
+          <div className="flex flex-row divide-x divide-border/50">
             {/* Timeline Tabs */}
             <div className="p-2 overflow-x-auto scrollbar-hide">
               <div className="flex gap-2 min-w-max">
