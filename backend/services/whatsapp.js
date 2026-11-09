@@ -36,7 +36,7 @@ async function sendTextMessage({ to, text, previewUrl = false }) {
 
   try {
     const res = await axios.post(
-      `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
       payload,
       {
         headers: {
@@ -98,7 +98,7 @@ async function sendInteractiveButtons({ to, bodyText, buttons = [], headerText =
 
   try {
     const res = await axios.post(
-      `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
       payload,
       {
         headers: {
@@ -149,7 +149,7 @@ async function sendInteractiveList({ to, bodyText, buttonTitle = 'View Options',
 
   try {
     const res = await axios.post(
-      `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
       payload,
       {
         headers: {
@@ -211,7 +211,7 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
 
   try {
     const response = await axios.post(
-      `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
       payload,
       {
         headers: {
