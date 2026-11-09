@@ -156,33 +156,42 @@ async function generateAIResponse({ phone, userMessage }) {
       },
     ];
 
-    // 3. Call Google Gemini 1.5 Flash API
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: SYSTEM_INSTRUCTION }],
-          },
-          contents: contents,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 350, // Keep WhatsApp responses concise
-          },
-        }),
+    // 3. Call Google Gemini API (with automatic fallback to available flash models)
+    const candidateModels = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
+    let candidateText = null;
+
+    for (const modelName of candidateModels) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_instruction: {
+                parts: [{ text: SYSTEM_INSTRUCTION }],
+              },
+              contents: contents,
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 350, // Keep WhatsApp responses concise
+              },
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (candidateText) break; // Successfully generated response
+        } else {
+          const errText = await response.text();
+          console.warn(`[AI AGENT] ${modelName} returned ${response.status}:`, errText);
+        }
+      } catch (reqErr) {
+        console.warn(`[AI AGENT] Error contacting ${modelName}:`, reqErr.message);
       }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.warn('[AI AGENT] Gemini API warning:', response.status, errText);
-      return null;
     }
-
-    const data = await response.json();
-    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (candidateText) {
       const reply = candidateText.trim();
