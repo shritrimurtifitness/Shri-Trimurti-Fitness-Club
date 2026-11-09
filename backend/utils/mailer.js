@@ -121,7 +121,7 @@ async function sendBookingReceived({ email, name, bookingId, turfName, date, slo
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        Shri Trimurti Sports Arena &bull; Akola, Maharashtra
+        Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
@@ -184,7 +184,7 @@ async function sendBookingRejected({ email, name, bookingId, turfName, date, rea
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        Shri Trimurti Sports Arena &bull; Akola, Maharashtra
+        Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
@@ -255,7 +255,7 @@ async function sendTournamentRegistrationReceived({ email, captainName, teamName
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        Shri Trimurti Sports Arena &bull; Akola, Maharashtra
+        Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
@@ -302,7 +302,7 @@ async function sendTournamentRegistrationConfirmed({ email, captainName, teamNam
 
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        &copy; 2026 Shri Trimurti Sports Arena &bull; Akola, Maharashtra
+        &copy; 2026 Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
@@ -332,7 +332,7 @@ async function sendTournamentRegistrationRejected({ email, captainName, teamName
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        Shri Trimurti Sports Arena &bull; Akola, Maharashtra
+        Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
