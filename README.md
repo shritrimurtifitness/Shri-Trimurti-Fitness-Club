@@ -108,12 +108,12 @@ npm run dev
 ```
 
 ### 3. Frontend Setup
-Open a new terminal in the root directory:
 ```bash
+cd frontend
 npm install
 ```
 
-Create a `.env` file in the root directory based on `.env.example`:
+Create a `.env` file in the `frontend` directory based on `.env.example`:
 ```env
 VITE_API_BASE_URL=http://localhost:5000/api
 ```
@@ -121,6 +121,13 @@ VITE_API_BASE_URL=http://localhost:5000/api
 Start the frontend development server:
 ```bash
 npm run dev
+```
+
+### 4. Or Run From Root Directory (Convenience)
+```bash
+npm run install:all     # Installs both frontend and backend dependencies
+npm run dev:frontend    # Starts Vite frontend
+npm run dev:backend     # Starts Express backend
 ```
 
 ## 📚 Documentation

@@ -89,70 +89,41 @@ The platform is designed as a decoupled client-server architecture with high ava
 
 ```
 ShriTrimurtiFitness/
-├── clean_backup.sql               # Full SQL database backup with seed data
+├── clean_backup.sql               # Full SQL database backup with seed data (ignored in git)
 ├── database_schema.sql            # Master PostgreSQL DDL schema definition
 ├── DOCUMENTATION.md               # Quick technical brief
 ├── README.md                      # Public repository readme
-├── package.json                   # Frontend dependencies and Vite build scripts
-├── vite.config.ts                 # Bundler config, PWA manifest & Workbox rules
-├── tailwind.config.ts             # Custom colors (turf neon green), font families, animations
-├── tsconfig.json                  # TypeScript configuration root
+├── PROJECT.md                     # Comprehensive project documentation
+├── package.json                   # Root monorepo convenience scripts
+├── .gitignore                     # Monorepo git ignore rules
 │
-├── backend/                       # Node.js Express REST API server
-│   ├── package.json               # Backend dependencies and node scripts
-│   ├── server.js                  # Express entry point, socket initialization, auto-migrations
-│   ├── config/                    # Infrastructure configurations
-│   │   ├── db.js                  # PostgreSQL pool config (optimized for Neon serverless)
-│   │   ├── redis.js               # Redis client connection with retry logic & fallback
-│   │   ├── cache.js               # Cache-aside helper (get, set, del, delPattern, flush)
-│   │   └── cloudinary.js          # Cloudinary SDK credentials configuration
-│   ├── middleware/                # Express middleware
-│   │   ├── auth.js                # JWT token validation & token-version verification
-│   │   └── rateLimiter.js         # Redis-backed endpoints limiters (global, login, booking)
-│   ├── routes/                    # Modular API route controllers
-│   │   ├── admin.js               # Admin KPI stats, audit logs, live occupancy pulse
-│   │   ├── analytics.js           # Financial analytics, P&L, peak hours, utilization
-│   │   ├── auth.js                # Admin login, staff PIN login, profile, password reset
-│   │   ├── bookings.js            # Slot booking, UPI submission, QR verification, check-in
-│   │   ├── closures.js            # Arena emergency / holiday closure dates
-│   │   ├── expenses.js            # Operational expenses tracking
-│   │   ├── facilities.js          # Turfs/tables management, table count safety lock
-│   │   ├── gallery.js             # Cloudinary gallery photo/video uploads & sorting
-│   │   ├── payments.js            # Razorpay order generation & HMAC signature verification
-│   │   ├── pricing.js             # Public landing page pricing tiers & features
-│   │   ├── sessions.js            # Snooker/pool live walk-in timer sessions
-│   │   ├── settings.js            # Arena contact details, UPI ID, QR code, Google reviews
-│   │   ├── slots.js               # Daily slots query with JIT trigger & availability logic
-│   │   ├── staff.js               # Staff accounts CRUD & tab permissions
-│   │   ├── templates.js           # Weekly master schedule slot templates
-│   │   ├── testimonials.js        # Customer reviews moderation & approval
-│   │   ├── tournaments.js         # Tournament lifecycle, registrations & OTP checks
-│   │   └── whatsapp.js            # Meta WhatsApp incoming webhook receiver
-│   ├── services/
-│   │   └── whatsapp.js            # WhatsApp Cloud API helper routines
-│   └── utils/
-│       └── mailer.js              # Brevo & Resend dual-provider HTML email templates
+├── frontend/                      # React 18 + Vite + TypeScript Client
+│   ├── package.json               # Frontend dependencies and Vite build scripts
+│   ├── vite.config.ts             # Bundler config, PWA manifest & Workbox rules
+│   ├── tailwind.config.ts         # Custom colors (turf neon green), font families, animations
+│   ├── tsconfig.json              # TypeScript configuration
+│   ├── index.html                 # Single page application HTML entry
+│   ├── vercel.json                # SPA rewrite rules
+│   ├── public/                    # Static public assets (manifest, robots, logos)
+│   └── src/                       # Frontend source code
+│       ├── main.tsx               # React root entry point
+│       ├── App.tsx                # React Router definitions, ThemeProvider, QueryClient
+│       ├── index.css              # Global CSS, Tailwind utilities, custom scrollbars
+│       ├── assets/                # Facility pictures, turf backgrounds, brand logo
+│       ├── hooks/                 # Custom React hooks (useSocket, useToast, useMobile)
+│       ├── lib/                   # Utility libraries (api, utils, whatsapp, mock-data)
+│       ├── components/            # Reusable UI components (landing, admin, staff, ui)
+│       └── pages/                 # Routed view components (Index, BookingPage, admin/*)
 │
-└── src/                           # Frontend React Single Page Application
-    ├── main.tsx                   # React root entry point
-    ├── App.tsx                    # React Router definitions, ThemeProvider, QueryClient
-    ├── index.css                  # Global CSS, Tailwind utilities, custom scrollbars
-    ├── assets/                    # Facility pictures, turf backgrounds, brand logo
-    ├── hooks/                     # Custom React hooks
-    │   ├── useSocket.ts           # Realtime Socket.io event listener hook
-    │   ├── use-toast.ts           # Toast trigger hook
-    │   └── use-mobile.tsx         # Screen breakpoint listener
-    ├── lib/                       # Utility libraries
-    │   ├── api.ts                 # Axios instance with JWT interceptor & base URL
-    │   ├── utils.ts               # Classnames joiner (cn), 12-hour time formatters
-    │   ├── whatsapp.ts            # WhatsApp message templates & deep-link creators
-    │   └── mock-data.ts           # Facility constants & label helpers
-    ├── components/                # Reusable UI components
-    │   ├── Navbar.tsx             # Responsive customer navigation header
-    │   ├── AdminLayout.tsx        # Collapsible admin sidebar with RBAC tab filtering
-    │   ├── ThemeProvider.tsx      # Dark / Light mode provider (next-themes)
-    │   ├── CursorGlow.tsx         # Interactive mouse glow gradient for desktop UX
-    │   ├── TeamSplitModal.tsx     # Squad per-head calculator & WhatsApp share modal
+└── backend/                       # Node.js Express REST API server
+    ├── package.json               # Backend dependencies and node scripts
+    ├── server.js                  # Express entry point, socket initialization, auto-migrations
+    ├── config/                    # Infrastructure configurations (db, redis, cache, cloudinary)
+    ├── middleware/                # Express middleware (auth, rateLimiter)
+    ├── routes/                    # Modular API route controllers (bookings, slots, admin, etc.)
+    ├── services/                  # Third-party services (WhatsApp Cloud API)
+    └── utils/                     # Utility modules (Brevo & Resend dual-provider mailer)
+```
     │   ├── AdminWhatsAppModal.tsx # Admin 1-click customer WhatsApp notifier
     │   ├── landing/               # Public landing page sections
     │   │   ├── HeroSection.tsx
