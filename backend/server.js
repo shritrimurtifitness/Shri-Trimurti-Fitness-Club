@@ -80,24 +80,14 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev')); // 
 app.use(cors({ origin: corsOriginChecker, credentials: true }));
 app.use(express.json({ limit: '10kb' })); // Payload limit
 // Root & Health check endpoints (placed before rate limiter for uptime monitors & Render probes)
-const handleHealthCheck = async (req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.status(200).json({
-      status: 'healthy',
-      uptime: `${Math.floor(process.uptime())}s`,
-      timestamp: new Date().toISOString(),
-      database: 'connected'
-    });
-  } catch (err) {
-    res.status(503).json({
-      status: 'unhealthy',
-      uptime: `${Math.floor(process.uptime())}s`,
-      timestamp: new Date().toISOString(),
-      database: 'disconnected',
-      error: err.message
-    });
-  }
+// Lightweight service check: does NOT touch the database so Neon serverless can sleep when idle
+const handleHealthCheck = (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'backend',
+    uptime: `${Math.floor(process.uptime())}s`,
+    timestamp: new Date().toISOString()
+  });
 };
 
 app.get('/', (req, res) => {
