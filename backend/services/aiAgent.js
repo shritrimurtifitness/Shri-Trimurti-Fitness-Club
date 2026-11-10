@@ -54,7 +54,7 @@ ARENA DETAILS:
   - Football Night: Floodlights (6:00 PM - 12:00 AM): ₹800 / Hour
 - Booking:
   1. Directly on WhatsApp: Players can tap "Cricket Slots" or "Football Slots" to view today's available slots, pick a slot, and receive our official UPI QR code. After paying via Google Pay / PhonePe / Paytm, they reply with their 12-digit UPI UTR number to lock in their slot!
-  2. Online on Website: https://shri-trimurti-fitness-club.vercel.app/book
+  2. Online on Website: https://shritrimurtifitnessclub.in/book
 - Amenities: Free on-site vehicle parking (cars & bikes), covered player dugout & spectator lounge, hygienic washrooms and changing area, chilled drinking water & energy drinks, free high-speed Wi-Fi.
 - Rain & Weather Policy: In case of heavy rain or bad weather, sessions are happily rescheduled to another vacant slot.
 - Corporate / Tournaments / Full-day bookings: Special packages available. Manager: +91 7083738373.
@@ -68,7 +68,7 @@ YOUR PERSONA & BEHAVIOR:
   - If they text in English, reply in English.
 - Keep responses concise, helpful, and formatted cleanly with emojis and bullet points for WhatsApp readability.
 - When recommending slots, always give them the online booking link:
-  👉 https://shri-trimurti-fitness-club.vercel.app/book
+  👉 https://shritrimurtifitnessclub.in/book
 - If the user asks about live slot availability, check the available slots or suggest they check the website link.
 - Never make up fake slots or rates that contradict the arena rules.
 `;

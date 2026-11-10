@@ -218,8 +218,8 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
 
     const upiId = process.env.UPI_ID || 'harshvardhanp@slc';
     const qrUrl = process.env.UPI_QR_URL
-      ? (process.env.UPI_QR_URL.startsWith('http') ? process.env.UPI_QR_URL : `https://shri-trimurti-fitness-club.vercel.app${process.env.UPI_QR_URL}`)
-      : 'https://shri-trimurti-fitness-club.vercel.app/upi-qr.png';
+      ? (process.env.UPI_QR_URL.startsWith('http') ? process.env.UPI_QR_URL : `https://shritrimurtifitnessclub.in${process.env.UPI_QR_URL}`)
+      : 'https://shritrimurtifitnessclub.in/upi-qr.png';
     const upiPayLink = `upi://pay?pa=${upiId}&pn=Shri%20Trimurti%20Sports%20Arena&am=${price}&cu=INR&tn=TRM-${slotDateStr.replace(/-/g, '')}`;
 
     // 1. Send the UPI QR code image
@@ -632,7 +632,7 @@ Our arena manager is also reachable directly at 📞 +91 7083738373.`;
     if (result.isClosed) {
       return sendTextMessage({
         to: from,
-        text: `⚠️ *Arena Update for Today:*\n${result.reason}\n\nYou can still book upcoming dates online:\n👉 https://shri-trimurti-fitness-club.vercel.app/book?facility=cricket`,
+        text: `⚠️ *Arena Update for Today:*\n${result.reason}\n\nYou can still book upcoming dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=cricket`,
       });
     }
 
@@ -691,7 +691,7 @@ ${slotsList}
     if (result.isClosed) {
       return sendTextMessage({
         to: from,
-        text: `⚠️ *Arena Update for Today:*\n${result.reason}\n\nYou can book upcoming dates online:\n👉 https://shri-trimurti-fitness-club.vercel.app/book?facility=football`,
+        text: `⚠️ *Arena Update for Today:*\n${result.reason}\n\nYou can book upcoming dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=football`,
       });
     }
 

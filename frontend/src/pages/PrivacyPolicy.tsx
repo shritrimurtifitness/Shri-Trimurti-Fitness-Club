@@ -30,8 +30,8 @@ export default function PrivacyPolicy() {
             <p>
               Welcome to <strong>Shri Trimurti Sports Arena</strong> ("we", "our", or "us"). We operate
               the sports turf booking platform at{" "}
-              <a href="https://shri-trimurti-fitness-club.vercel.app" className="text-emerald-400 underline">
-                shri-trimurti-fitness-club.vercel.app
+              <a href="https://shritrimurtifitnessclub.in" className="text-emerald-400 underline">
+                shritrimurtifitnessclub.in
               </a>{" "}
               and our automated WhatsApp Business bot. We respect your privacy and are committed to
               protecting the personal information you share with us.
