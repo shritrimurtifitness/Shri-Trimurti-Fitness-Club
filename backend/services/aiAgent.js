@@ -181,7 +181,7 @@ async function generateAIResponse({ phone, userMessage }) {
               contents: contents,
               generationConfig: {
                 temperature: 0.7,
-                maxOutputTokens: 350, // Keep WhatsApp responses concise
+                maxOutputTokens: 1000, // Enough room for thinking + full response
               },
             }),
           }
