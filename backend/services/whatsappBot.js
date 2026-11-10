@@ -34,6 +34,11 @@ function clearBookingSession(phone) {
   userBookingSessions.delete(phone);
 }
 
+// In-memory session tracking for post-match feedback comments
+// Key: phone number -> { bookingId, createdAt }
+const userFeedbackSessions = new Map();
+const FEEDBACK_TTL_MS = 60 * 60 * 1000; // 1 hour comment response window
+
 /**
  * Returns today's date formatted as YYYY-MM-DD in Asia/Kolkata timezone
  */
@@ -402,6 +407,109 @@ Once verified, you will automatically receive your official *Digital Entry Pass*
 async function handleIncomingMessage({ from, text = '', buttonPayload = '', userName = '', io = null }) {
   const normalizedText = (text || '').trim().toLowerCase();
   const payload = buttonPayload || '';
+
+  // ----------------------------------------------------
+  // Post-Match Feedback: 5-Star Rating Click
+  // ----------------------------------------------------
+  if (payload.startsWith('BTN_FEEDBACK_5STAR_')) {
+    const bookingId = payload.replace('BTN_FEEDBACK_5STAR_', '').trim();
+    try {
+      await pool.query(
+        `UPDATE bookings SET feedback_rating = 5 WHERE id = $1`,
+        [bookingId]
+      );
+    } catch (dbErr) {
+      console.error('[FEEDBACK 5-STAR ERROR]', dbErr.message);
+    }
+
+    let reviewUrl = process.env.GOOGLE_REVIEW_URL;
+    if (!reviewUrl) {
+      try {
+        const sRes = await pool.query('SELECT google_maps_url FROM site_settings LIMIT 1');
+        if (sRes.rows.length > 0 && sRes.rows[0].google_maps_url) {
+          reviewUrl = sRes.rows[0].google_maps_url;
+        }
+      } catch {}
+    }
+    if (!reviewUrl) {
+      reviewUrl = 'https://maps.google.com/?q=Kudire+Factory+Sangrul+Fata+Koparde';
+    }
+
+    const reviewMsg =
+`Thank you so much! 🙌 We're thrilled your squad enjoyed the session!
+
+Could you please take 15 seconds to tap below and leave us a quick 5-star review on Google? It really helps other local teams find our arena:
+
+⭐⭐⭐⭐⭐
+👉 ${reviewUrl}
+
+Looking forward to hosting your squad again soon! 🏏⚽🔥`;
+
+    return sendTextMessage({
+      to: from,
+      text: reviewMsg,
+    });
+  }
+
+  // ----------------------------------------------------
+  // Post-Match Feedback: Suggest Improvement Click
+  // ----------------------------------------------------
+  if (payload.startsWith('BTN_FEEDBACK_IMPROVE_')) {
+    const bookingId = payload.replace('BTN_FEEDBACK_IMPROVE_', '').trim();
+    try {
+      await pool.query(
+        `UPDATE bookings SET feedback_rating = 3 WHERE id = $1`,
+        [bookingId]
+      );
+    } catch (dbErr) {
+      console.error('[FEEDBACK IMPROVE ERROR]', dbErr.message);
+    }
+
+    userFeedbackSessions.set(from, { bookingId, createdAt: Date.now() });
+
+    const improveMsg =
+`Thank you for letting us know! 🙏
+
+Our management team is dedicated to keeping the pitch, lighting, and facilities in championship condition.
+
+Please reply directly with your thoughts, suggestions, or anything we can improve!
+
+Our arena manager is also reachable directly at 📞 +91 7083738373.`;
+
+    return sendTextMessage({
+      to: from,
+      text: improveMsg,
+    });
+  }
+
+  // ----------------------------------------------------
+  // Post-Match Feedback: Capture Typed User Feedback Comment
+  // ----------------------------------------------------
+  const feedbackSession = userFeedbackSessions.get(from);
+  if (feedbackSession && !payload && text.trim().length > 1) {
+    if (Date.now() - feedbackSession.createdAt < FEEDBACK_TTL_MS) {
+      const comment = text.trim();
+      try {
+        await pool.query(
+          `UPDATE bookings SET feedback_comment = $1 WHERE id = $2`,
+          [comment, feedbackSession.bookingId]
+        );
+        if (io) {
+          io.emit('feedback_received', { bookingId: feedbackSession.bookingId, comment });
+        }
+      } catch (err) {
+        console.error('[FEEDBACK COMMENT DB ERROR]', err.message);
+      }
+      userFeedbackSessions.delete(from);
+
+      return sendTextMessage({
+        to: from,
+        text: `Thank you for sharing your valuable feedback! 🙏 Our management team has noted this down and will address it promptly. We look forward to welcoming you back! 🏏⚽`,
+      });
+    } else {
+      userFeedbackSessions.delete(from);
+    }
+  }
 
   // ----------------------------------------------------
   // A. Check for Active Booking Session

@@ -6,6 +6,7 @@ const cache = require('../config/cache');
 const { bookingLimiter } = require('../middleware/rateLimiter');
 const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
+const notificationScheduler = require('../services/notificationScheduler');
 
 router.post('/', bookingLimiter, async (req, res) => {
   try {
@@ -116,6 +117,18 @@ router.post('/', bookingLimiter, async (req, res) => {
     await cache.delPattern('slots:*');
     await cache.del('admin:stats');
     await cache.del('analytics:dashboard');
+
+    if (bookingStatus === 'confirmed') {
+      notificationScheduler.scheduleBookingNotifications({
+        id: booking.rows[0].id,
+        customer_phone: phone,
+        customer_name: name,
+        turf_name: 'Arena Turf',
+        date: slot.date,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+      });
+    }
 
     req.app.get('io').emit('booking_updated');
     res.status(201).json({ booking: booking.rows[0], amount: slot.price || 800 });
@@ -527,6 +540,8 @@ router.patch('/:id/cancel', authMiddleware, async (req, res) => {
     await cache.del('admin:stats');
     await cache.del('analytics:dashboard');
 
+    notificationScheduler.cancelBookingNotifications(id);
+
     // Broadcast websocket event
     req.app.get('io').emit('booking_updated');
 
@@ -849,12 +864,27 @@ router.post('/:id/verify-upi', authMiddleware, async (req, res) => {
           utrNumber: b.utr_number,
         }).catch(err => console.error('[WHATSAPP CONFIRM ERROR]', err.message));
       }
+
+      // Schedule automated Matchday Reminder (2h before) and Review Collector (1h after)
+      notificationScheduler.scheduleBookingNotifications({
+        id: b.id,
+        customer_phone: b.customer_phone,
+        customer_name: b.customer_name,
+        turf_name: b.turf_name || b.facility_type,
+        date: b.date,
+        start_time: b.start_time,
+        end_time: b.end_time,
+        reminder_sent_at: b.reminder_sent_at,
+        feedback_sent_at: b.feedback_sent_at,
+      });
     } else {
       await pool.query(`
         UPDATE bookings 
         SET status = 'rejected', payment_status = 'failed'
         WHERE id = $1
       `, [id]);
+
+      notificationScheduler.cancelBookingNotifications(id);
 
       if (b.customer_email) {
         const dateFormatted = typeof b.date === 'string' ? b.date.substring(0, 10) : new Date(b.date).toISOString().split('T')[0];

@@ -271,6 +271,9 @@ server.listen(PORT, async () => {
 
     console.log('[MIGRATION] Schema ready');
 
+    // Initialize in-memory Matchday Reminder & Review Collector scheduler (0 periodic DB polling)
+    const notificationScheduler = require('./services/notificationScheduler');
+    notificationScheduler.initScheduler();
   } catch (err) {
     console.error('[MIGRATION] Staff schema error (non-fatal):', err.message);
   }
