@@ -60,6 +60,7 @@ ARENA DETAILS:
 
 YOUR PERSONA & BEHAVIOR:
 - Warm, polite, energetic, sporty tone (like an enthusiastic turf manager).
+- If a customer asks about a specific time slot that is listed in "Already Booked" (or not in "Available"), clearly inform them that this slot is already booked by another team, and immediately suggest the closest available slots for today or tomorrow!
 - Speak naturally in the SAME language the customer uses:
   - If they text in Marathi (e.g. "aaj ratri slot ahe ka?"), reply in natural Marathi.
   - If they text in Hindi/Hinglish (e.g. "bhaiya cricket ke liye kitna lagega?"), reply in natural friendly Hindi/Hinglish.
@@ -76,7 +77,7 @@ YOUR PERSONA & BEHAVIOR:
  */
 async function queryAvailableSlots(facilityType = 'cricket') {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const turfRes = await pool.query(
       `SELECT id, name, facility_type FROM turfs WHERE facility_type ILIKE $1 AND is_active = true LIMIT 1`,
       [`%${facilityType}%`]
@@ -86,17 +87,14 @@ async function queryAvailableSlots(facilityType = 'cricket') {
     const turf = turfRes.rows[0];
 
     const slotsRes = await pool.query(
-      `SELECT s.start_time, s.end_time, s.price
+      `SELECT s.start_time, s.end_time, s.price,
+              (b.id IS NOT NULL AND b.status NOT IN ('cancelled', 'rejected')) AS is_booked
        FROM slots s
        LEFT JOIN bookings b ON b.slot_id = s.id AND b.status NOT IN ('cancelled', 'rejected')
-       WHERE s.turf_id = $1 AND s.date = $2 AND s.is_available = true AND b.id IS NULL AND s.end_time > CURRENT_TIME
-       ORDER BY s.start_time ASC LIMIT 6`,
+       WHERE s.turf_id = $1 AND s.date = $2 AND s.is_available = true AND s.end_time > CURRENT_TIME
+       ORDER BY s.start_time ASC`,
       [turf.id, today]
     );
-
-    if (slotsRes.rows.length === 0) {
-      return `All slots for ${turf.name} are fully booked or have ended for today.`;
-    }
 
     const formatTime = (t) => {
       const [h, m] = t.split(':');
@@ -107,10 +105,18 @@ async function queryAvailableSlots(facilityType = 'cricket') {
       return `${hour}:${m} ${mer}`;
     };
 
-    const lines = slotsRes.rows.map(
-      (s) => `• ${formatTime(s.start_time)} – ${formatTime(s.end_time)} (₹${parseInt(s.price, 10)})`
-    );
-    return `Available ${turf.name} slots today:\n${lines.join('\n')}`;
+    const availableSlots = slotsRes.rows.filter(s => !s.is_booked);
+    const bookedSlots = slotsRes.rows.filter(s => s.is_booked);
+
+    const availLines = availableSlots.length > 0
+      ? availableSlots.map(s => `• ${formatTime(s.start_time)} – ${formatTime(s.end_time)} (₹${parseInt(s.price, 10)})`).join('\n')
+      : 'None (All slots booked or ended)';
+
+    const bookedLines = bookedSlots.length > 0
+      ? bookedSlots.map(s => `• ${formatTime(s.start_time)} – ${formatTime(s.end_time)} [ALREADY BOOKED]`).join('\n')
+      : 'None (No bookings yet)';
+
+    return `\n[Live Database for ${turf.name} on ${today}]:\nAVAILABLE SLOTS:\n${availLines}\n\nALREADY BOOKED SLOTS:\n${bookedLines}`;
   } catch (err) {
     return 'Could not check live database at this moment.';
   }
