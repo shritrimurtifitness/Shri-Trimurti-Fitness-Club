@@ -54,6 +54,46 @@ async function sendTextMessage({ to, text, previewUrl = false }) {
 }
 
 /**
+ * Sends an image message with optional caption using WhatsApp Cloud API.
+ */
+async function sendImageMessage({ to, imageUrl, caption = '' }) {
+  const phone = normalizePhone(to);
+  if (!process.env.WHATSAPP_TOKEN || !process.env.PHONE_NUMBER_ID) {
+    console.log(`[WHATSAPP MOCK IMAGE] To: ${phone}\nImage: ${imageUrl}\nCaption: ${caption}`);
+    return { success: true, mock: true };
+  }
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: phone,
+    type: 'image',
+    image: {
+      link: imageUrl,
+      caption: caption,
+    },
+  };
+
+  try {
+    const res = await axios.post(
+      `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return { success: true, data: res.data };
+  } catch (err) {
+    const errorData = err.response ? err.response.data : { message: err.message };
+    console.error(`[WHATSAPP ERROR] sendImageMessage to ${phone}:`, JSON.stringify(errorData));
+    return { success: false, error: errorData };
+  }
+}
+
+/**
  * Sends an interactive Quick-Reply Buttons message (up to 3 buttons).
  * @param {Object} args
  * @param {string} args.to - Destination phone
@@ -274,6 +314,7 @@ Play Hard. Compete Better! 🔥`;
 module.exports = {
   normalizePhone,
   sendTextMessage,
+  sendImageMessage,
   sendInteractiveButtons,
   sendInteractiveList,
   sendWhatsAppMessage,

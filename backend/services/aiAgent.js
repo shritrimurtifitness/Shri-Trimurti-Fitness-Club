@@ -51,8 +51,9 @@ ARENA DETAILS:
   - Cricket Day (10:00 AM - 6:00 PM): ₹600 / Hour
   - Cricket Night Floodlights (6:00 PM - 12:00 AM): ₹800 / Hour
   - Football (All Slots): ₹800 / Hour
-- Booking: Instant online slot booking & UPI QR payment at:
-  https://shri-trimurti-fitness-club.vercel.app/book
+- Booking:
+  1. Directly on WhatsApp: Players can tap "Cricket Slots" or "Football Slots" to view today's available slots, pick a slot, and receive our official UPI QR code. After paying via Google Pay / PhonePe / Paytm, they reply with their 12-digit UPI UTR number to lock in their slot!
+  2. Online on Website: https://shri-trimurti-fitness-club.vercel.app/book
 - Amenities: Free on-site vehicle parking (cars & bikes), covered player dugout & spectator lounge, hygienic washrooms and changing area, chilled drinking water & energy drinks, free high-speed Wi-Fi.
 - Rain & Weather Policy: In case of heavy rain or bad weather, sessions are happily rescheduled to another vacant slot.
 - Corporate / Tournaments / Full-day bookings: Special packages available. Manager Harshvardhan: +91 7083738373.

@@ -1,19 +1,44 @@
 const pool = require('../config/db');
+const cache = require('../config/cache');
 const {
   sendTextMessage,
+  sendImageMessage,
   sendInteractiveButtons,
+  sendInteractiveList,
 } = require('./whatsapp');
 const { generateAIResponse } = require('./aiAgent');
 
+// In-memory session tracking for WhatsApp booking flow
+// Key: phone number -> { state, slotId, turfId, turfName, date, timeStr, price, userName, createdAt }
+const userBookingSessions = new Map();
+const SESSION_TTL_MS = 20 * 60 * 1000; // 20 minutes reservation hold
+
+function getBookingSession(phone) {
+  const session = userBookingSessions.get(phone);
+  if (!session) return null;
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+    userBookingSessions.delete(phone);
+    return null;
+  }
+  return session;
+}
+
+function setBookingSession(phone, data) {
+  userBookingSessions.set(phone, {
+    ...data,
+    createdAt: Date.now(),
+  });
+}
+
+function clearBookingSession(phone) {
+  userBookingSessions.delete(phone);
+}
+
 /**
- * Returns today's date formatted as YYYY-MM-DD
+ * Returns today's date formatted as YYYY-MM-DD in Asia/Kolkata timezone
  */
 function getTodayString() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
 
 /**
@@ -35,6 +60,7 @@ function formatTime12h(timeStr) {
 async function getTodayAvailableSlots(facilityType = 'cricket') {
   try {
     const today = getTodayString();
+    const nowIST = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false });
 
     // 1. Check if arena or turf is closed today
     const closureCheck = await pool.query(
@@ -51,7 +77,7 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
 
     // 2. Fetch turf info
     const turfRes = await pool.query(
-      `SELECT id, name, facility_type FROM turfs WHERE facility_type ILIKE $1 AND is_active = true LIMIT 1`,
+      `SELECT id, name, facility_type, physical_resource_id FROM turfs WHERE facility_type ILIKE $1 AND is_active = true LIMIT 1`,
       [`%${facilityType}%`]
     );
 
@@ -70,28 +96,37 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
 
     // 4. Query vacant slots for today that have not passed current time
     const query = `
-      SELECT s.id, s.start_time, s.end_time, s.price
+      SELECT s.id, s.start_time, s.end_time, s.price, s.date
       FROM slots s
       LEFT JOIN bookings b ON b.slot_id = s.id AND b.status NOT IN ('cancelled', 'rejected')
       WHERE s.turf_id = $1
         AND s.date = $2
         AND s.is_available = true
         AND b.id IS NULL
-        AND s.end_time > CURRENT_TIME
+        AND s.end_time > $3
       ORDER BY s.start_time ASC
-      LIMIT 8
+      LIMIT 10
     `;
 
-    const slotsRes = await pool.query(query, [turf.id, today]);
+    const slotsRes = await pool.query(query, [turf.id, today, nowIST]);
 
-    const formattedSlots = slotsRes.rows.map((row) => ({
-      id: row.id,
-      label: `${formatTime12h(row.start_time)} – ${formatTime12h(row.end_time)} (₹${parseInt(row.price, 10)})`,
-    }));
+    const formattedSlots = slotsRes.rows.map((row) => {
+      const price = parseInt(row.price, 10) || 800;
+      const timeLabel = `${formatTime12h(row.start_time)} – ${formatTime12h(row.end_time)}`;
+      return {
+        id: row.id,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        price,
+        timeLabel,
+        label: `${timeLabel} (₹${price})`,
+      };
+    });
 
     return {
       isClosed: false,
-      facilityName: turf.name,
+      turfId: turf.id,
+      facilityName: turf.name || (facilityType === 'football' ? 'Football Arena' : 'Box Cricket Turf'),
       slots: formattedSlots,
     };
   } catch (err) {
@@ -101,35 +136,387 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
 }
 
 /**
+ * Initiates the Slot Booking & UPI QR Payment flow
+ */
+async function initiateSlotBooking({ from, slotId, userName = '' }) {
+  try {
+    const slotRes = await pool.query(`
+      SELECT s.id, s.turf_id, s.date, s.start_time, s.end_time, s.price, s.is_available,
+             t.name as turf_name, t.facility_type, t.physical_resource_id
+      FROM slots s
+      JOIN turfs t ON s.turf_id = t.id
+      WHERE s.id = $1
+    `, [slotId]);
+
+    if (slotRes.rows.length === 0) {
+      return sendTextMessage({
+        to: from,
+        text: '⚠️ Selected slot could not be found. Please check available slots again.',
+      });
+    }
+
+    const slot = slotRes.rows[0];
+
+    // Ensure slot is not in the past
+    const todayIST = getTodayString();
+    const nowIST = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false });
+    const slotDateStr = typeof slot.date === 'string'
+      ? slot.date.substring(0, 10)
+      : new Date(slot.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+    if (slotDateStr < todayIST || (slotDateStr === todayIST && slot.start_time <= nowIST)) {
+      return sendTextMessage({
+        to: from,
+        text: `⚠️ Slot ${formatTime12h(slot.start_time)} on ${slotDateStr} has already passed. Please choose an upcoming slot!`,
+      });
+    }
+
+    // Ensure slot doesn't conflict with existing booking
+    const conflict = await pool.query(`
+      SELECT b.id FROM bookings b
+      JOIN slots sc ON b.slot_id = sc.id
+      JOIN turfs tc ON sc.turf_id = tc.id
+      WHERE b.status NOT IN ('cancelled', 'rejected')
+      AND sc.date = $1
+      AND sc.start_time = $2
+      AND (sc.id = $3 OR (tc.physical_resource_id IS NOT NULL AND tc.physical_resource_id = $4))
+    `, [slot.date, slot.start_time, slot.id, slot.physical_resource_id]);
+
+    if (conflict.rows.length > 0) {
+      return sendInteractiveButtons({
+        to: from,
+        headerText: 'Slot Already Reserved',
+        bodyText: `⚠️ The ${formatTime12h(slot.start_time)} – ${formatTime12h(slot.end_time)} slot was just booked by another player.\n\nWould you like to check remaining slots?`,
+        buttons: [
+          { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
+          { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
+          { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+        ],
+      });
+    }
+
+    const price = Number(slot.price) || 800;
+    const turfName = slot.turf_name || (slot.facility_type === 'football' ? 'Football Arena' : 'Box Cricket Turf');
+    const timeStr = `${formatTime12h(slot.start_time)} – ${formatTime12h(slot.end_time)}`;
+
+    // Save active session
+    setBookingSession(from, {
+      state: 'AWAITING_PAYMENT',
+      slotId: slot.id,
+      turfId: slot.turf_id,
+      turfName,
+      date: slotDateStr,
+      timeStr,
+      price,
+      userName: userName || '',
+    });
+
+    const upiId = process.env.UPI_ID || 'harshvardhanp@slc';
+    const qrUrl = process.env.UPI_QR_URL
+      ? (process.env.UPI_QR_URL.startsWith('http') ? process.env.UPI_QR_URL : `https://shri-trimurti-fitness-club.vercel.app${process.env.UPI_QR_URL}`)
+      : 'https://shri-trimurti-fitness-club.vercel.app/upi-qr.png';
+    const upiPayLink = `upi://pay?pa=${upiId}&pn=Shri%20Trimurti%20Sports%20Arena&am=${price}&cu=INR&tn=TRM-${slotDateStr.replace(/-/g, '')}`;
+
+    // 1. Send the UPI QR code image
+    await sendImageMessage({
+      to: from,
+      imageUrl: qrUrl,
+      caption: `📲 Scan to Pay ₹${price} for ${turfName}\n⏰ Slot: ${timeStr} (${slotDateStr})`,
+    });
+
+    // 2. Send detailed payment instructions & cancel button
+    const paymentInstructions =
+`📋 *RESERVATION SUMMARY (HELD FOR 15 MINS)*
+🏟️ *Turf:* ${turfName}
+📅 *Date:* ${slotDateStr}
+⏰ *Time:* ${timeStr}
+💰 *Payable Amount:* *₹${price}*
+
+💳 *HOW TO PAY VIA UPI (0% FEE):*
+1. Scan the QR code image above with Google Pay, PhonePe, or Paytm.
+2. Or transfer directly to UPI ID:
+👉 *${upiId}*
+3. Mobile 1-Tap UPI Link:
+👉 ${upiPayLink}
+
+📝 *NEXT STEP TO CONFIRM:*
+After completing the payment, reply directly with your *12-digit UPI Reference / UTR Number* (e.g. \`431289012345\`) or upload your payment screenshot!
+
+_Tap Cancel below if you change your mind._`;
+
+    return sendInteractiveButtons({
+      to: from,
+      headerText: 'Payment Details',
+      bodyText: paymentInstructions,
+      buttons: [
+        { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
+        { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+      ],
+    });
+  } catch (err) {
+    console.error('[INITIATE BOOKING ERROR]', err);
+    return sendTextMessage({
+      to: from,
+      text: '⚠️ Something went wrong while reserving the slot. Please try again or call +91 7083738373.',
+    });
+  }
+}
+
+/**
+ * Handles UTR Number submission and creates the pending booking in Neon DB
+ */
+async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
+  try {
+    const cleanUtr = String(utr).trim();
+
+    if (cleanUtr.length < 6) {
+      return sendTextMessage({
+        to: from,
+        text: '⚠️ Please enter a valid 12-digit UPI Reference / UTR Number (found on your payment receipt in GPay, PhonePe, or Paytm).',
+      });
+    }
+
+    // Check duplicate UTR
+    const dupRes = await pool.query(
+      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')",
+      [cleanUtr]
+    );
+    if (dupRes.rows.length > 0) {
+      return sendInteractiveButtons({
+        to: from,
+        headerText: 'Duplicate UTR Number',
+        bodyText: `⚠️ The UPI Reference (*${cleanUtr}*) has already been submitted for another booking.\n\nPlease check your receipt or contact our desk if this is an error.`,
+        buttons: [
+          { id: 'BTN_STAFF', title: '👤 Call Staff' },
+          { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
+        ],
+      });
+    }
+
+    // Double-check slot is still free
+    const conflictRes = await pool.query(`
+      SELECT b.id FROM bookings b
+      JOIN slots sc ON b.slot_id = sc.id
+      JOIN turfs tc ON sc.turf_id = tc.id
+      WHERE b.status NOT IN ('cancelled', 'rejected')
+      AND sc.id = $1
+    `, [session.slotId]);
+
+    if (conflictRes.rows.length > 0) {
+      clearBookingSession(from);
+      return sendInteractiveButtons({
+        to: from,
+        headerText: 'Slot Conflict',
+        bodyText: `⚠️ Apologies! This slot was booked right before your UTR was received.\n\nPlease contact our arena manager to assign you another slot or issue an immediate refund.`,
+        buttons: [
+          { id: 'BTN_STAFF', title: '👤 Call Manager' },
+          { id: 'BTN_CRICKET_SLOTS', title: '🏏 Other Slots' },
+        ],
+      });
+    }
+
+    // Find or create user
+    const customerPhone = String(from).replace(/\D/g, '');
+    let userRes = await pool.query('SELECT id, name FROM users WHERE phone = $1', [customerPhone]);
+    let userId;
+    if (userRes.rows.length === 0) {
+      const newUser = await pool.query(
+        'INSERT INTO users (name, phone, role) VALUES ($1, $2, $3) RETURNING id',
+        [session.userName || userName || 'WhatsApp Player', customerPhone, 'user']
+      );
+      userId = newUser.rows[0].id;
+    } else {
+      userId = userRes.rows[0].id;
+    }
+
+    // Insert booking into Neon DB with status = 'pending_verification'
+    const bookingRes = await pool.query(`
+      INSERT INTO bookings (
+        user_id, slot_id, status, payment_status, paid_amount, remaining_amount,
+        is_manual, payment_mode, utr_number
+      ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, 'upi_qr', $4)
+      RETURNING *
+    `, [userId, session.slotId, session.price, cleanUtr]);
+
+    const createdBooking = bookingRes.rows[0];
+    const bookingIdCode = createdBooking.id.substring(0, 8).toUpperCase();
+
+    // Clear session
+    clearBookingSession(from);
+
+    // Invalidate caches & notify connected admin clients
+    await cache.delPattern('bookings:*');
+    await cache.delPattern('slots:*');
+    await cache.del('admin:stats');
+
+    if (io) {
+      io.emit('booking_updated');
+    }
+
+    const successMsg =
+`🎉 *BOOKING REQUEST SUBMITTED!*
+
+📋 *Booking ID:* #${bookingIdCode}
+🏟️ *Facility:* ${session.turfName}
+📅 *Date:* ${session.date}
+⏰ *Time:* ${session.timeStr}
+💰 *Amount Paid:* ₹${session.price}
+💳 *UTR Reference:* ${cleanUtr}
+
+⏳ *Status:* *Pending Admin Verification*
+Our arena manager has received your booking and is verifying the payment in our bank account.
+
+🎟️ *What happens next?*
+Once verified, you will automatically receive your official *Digital Entry Pass* with check-in instructions right here on WhatsApp!
+
+📍 *Arena Location:* Kudire Factory, Sangrul Fata, Koparde
+📞 *Helpdesk:* +91 7083738373`;
+
+    return sendInteractiveButtons({
+      to: from,
+      headerText: 'Shri Trimurti Sports Arena',
+      bodyText: successMsg,
+      buttons: [
+        { id: 'BTN_LOCATION', title: '📍 Directions' },
+        { id: 'BTN_STAFF', title: '👤 Contact Desk' },
+      ],
+    });
+  } catch (err) {
+    console.error('[HANDLE UTR SUBMISSION ERROR]', err);
+    return sendTextMessage({
+      to: from,
+      text: '⚠️ Error submitting your UPI payment. Please contact our desk directly at +91 7083738373.',
+    });
+  }
+}
+
+/**
  * Main intent router for incoming WhatsApp messages
  * @param {Object} args
  * @param {string} args.from - Customer WhatsApp phone number
  * @param {string} [args.text] - Plain text content
  * @param {string} [args.buttonPayload] - ID of clicked interactive button
+ * @param {string} [args.userName] - WhatsApp profile name
+ * @param {Object} [args.io] - Socket.IO instance
  */
-async function handleIncomingMessage({ from, text = '', buttonPayload = '' }) {
+async function handleIncomingMessage({ from, text = '', buttonPayload = '', userName = '', io = null }) {
   const normalizedText = (text || '').trim().toLowerCase();
   const payload = buttonPayload || '';
 
-  // 0. AI Conversational Assistant (for natural language text and multi-lingual questions)
-  if (!payload && text.trim().length > 1) {
-    const isPureGreeting = ['hi', 'hello', 'hey', 'start', 'menu', 'options'].includes(normalizedText);
-    if (!isPureGreeting) {
-      try {
-        const aiReply = await generateAIResponse({ phone: from, userMessage: text });
-        if (aiReply) {
-          return sendTextMessage({ to: from, text: aiReply });
-        }
-      } catch (aiErr) {
-        console.warn('[AI BOT BYPASS] Falling back to rule engine:', aiErr.message);
-      }
+  // ----------------------------------------------------
+  // A. Check for Active Booking Session
+  // ----------------------------------------------------
+  const activeSession = getBookingSession(from);
+
+  // User explicitly wants to cancel reservation
+  if (
+    payload === 'BTN_CANCEL_BOOKING' ||
+    ['cancel', 'abort', 'stop', 'back', 'nahi', 'no'].includes(normalizedText)
+  ) {
+    if (activeSession) {
+      clearBookingSession(from);
+      return sendInteractiveButtons({
+        to: from,
+        headerText: 'Reservation Cancelled',
+        bodyText: `Your reservation for ${activeSession.turfName} (${activeSession.timeStr}) has been released.\n\nLet us know if you'd like to check other times!`,
+        buttons: [
+          { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
+          { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
+          { id: 'BTN_PRICING', title: '💰 Pricing & Rates' },
+        ],
+      });
     }
   }
 
-  // 1. Cricket Slots Handler
+  // User is in AWAITING_PAYMENT state and sends message
+  if (activeSession && activeSession.state === 'AWAITING_PAYMENT') {
+    // Check if message contains 10-18 digit numeric UTR reference
+    const utrMatch = (text || '').match(/\b\d{10,18}\b/);
+    if (utrMatch) {
+      return handleUtrSubmission({
+        from,
+        utr: utrMatch[0],
+        session: activeSession,
+        io,
+        userName,
+      });
+    }
+
+    // Check if user uploaded a screenshot without typed UTR
+    if (text === 'PAYMENT_SCREENSHOT_UPLOADED' || normalizedText.includes('screenshot') || normalizedText.includes('paid')) {
+      return sendInteractiveButtons({
+        to: from,
+        headerText: 'Payment Received',
+        bodyText: `📸 Thank you! We received your payment confirmation.\n\nTo ensure instant verification with our bank, please type and send the *12-digit UPI Reference / UTR Number* from your receipt (e.g. \`431289012345\`).`,
+        buttons: [
+          { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+          { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
+        ],
+      });
+    }
+
+    // User sent text that doesn't look like a UTR
+    return sendInteractiveButtons({
+      to: from,
+      headerText: 'Pending Payment',
+      bodyText: `⏳ We are holding your ${activeSession.turfName} slot (${activeSession.timeStr}) for ₹${activeSession.price}.\n\nTo complete your booking, please reply with your *12-digit UPI Reference / UTR Number*.\n\nOr tap below to cancel:`,
+      buttons: [
+        { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
+        { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+      ],
+    });
+  }
+
+  // ----------------------------------------------------
+  // B. Handle Direct Slot Selection (e.g. BOOK_SLOT_<uuid>)
+  // ----------------------------------------------------
+  if (payload.startsWith('BOOK_SLOT_')) {
+    const slotId = payload.replace('BOOK_SLOT_', '');
+    return initiateSlotBooking({ from, slotId, userName });
+  }
+
+  // ----------------------------------------------------
+  // C. Handle standalone 12-digit UTR sent without active session
+  // ----------------------------------------------------
+  const standaloneUtrMatch = (text || '').match(/\b\d{10,18}\b/);
+  if (standaloneUtrMatch && !activeSession) {
+    const customerPhone = String(from).replace(/\D/g, '');
+    const recentBooking = await pool.query(`
+      SELECT b.id, b.status, s.start_time, s.end_time, t.name as turf_name
+      FROM bookings b
+      JOIN users u ON b.user_id = u.id
+      JOIN slots s ON b.slot_id = s.id
+      JOIN turfs t ON s.turf_id = t.id
+      WHERE u.phone = $1 AND b.status = 'pending_verification'
+      ORDER BY b.created_at DESC LIMIT 1
+    `, [customerPhone]);
+
+    if (recentBooking.rows.length > 0) {
+      const b = recentBooking.rows[0];
+      return sendTextMessage({
+        to: from,
+        text: `✅ We already have your booking (#${b.id.substring(0, 8).toUpperCase()} for ${b.turf_name}) under verification!\n\nOur arena manager is reviewing your UPI transaction. You will receive your confirmation ticket shortly.`,
+      });
+    }
+
+    return sendInteractiveButtons({
+      to: from,
+      headerText: 'UTR Received',
+      bodyText: `We received UPI Reference (*${standaloneUtrMatch[0]}*), but no active slot reservation was found.\n\nPlease pick a slot first to link your payment:`,
+      buttons: [
+        { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
+        { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
+        { id: 'BTN_STAFF', title: '👤 Call Staff' },
+      ],
+    });
+  }
+
+  // ----------------------------------------------------
+  // D. Cricket Slots Handler
+  // ----------------------------------------------------
   if (
     payload === 'BTN_CRICKET_SLOTS' ||
-    normalizedText.includes('cricket') ||
+    normalizedText.includes('cricket slots') ||
     normalizedText.includes('box cricket')
   ) {
     const result = await getTodayAvailableSlots('cricket');
@@ -146,7 +533,7 @@ async function handleIncomingMessage({ from, text = '', buttonPayload = '' }) {
         to: from,
         headerText: '🏏 Box Cricket Turf',
         bodyText:
-          'All remaining slots for tonight are currently booked or in progress!\n\nWould you like to book ahead for tomorrow or talk to the arena desk?',
+          'All remaining slots for tonight are currently booked or in progress!\n\nWould you like to check football or talk to the arena desk?',
         buttons: [
           { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Check Football' },
           { id: 'BTN_STAFF', title: '👤 Talk to Staff' },
@@ -155,32 +542,40 @@ async function handleIncomingMessage({ from, text = '', buttonPayload = '' }) {
     }
 
     const slotsList = result.slots.map((s) => `• ${s.label}`).join('\n');
-    const message =
-`🏏 *TODAY'S AVAILABLE CRICKET SLOTS:*
+
+    // If slots are available, send interactive list so user can tap to book!
+    const sections = [
+      {
+        title: 'Today Available Slots',
+        rows: result.slots.slice(0, 10).map((s) => ({
+          id: `BOOK_SLOT_${s.id}`,
+          title: s.timeLabel.slice(0, 24),
+          description: `₹${s.price} • Tap to Book with UPI`,
+        })),
+      },
+    ];
+
+    return sendInteractiveList({
+      to: from,
+      headerText: '🏏 Box Cricket Turf',
+      bodyText:
+`*TODAY'S AVAILABLE CRICKET SLOTS:*
 
 ${slotsList}
 
-⚡ *Instant Online Booking:*
-👉 https://shri-trimurti-fitness-club.vercel.app/book?facility=cricket
-
-_Reserve your slot now before another team locks it in!_`;
-
-    return sendInteractiveButtons({
-      to: from,
-      headerText: 'Shri Trimurti Sports Arena',
-      bodyText: message,
-      buttons: [
-        { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
-        { id: 'BTN_LOCATION', title: '📍 Arena Location' },
-        { id: 'BTN_STAFF', title: '👤 Talk to Staff' },
-      ],
+👉 *Tap "Select Slot to Book" below to reserve directly on WhatsApp with UPI QR code:*`,
+      buttonTitle: '📅 Select Slot to Book',
+      sections,
+      footerText: 'Shri Trimurti Sports Arena',
     });
   }
 
-  // 2. Football Slots Handler
+  // ----------------------------------------------------
+  // E. Football Slots Handler
+  // ----------------------------------------------------
   if (
     payload === 'BTN_FOOTBALL_SLOTS' ||
-    normalizedText.includes('football') ||
+    normalizedText.includes('football slots') ||
     normalizedText.includes('soccer')
   ) {
     const result = await getTodayAvailableSlots('football');
@@ -206,29 +601,53 @@ _Reserve your slot now before another team locks it in!_`;
     }
 
     const slotsList = result.slots.map((s) => `• ${s.label}`).join('\n');
-    const message =
-`⚽ *TODAY'S AVAILABLE FOOTBALL SLOTS:*
+
+    const sections = [
+      {
+        title: 'Today Football Slots',
+        rows: result.slots.slice(0, 10).map((s) => ({
+          id: `BOOK_SLOT_${s.id}`,
+          title: s.timeLabel.slice(0, 24),
+          description: `₹${s.price} • Tap to Book with UPI`,
+        })),
+      },
+    ];
+
+    return sendInteractiveList({
+      to: from,
+      headerText: '⚽ Football Arena',
+      bodyText:
+`*TODAY'S AVAILABLE FOOTBALL SLOTS:*
 
 ${slotsList}
 
-⚡ *Instant Online Booking:*
-👉 https://shri-trimurti-fitness-club.vercel.app/book?facility=football
-
-_Tap the link above to confirm your session instantly._`;
-
-    return sendInteractiveButtons({
-      to: from,
-      headerText: 'Shri Trimurti Sports Arena',
-      bodyText: message,
-      buttons: [
-        { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
-        { id: 'BTN_LOCATION', title: '📍 Arena Location' },
-        { id: 'BTN_STAFF', title: '👤 Talk to Staff' },
-      ],
+👉 *Tap "Select Slot to Book" below to reserve directly on WhatsApp with UPI QR code:*`,
+      buttonTitle: '📅 Select Slot to Book',
+      sections,
+      footerText: 'Shri Trimurti Sports Arena',
     });
   }
 
-  // 3. Pricing & Rates Handler
+  // ----------------------------------------------------
+  // F. AI Conversational Assistant (Natural language slot queries & multilingual chat)
+  // ----------------------------------------------------
+  if (!payload && text.trim().length > 1) {
+    const isPureGreeting = ['hi', 'hello', 'hey', 'start', 'menu', 'options'].includes(normalizedText);
+    if (!isPureGreeting) {
+      try {
+        const aiReply = await generateAIResponse({ phone: from, userMessage: text });
+        if (aiReply) {
+          return sendTextMessage({ to: from, text: aiReply });
+        }
+      } catch (aiErr) {
+        console.warn('[AI BOT BYPASS] Falling back to rule engine:', aiErr.message);
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // G. Pricing & Rates Handler
+  // ----------------------------------------------------
   if (
     payload === 'BTN_PRICING' ||
     normalizedText.includes('price') ||
@@ -267,7 +686,9 @@ Ready to hit the pitch?`;
     });
   }
 
-  // 4. Location & Directions Handler
+  // ----------------------------------------------------
+  // H. Location & Directions Handler
+  // ----------------------------------------------------
   if (
     payload === 'BTN_LOCATION' ||
     normalizedText.includes('location') ||
@@ -280,7 +701,7 @@ Ready to hit the pitch?`;
 `📍 *SHRI TRIMURTI SPORTS ARENA LOCATION*
 
 📌 *Address:*
-Kudire Factory, Sangrul Fata, Koparde, Maharashtra
+Kudire Factory, Sangrul Fata, Koparde, Maharashtra 416205
 
 ⏰ *Operating Hours:*
 Mon – Sun: 10:00 AM – 12:00 AM (Midnight)
@@ -301,7 +722,9 @@ https://maps.google.com/?q=Kudire+Factory+Sangrul+Fata+Koparde
     });
   }
 
-  // 5. Human Staff / Manager Escalation Handler
+  // ----------------------------------------------------
+  // I. Human Staff / Manager Escalation Handler
+  // ----------------------------------------------------
   if (
     payload === 'BTN_STAFF' ||
     normalizedText.includes('manager') ||
@@ -314,7 +737,7 @@ https://maps.google.com/?q=Kudire+Factory+Sangrul+Fata+Koparde
     const staffMsg =
 `👤 *ARENA MANAGEMENT SUPPORT*
 
-Our desk team has been notified of your inquiry!
+Our desk team is ready to assist you!
 
 📞 *Direct Call:* +91 7083738373
 💬 *WhatsApp:* +91 7083738373
@@ -328,13 +751,15 @@ For corporate events, full-day tournaments, or recurring league bookings, please
     });
   }
 
-  // 6. Default / Welcome Greeting Menu
+  // ----------------------------------------------------
+  // J. Default / Welcome Greeting Menu
+  // ----------------------------------------------------
   const welcomeMsg =
 `Welcome to *Shri Trimurti Sports Arena*! 🏏⚽
 
-Koparde's premier floodlit sports venue for Box Cricket & Football.
+Koparde's premier floodlit venue for Box Cricket & Football.
 
-How can we assist you today? Tap an option below to check live available slots or view rates:`;
+Book your turf slot directly here on WhatsApp with instant UPI payment, or check live availability below:`;
 
   return sendInteractiveButtons({
     to: from,
@@ -350,5 +775,7 @@ How can we assist you today? Tap an option below to check live available slots o
 
 module.exports = {
   getTodayAvailableSlots,
+  initiateSlotBooking,
+  handleUtrSubmission,
   handleIncomingMessage,
 };
