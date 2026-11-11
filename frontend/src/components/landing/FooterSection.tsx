@@ -222,7 +222,7 @@ export default function FooterSection() {
           {/* Tagline & Option 2: Created by Harsh Pill Badge */}
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center">
             <p className="flex items-center justify-center gap-1.5">
-              <span>Crafted for sports lovers in Kolhapur & Koparde</span>
+              <span>Crafted for sports lovers in Kolhapur & Nearby Areas</span>
               <Heart className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500 shrink-0" />
             </p>
 
