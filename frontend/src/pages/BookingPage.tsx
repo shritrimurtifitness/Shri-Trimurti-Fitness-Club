@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format, addDays, startOfDay, parse, isAfter } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Clock, User, Phone, ArrowRight, CheckCircle2, ArrowLeft, Loader2, Trophy, ShieldCheck, Lock, Mail, QrCode, Copy, Check, AlertCircle, ExternalLink } from "lucide-react";
+import { CalendarDays, Clock, User, Phone, ArrowRight, CheckCircle2, ArrowLeft, Loader2, Trophy, ShieldCheck, Lock, Mail, QrCode, Copy, Check, AlertCircle, ExternalLink, MessageCircle } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,9 @@ export default function BookingPage() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [isOtpVerified, setIsOtpVerified] = useState(false);
+  const [verificationChannel, setVerificationChannel] = useState<'whatsapp' | 'email'>('whatsapp');
+  const [verifiedChannel, setVerifiedChannel] = useState<'whatsapp' | 'email' | null>(null);
+  const [waLink, setWaLink] = useState("");
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [utrNumber, setUtrNumber] = useState("");
@@ -217,6 +220,29 @@ export default function BookingPage() {
     if (selectedDate && step === "slot") handleDateSelect(selectedDate);
   });
 
+  useSocket('otp_verified', (data?: any) => {
+    if (!data) return;
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanEmail = email.trim().toLowerCase();
+    const phoneMatched =
+      data.channel === 'whatsapp' &&
+      cleanPhone &&
+      (data.phone === cleanPhone || data.phone === '91' + cleanPhone || data.phone10 === cleanPhone);
+    const emailMatched =
+      data.channel === 'email' && cleanEmail && data.email === cleanEmail;
+
+    if (phoneMatched || emailMatched) {
+      setIsOtpVerified(true);
+      setVerifiedChannel(data.channel || 'whatsapp');
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+      toast.success(
+        data.channel === 'whatsapp'
+          ? "🎉 WhatsApp Mobile Verified Successfully!"
+          : "🎉 Email Verified Successfully!"
+      );
+    }
+  });
+
   const handleGroupSelect = (group: any) => {
     setSelectedSlotGroup(group);
     setSelectedSlot(group.availableSlots[0]);
@@ -243,22 +269,43 @@ export default function BookingPage() {
     }
   };
 
-  const handleSendOtp = async () => {
+  const handleSendOtp = async (channelOverride?: 'whatsapp' | 'email') => {
+    const channelToUse = channelOverride || verificationChannel;
     if (!name.trim()) {
       toast.error("Please enter your name first");
       return;
     }
-    if (!email || !email.includes('@')) {
-      toast.error("Please enter a valid email address");
-      return;
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanEmail = email.trim();
+
+    if (channelToUse === 'whatsapp') {
+      if (cleanPhone.length !== 10) {
+        toast.error("Please enter a valid 10-digit mobile number for WhatsApp verification");
+        return;
+      }
+    } else {
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        toast.error("Please enter a valid email address for email verification");
+        return;
+      }
     }
+
     setOtpSending(true);
     try {
-      const res = await api.post('/bookings/send-otp', { email: email.trim(), name: name.trim() });
+      const res = await api.post('/bookings/send-otp', {
+        name: name.trim(),
+        channel: channelToUse,
+        phone: cleanPhone,
+        email: cleanEmail,
+      });
       setOtpSent(true);
-      toast.success(res.data.message || "OTP code sent to your email!");
+      setVerificationChannel(channelToUse);
+      if (res.data.verificationLink) {
+        setWaLink(res.data.verificationLink);
+      }
+      toast.success(res.data.message || "OTP verification initiated!");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to send OTP. Please check your email.");
+      toast.error(err.response?.data?.error || "Failed to send OTP. Please try again.");
     } finally {
       setOtpSending(false);
     }
@@ -271,9 +318,16 @@ export default function BookingPage() {
     }
     setOtpVerifying(true);
     try {
-      const res = await api.post('/bookings/verify-otp', { email: email.trim(), otp: otp.trim() });
+      const res = await api.post('/bookings/verify-otp', {
+        channel: verificationChannel,
+        phone: phone.replace(/\D/g, ''),
+        email: email.trim(),
+        otp: otp.trim(),
+      });
       setIsOtpVerified(true);
-      toast.success(res.data.message || "Email verified successfully!");
+      setVerifiedChannel(res.data.channel || verificationChannel);
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+      toast.success(res.data.message || "Verified successfully!");
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Invalid or expired OTP");
     } finally {
@@ -282,16 +336,31 @@ export default function BookingPage() {
   };
 
   const handleSubmit = () => {
-    if (!name.trim() || !phone.trim() || !email.trim()) {
-      toast.error("Please fill in your name, phone, and email");
+    if (!name.trim()) {
+      toast.error("Please enter your full name");
       return;
     }
-    if (phone.length !== 10) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanEmail = email.trim();
+
+    if (!cleanPhone && !cleanEmail) {
+      toast.error("Please enter either a mobile number or email address");
+      return;
+    }
+    if (cleanPhone && cleanPhone.length !== 10) {
       toast.error("Please enter a valid 10-digit mobile number");
       return;
     }
+    if (cleanEmail && !cleanEmail.includes('@')) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
     if (!isOtpVerified) {
-      toast.error("Please verify your email with the OTP code first");
+      toast.error(
+        verificationChannel === 'whatsapp'
+          ? "Please verify your mobile number with WhatsApp OTP first"
+          : "Please verify your email with the OTP code first"
+      );
       return;
     }
     setStep("confirm");
@@ -481,71 +550,147 @@ export default function BookingPage() {
               </motion.div>
             )}
 
-            {/* Step 4: Details with Brevo Email OTP */}
+            {/* Step 4: Details with Dual-Channel OTP (WhatsApp or Email) */}
             {step === "details" && (
               <motion.div key="details" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="max-w-md mx-auto">
                 <div className="text-center mb-8">
                   <h1 className="font-heading text-3xl font-bold mb-2">Your <span className="text-gradient-turf">Details</span></h1>
-                  <p className="text-muted-foreground text-sm">Verify your email to reserve your slot securely</p>
+                  <p className="text-muted-foreground text-sm">Verify via WhatsApp or Email to lock in your slot securely</p>
                 </div>
 
                 <div className="space-y-4">
-                  {/* Name */}
+                  {/* Full Name */}
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Full Name</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Full Name *</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rahul Sharma" className="pl-10 bg-card border-border" />
                     </div>
                   </div>
 
-                  {/* Phone */}
-                  <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Phone Number</label>
+                  {/* Verification Channel Selector */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Verification Channel *</label>
+                    <div className="p-1 bg-secondary/30 rounded-xl border border-border flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isOtpVerified) {
+                            setVerificationChannel('whatsapp');
+                            setOtpSent(false);
+                            setOtp('');
+                          }
+                        }}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all",
+                          verificationChannel === 'whatsapp'
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" /> WhatsApp OTP
+                        {isOtpVerified && verifiedChannel === 'whatsapp' && (
+                          <Check className="w-3.5 h-3.5 text-emerald-400 ml-1" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isOtpVerified) {
+                            setVerificationChannel('email');
+                            setOtpSent(false);
+                            setOtp('');
+                          }
+                        }}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all",
+                          verificationChannel === 'email'
+                            ? "bg-primary/20 text-primary border border-primary/40 shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Mail className="w-3.5 h-3.5" /> Email OTP
+                        {isOtpVerified && verifiedChannel === 'email' && (
+                          <Check className="w-3.5 h-3.5 text-emerald-400 ml-1" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Phone Number Field */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Mobile Number {verificationChannel === 'whatsapp' ? '*' : '(Optional)'}
+                      </label>
+                      {isOtpVerified && verifiedChannel === 'whatsapp' && (
+                        <span className="inline-flex items-center text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                          <Check className="w-3 h-3 mr-1" /> WhatsApp Verified
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         value={phone}
+                        disabled={isOtpVerified && verifiedChannel === 'whatsapp'}
                         onChange={(e) => {
                           const val = e.target.value.replace(/\D/g, '').substring(0, 10);
                           setPhone(val);
+                          if (verificationChannel === 'whatsapp') {
+                            setOtpSent(false);
+                            setIsOtpVerified(false);
+                          }
                         }}
                         placeholder="10-digit mobile number"
-                        className="pl-10 bg-card border-border"
+                        className={cn("pl-10 bg-card border-border", verificationChannel === 'whatsapp' && !isOtpVerified ? "pr-28" : "")}
                         type="tel"
                       />
+                      {verificationChannel === 'whatsapp' && !isOtpVerified && (
+                        <button
+                          type="button"
+                          onClick={() => handleSendOtp('whatsapp')}
+                          disabled={otpSending || phone.length !== 10}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold transition-all disabled:opacity-40"
+                        >
+                          {otpSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : otpSent ? "Resend" : "Send OTP"}
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  {/* Email & OTP Verification */}
-                  <div className="space-y-2">
+                  {/* Email Address Field */}
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Email Address</label>
-                      {isOtpVerified && (
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Email Address {verificationChannel === 'email' ? '*' : '(Optional)'}
+                      </label>
+                      {isOtpVerified && verifiedChannel === 'email' && (
                         <span className="inline-flex items-center text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                          <Check className="w-3 h-3 mr-1" /> Verified
+                          <Check className="w-3 h-3 mr-1" /> Email Verified
                         </span>
                       )}
                     </div>
-                    
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         type="email"
                         value={email}
-                        disabled={isOtpVerified}
+                        disabled={isOtpVerified && verifiedChannel === 'email'}
                         onChange={(e) => {
                           setEmail(e.target.value);
-                          setOtpSent(false);
-                          setIsOtpVerified(false);
+                          if (verificationChannel === 'email') {
+                            setOtpSent(false);
+                            setIsOtpVerified(false);
+                          }
                         }}
                         placeholder="youremail@gmail.com"
-                        className="pl-10 pr-28 bg-card border-border disabled:opacity-75"
+                        className={cn("pl-10 bg-card border-border", verificationChannel === 'email' && !isOtpVerified ? "pr-28" : "")}
                       />
-                      {!isOtpVerified && (
+                      {verificationChannel === 'email' && !isOtpVerified && (
                         <button
                           type="button"
-                          onClick={handleSendOtp}
+                          onClick={() => handleSendOtp('email')}
                           disabled={otpSending || !email || !email.includes('@')}
                           className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-all disabled:opacity-40"
                         >
@@ -553,32 +698,56 @@ export default function BookingPage() {
                         </button>
                       )}
                     </div>
-
-                    {/* OTP Entry Box */}
-                    {otpSent && !isOtpVerified && (
-                      <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-secondary/20 rounded-xl border border-primary/30 space-y-2">
-                        <p className="text-xs text-muted-foreground">Enter the 4-digit code sent to <span className="font-semibold text-foreground">{email}</span></p>
-                        <div className="flex gap-2">
-                          <Input
-                            type="text"
-                            maxLength={4}
-                            value={otp}
-                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                            placeholder="4-digit OTP"
-                            className="bg-card font-mono text-center tracking-widest text-lg font-bold h-10"
-                          />
-                          <Button
-                            type="button"
-                            onClick={handleVerifyOtp}
-                            disabled={otpVerifying || otp.length < 4}
-                            className="bg-gradient-turf text-primary-foreground font-bold text-xs h-10 px-4 shrink-0"
-                          >
-                            {otpVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
-                          </Button>
-                        </div>
-                      </motion.div>
-                    )}
                   </div>
+
+                  {/* OTP Entry / 1-Tap Verification Box */}
+                  {otpSent && !isOtpVerified && (
+                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="p-3.5 bg-secondary/20 rounded-xl border border-primary/30 space-y-3">
+                      {verificationChannel === 'whatsapp' ? (
+                        <>
+                          <div className="text-xs text-muted-foreground">
+                            A verification code has been generated for <span className="font-semibold text-foreground">+91 {phone}</span>.
+                          </div>
+                          {waLink && (
+                            <a
+                              href={waLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#25D366] hover:bg-[#20ba5a] text-slate-950 font-bold text-xs shadow-md transition-all"
+                            >
+                              <MessageCircle className="w-4 h-4 text-slate-950 fill-current" /> Tap to Verify on WhatsApp (Instant 1-Tap)
+                            </a>
+                          )}
+                          <div className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-bold">
+                            — OR ENTER 4-DIGIT CODE MANUALLY —
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Enter the 4-digit verification code sent to <span className="font-semibold text-foreground">{email}</span>
+                        </p>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Input
+                          type="text"
+                          maxLength={4}
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                          placeholder="4-digit OTP"
+                          className="bg-card font-mono text-center tracking-widest text-lg font-bold h-10"
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleVerifyOtp}
+                          disabled={otpVerifying || otp.length < 4}
+                          className="bg-gradient-turf text-primary-foreground font-bold text-xs h-10 px-4 shrink-0"
+                        >
+                          {otpVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify Code"}
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
 
                   <div className="flex gap-3 pt-2">
                     <Button variant="outline" onClick={() => setStep("slot")} className="flex-1">Back</Button>
@@ -731,7 +900,7 @@ export default function BookingPage() {
                       </div>
 
                       <p className="text-xs text-muted-foreground leading-relaxed text-center">
-                        An email receipt has been sent to <strong className="text-foreground">{email}</strong>. Once arena staff verifies the UPI transfer, your slot will be permanently marked confirmed!
+                        A booking receipt has been sent to {email ? <strong className="text-foreground">{email}</strong> : <strong className="text-foreground">+91 {phone} (WhatsApp)</strong>}. Once club staff verifies the UPI transfer, your slot will be permanently marked confirmed!
                       </p>
                    </div>
                    <div className="bg-black/5 border-t border-border p-3 flex items-center justify-center gap-2">

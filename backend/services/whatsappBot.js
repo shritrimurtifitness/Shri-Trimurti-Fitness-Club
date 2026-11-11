@@ -523,6 +523,49 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   }
 
   // ----------------------------------------------------
+  // A0. Website Slot Booking OTP Verification (e.g. "VERIFY 1234" or 4-digit code)
+  // ----------------------------------------------------
+  const verifyMatch = normalizedText.match(/(?:verify\s*)?(\b\d{4}\b)/i);
+  if (verifyMatch) {
+    const candidateOtp = verifyMatch[1];
+    const cleanPhone = from.replace(/\D/g, '');
+    const phoneNo91 = cleanPhone.startsWith('91') && cleanPhone.length === 12 ? cleanPhone.substring(2) : cleanPhone;
+
+    try {
+      const otpRes = await pool.query(
+        `SELECT id, otp_code, phone FROM otp_verifications 
+         WHERE (phone = $1 OR phone = $2) 
+           AND otp_code = $3 
+           AND verified = false 
+           AND expires_at > NOW() 
+         ORDER BY id DESC LIMIT 1`,
+        [cleanPhone, phoneNo91, candidateOtp]
+      );
+
+      if (otpRes.rows.length > 0) {
+        await pool.query('UPDATE otp_verifications SET verified = true WHERE id = $1', [otpRes.rows[0].id]);
+        await cache.set(`otp_verified:whatsapp:${cleanPhone}`, 'true', 900);
+        await cache.set(`otp_verified:whatsapp:${phoneNo91}`, 'true', 900);
+
+        if (io) {
+          io.emit('otp_verified', { 
+            phone: cleanPhone, 
+            phoneNo91,
+            channel: 'whatsapp' 
+          });
+        }
+
+        return sendTextMessage({
+          to: from,
+          text: `✅ *Mobile Number Verified!* 🏏⚽\n\nYour mobile number has been successfully verified for *Shri Trimurti Fitness Club*.\n\nYou can now return to your browser to complete your slot booking and lock in your match!`,
+        });
+      }
+    } catch (otpErr) {
+      console.error('[WHATSAPP OTP VERIFY ERROR]', otpErr.message);
+    }
+  }
+
+  // ----------------------------------------------------
   // A. Check for Active Booking Session
   // ----------------------------------------------------
   const activeSession = getBookingSession(from);

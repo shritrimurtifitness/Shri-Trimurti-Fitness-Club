@@ -5,7 +5,7 @@ const SOCKET_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'ht
 
 let globalSocket: Socket | null = null;
 
-export const useSocket = (event: string, callback: () => void) => {
+export const useSocket = (event: string, callback: (data?: any) => void) => {
   const callbackRef = useRef(callback);
 
   useEffect(() => {
@@ -17,8 +17,8 @@ export const useSocket = (event: string, callback: () => void) => {
       globalSocket = io(SOCKET_URL);
     }
 
-    const handler = () => {
-      callbackRef.current();
+    const handler = (data?: any) => {
+      callbackRef.current(data);
     };
 
     globalSocket.on(event, handler);
