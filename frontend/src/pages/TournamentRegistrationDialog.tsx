@@ -261,7 +261,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
     );
   }
 
-  const upiDeepLink = `upi://pay?pa=${encodeURIComponent(upiSettings.upi_id)}&pn=${encodeURIComponent("Shri Trimurti Sports Arena")}&am=${tournament.entry_fee}&cu=INR&tn=${encodeURIComponent(`Reg:${teamName || 'Tournament'}`)}`;
+  const upiDeepLink = `upi://pay?pa=${encodeURIComponent(upiSettings.upi_id)}&pn=${encodeURIComponent("SHRI TRIMURTI FITNESS CLUB")}&am=${tournament.entry_fee}&cu=INR&tn=${encodeURIComponent(`Reg:${teamName || 'Tournament'}`)}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !isSubmitting && onClose()}>

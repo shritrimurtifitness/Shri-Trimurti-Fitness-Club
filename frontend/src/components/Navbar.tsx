@@ -47,7 +47,7 @@ export default function Navbar() {
           <Link to="/" className="flex items-center gap-2.5">
             <img
               src={logoImage}
-              alt="Shri Trimurti Sports Arena logo"
+              alt="SHRI TRIMURTI FITNESS CLUB logo"
               className="w-10 h-10 rounded-full object-cover ring-2 ring-[#39FF14]/50 shadow-turf"
             />
             <span className="font-heading font-extrabold text-base sm:text-xl text-zinc-900 dark:text-white tracking-tight">

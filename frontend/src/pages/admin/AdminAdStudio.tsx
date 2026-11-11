@@ -176,7 +176,7 @@ export default function AdminAdStudio() {
                     <img src={logoImage} alt="Logo" className="w-[110%] h-[110%] object-cover object-center" />
                   </div>
                   <p className={`font-bold text-4xl uppercase tracking-widest mb-4 ${isLight ? "text-[#059669]" : "text-[#10b981]"}`}>
-                    Shri Trimurti Sports Arena
+                    SHRI TRIMURTI FITNESS CLUB
                   </p>
                   <h1 className={`text-[120px] font-black leading-none uppercase font-heading italic tracking-tighter ${isLight ? "text-neutral-900" : "text-white"}`}>
                     Game<br />On.

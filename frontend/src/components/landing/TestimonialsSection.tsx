@@ -265,7 +265,7 @@ export default function TestimonialsSection() {
                 </div>
                 <h3 className="text-xl font-bold text-foreground">Review Received!</h3>
                 <p className="text-muted-foreground text-sm">
-                  Thank you for sharing your experience at Shri Trimurti Sports Arena.
+                  Thank you for sharing your experience at SHRI TRIMURTI FITNESS CLUB.
                 </p>
               </motion.div>
             ) : (

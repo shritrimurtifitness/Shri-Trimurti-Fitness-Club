@@ -199,7 +199,7 @@ export default function HeroSection() {
             <div className="relative w-full max-w-[34rem] aspect-[6/5] rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden border border-zinc-200 dark:border-zinc-800/80 shadow-[0_15px_45px_rgba(0,0,0,0.25)] group bg-zinc-100 dark:bg-zinc-950">
               <img
                 src={heroImage}
-                alt="Shri Trimurti Sports Arena box cricket and football turf"
+                alt="SHRI TRIMURTI FITNESS CLUB box cricket and football turf"
                 // @ts-expect-error fetchpriority attribute
                 fetchpriority="high"
                 loading="eager"

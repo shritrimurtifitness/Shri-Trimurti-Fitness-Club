@@ -69,7 +69,7 @@ export default function ContactSection() {
       return;
     }
 
-    const text = `Hi Shri Trimurti Sports Arena!\n\nName: ${formName}\nPhone: ${formPhone}\nInterested Sport: ${formSport}\nMessage: ${formMessage || "I want to inquire about turf availability."}`;
+    const text = `Hi SHRI TRIMURTI FITNESS CLUB!\n\nName: ${formName}\nPhone: ${formPhone}\nInterested Sport: ${formSport}\nMessage: ${formMessage || "I want to inquire about turf availability."}`;
     const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 
     setIsSubmitted(true);
@@ -276,7 +276,7 @@ export default function ContactSection() {
         <div className="rounded-2xl sm:rounded-3xl overflow-hidden border border-border bg-card min-h-[340px] shadow-sm max-w-6xl mx-auto">
           {mapSrc ? (
             <iframe
-              title="Shri Trimurti Sports Arena location map"
+              title="SHRI TRIMURTI FITNESS CLUB location map"
               src={mapSrc}
               className="w-full h-[360px] sm:h-[420px]"
               style={{ border: 0 }}

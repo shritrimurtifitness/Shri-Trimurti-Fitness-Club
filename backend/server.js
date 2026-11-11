@@ -93,7 +93,7 @@ const handleHealthCheck = (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({
-    name: 'Shri Trimurti Sports Arena API',
+    name: 'SHRI TRIMURTI FITNESS CLUB API',
     status: 'online',
     version: '1.0.0',
     uptime: `${Math.floor(process.uptime())}s`,
@@ -140,7 +140,7 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, async () => {
-  console.log(`Shri Trimurti Sports Arena API running on port ${PORT}`);
+  console.log(`SHRI TRIMURTI FITNESS CLUB API running on port ${PORT}`);
   // One-time staff migration
   try {
     await pool.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`);

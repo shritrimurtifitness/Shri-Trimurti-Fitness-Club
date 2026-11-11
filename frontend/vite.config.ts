@@ -20,9 +20,9 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'favicon-32x32.png', 'favicon-16x16.png', 'apple-touch-icon.png', 'og-image.png', 'logo.png', 'robots.txt'],
       manifest: {
-        name: 'Shri Trimurti Sports Arena',
+        name: 'SHRI TRIMURTI FITNESS CLUB',
         short_name: 'STSA',
-        description: 'Management dashboard for Shri Trimurti Sports Arena',
+        description: 'Management dashboard for SHRI TRIMURTI FITNESS CLUB',
         theme_color: '#0a0a0a',
         background_color: '#0a0a0a',
         display: 'standalone',

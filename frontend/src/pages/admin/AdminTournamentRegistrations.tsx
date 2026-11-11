@@ -263,7 +263,7 @@ export default function AdminTournamentRegistrations({ tournament, onBack }: { t
                             <button
                               type="button"
                               onClick={() => {
-                                const text = `Hi ${r.captain_name}! Regarding your team registration for *${tournament.name}* (Team: *${r.team_name}*) at Shri Trimurti Sports Arena...`;
+                                const text = `Hi ${r.captain_name}! Regarding your team registration for *${tournament.name}* (Team: *${r.team_name}*) at SHRI TRIMURTI FITNESS CLUB...`;
                                 window.open(getWhatsAppUrl(text, r.phone), '_blank');
                               }}
                               className="p-1 rounded text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
@@ -409,7 +409,7 @@ export default function AdminTournamentRegistrations({ tournament, onBack }: { t
                           <button
                             type="button"
                             onClick={() => {
-                              const text = `Hi ${r.captain_name}! Regarding your team registration for *${tournament.name}* (Team: *${r.team_name}*) at Shri Trimurti Sports Arena...`;
+                              const text = `Hi ${r.captain_name}! Regarding your team registration for *${tournament.name}* (Team: *${r.team_name}*) at SHRI TRIMURTI FITNESS CLUB...`;
                               window.open(getWhatsAppUrl(text, r.phone), '_blank');
                             }}
                             className="p-1 rounded text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"

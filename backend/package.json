@@ -1,7 +1,7 @@
 {
   "name": "shri-trimurti-backend",
   "version": "1.0.0",
-  "description": "Express REST API for Shri Trimurti Sports Arena",
+  "description": "Express REST API for SHRI TRIMURTI FITNESS CLUB",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

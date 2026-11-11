@@ -201,21 +201,21 @@ router.post('/forgot-password', loginLimiter, async (req, res) => {
       const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
       
       await resend.emails.send({
-        from: 'Shri Trimurti Sports Arena <onboarding@resend.dev>',
+        from: 'SHRI TRIMURTI FITNESS CLUB <onboarding@resend.dev>',
         to: email,
         subject: 'Reset Your Admin Password',
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
             <h2 style="color: #4CAF50; text-align: center;">Password Reset Request</h2>
             <p>Hi ${user.name},</p>
-            <p>We received a request to reset your admin password for <strong>Shri Trimurti Sports Arena</strong>.</p>
+            <p>We received a request to reset your admin password for <strong>SHRI TRIMURTI FITNESS CLUB</strong>.</p>
             <p>Click the button below to set a new password. This link is valid for 1 hour.</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetLink}" style="background-color: #4CAF50; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
             </div>
             <p style="color: #666; font-size: 12px;">If you didn't request this, please ignore this email or contact the main administrator.</p>
             <hr style="border: none; border-top: 1px solid #eee;" />
-            <p style="color: #999; font-size: 10px; text-align: center;">&copy; 2026 Shri Trimurti Sports Arena</p>
+            <p style="color: #999; font-size: 10px; text-align: center;">&copy; 2026 SHRI TRIMURTI FITNESS CLUB</p>
           </div>
         `
       });

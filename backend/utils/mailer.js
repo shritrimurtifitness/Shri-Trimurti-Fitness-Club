@@ -19,7 +19,7 @@ async function sendEmail({ to, subject, html, text }) {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          sender: { name: 'Shri Trimurti Sports Arena', email: process.env.BREVO_SENDER_EMAIL || 'harshalpatil9949@gmail.com' },
+          sender: { name: 'SHRI TRIMURTI FITNESS CLUB', email: process.env.BREVO_SENDER_EMAIL || 'harshalpatil9949@gmail.com' },
           to: [{ email: to }],
           subject: subject,
           htmlContent: html,
@@ -46,7 +46,7 @@ async function sendEmail({ to, subject, html, text }) {
   if (resend) {
     try {
       const resendRes = await resend.emails.send({
-        from: 'Shri Trimurti Sports Arena <onboarding@resend.dev>',
+        from: 'SHRI TRIMURTI FITNESS CLUB <onboarding@resend.dev>',
         to: to,
         subject: subject,
         html: html,
@@ -66,17 +66,17 @@ async function sendEmail({ to, subject, html, text }) {
  * Send OTP verification code for booking
  */
 async function sendBookingOTP({ email, name, otp }) {
-  const subject = `Your Booking OTP: ${otp} - Shri Trimurti Sports Arena`;
+  const subject = `Your Booking OTP: ${otp} - SHRI TRIMURTI FITNESS CLUB`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; border: 1px solid #27272a; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <div style="text-align: center; margin-bottom: 24px;">
-        <h2 style="color: #39FF14; margin: 0; font-size: 24px; letter-spacing: 0.5px;">Shri Trimurti Sports Arena</h2>
+        <h2 style="color: #39FF14; margin: 0; font-size: 24px; letter-spacing: 0.5px;">SHRI TRIMURTI FITNESS CLUB</h2>
         <p style="color: #a1a1aa; font-size: 13px; margin: 4px 0 0 0;">Customer Booking Verification</p>
       </div>
 
       <div style="background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px;">
         <p style="color: #d4d4d8; font-size: 14px; margin-top: 0;">Hi ${name || 'Player'},</p>
-        <p style="color: #a1a1aa; font-size: 14px; margin-bottom: 16px;">Use the one-time code below to verify your booking at Shri Trimurti Sports Arena:</p>
+        <p style="color: #a1a1aa; font-size: 14px; margin-bottom: 16px;">Use the one-time code below to verify your booking at SHRI TRIMURTI FITNESS CLUB:</p>
         
         <div style="background-color: #27272a; border: 2px dashed #39FF14; border-radius: 8px; padding: 12px 24px; display: inline-block; margin-bottom: 12px;">
           <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #39FF14;">${otp}</span>
@@ -85,7 +85,7 @@ async function sendBookingOTP({ email, name, otp }) {
       </div>
 
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        &copy; 2026 Shri Trimurti Sports Arena. All rights reserved.
+        &copy; 2026 SHRI TRIMURTI FITNESS CLUB. All rights reserved.
       </p>
     </div>
   `;
@@ -97,7 +97,7 @@ async function sendBookingOTP({ email, name, otp }) {
  * Send Booking Submission Alert (Pending Verification)
  */
 async function sendBookingReceived({ email, name, bookingId, turfName, date, slots, totalAmount, utrNumber }) {
-  const subject = `Booking Received (${bookingId}) - Shri Trimurti Sports Arena`;
+  const subject = `Booking Received (${bookingId}) - SHRI TRIMURTI FITNESS CLUB`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #27272a; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <h2 style="color: #39FF14; margin-top: 0; font-size: 22px;">Booking Received & Under Verification</h2>
@@ -121,7 +121,7 @@ async function sendBookingReceived({ email, name, bookingId, turfName, date, slo
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
+        SHRI TRIMURTI FITNESS CLUB &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
@@ -133,7 +133,7 @@ async function sendBookingReceived({ email, name, bookingId, turfName, date, slo
  * Send Booking Confirmed Receipt
  */
 async function sendBookingConfirmed({ email, name, bookingId, turfName, date, slots, totalAmount }) {
-  const subject = `Booking Confirmed! (${bookingId}) - Shri Trimurti Sports Arena`;
+  const subject = `Booking Confirmed! (${bookingId}) - SHRI TRIMURTI FITNESS CLUB`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #22c55e; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <div style="text-align: center; margin-bottom: 20px;">
@@ -158,7 +158,7 @@ async function sendBookingConfirmed({ email, name, bookingId, turfName, date, sl
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        &copy; 2026 Shri Trimurti Sports Arena. All rights reserved.
+        &copy; 2026 SHRI TRIMURTI FITNESS CLUB. All rights reserved.
       </p>
     </div>
   `;
@@ -170,7 +170,7 @@ async function sendBookingConfirmed({ email, name, bookingId, turfName, date, sl
  * Send Booking Rejected Notice
  */
 async function sendBookingRejected({ email, name, bookingId, turfName, date, reason }) {
-  const subject = `Booking Update (${bookingId}) - Shri Trimurti Sports Arena`;
+  const subject = `Booking Update (${bookingId}) - SHRI TRIMURTI FITNESS CLUB`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #ef4444; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <h2 style="color: #ef4444; margin-top: 0; font-size: 22px;">Booking Not Confirmed</h2>
@@ -184,7 +184,7 @@ async function sendBookingRejected({ email, name, bookingId, turfName, date, rea
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
+        SHRI TRIMURTI FITNESS CLUB &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
@@ -196,11 +196,11 @@ async function sendBookingRejected({ email, name, bookingId, turfName, date, rea
  * Send OTP verification code for tournament registration
  */
 async function sendTournamentOTP({ email, name, otp, tournamentName }) {
-  const subject = `Tournament Entry OTP: ${otp} - Shri Trimurti Sports Arena`;
+  const subject = `Tournament Entry OTP: ${otp} - SHRI TRIMURTI FITNESS CLUB`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; border: 1px solid #27272a; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <div style="text-align: center; margin-bottom: 24px;">
-        <h2 style="color: #39FF14; margin: 0; font-size: 24px; letter-spacing: 0.5px;">Shri Trimurti Sports Arena</h2>
+        <h2 style="color: #39FF14; margin: 0; font-size: 24px; letter-spacing: 0.5px;">SHRI TRIMURTI FITNESS CLUB</h2>
         <p style="color: #a1a1aa; font-size: 13px; margin: 4px 0 0 0;">Tournament Team Registration</p>
       </div>
 
@@ -217,7 +217,7 @@ async function sendTournamentOTP({ email, name, otp, tournamentName }) {
       </div>
 
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        &copy; 2026 Shri Trimurti Sports Arena. All rights reserved.
+        &copy; 2026 SHRI TRIMURTI FITNESS CLUB. All rights reserved.
       </p>
     </div>
   `;
@@ -229,7 +229,7 @@ async function sendTournamentOTP({ email, name, otp, tournamentName }) {
  * Send Tournament Registration Received Notice (Pending UTR Verification)
  */
 async function sendTournamentRegistrationReceived({ email, captainName, teamName, tournamentName, entryFee, utrNumber, registrationId }) {
-  const subject = `Tournament Entry Received: ${teamName} - Shri Trimurti Sports Arena`;
+  const subject = `Tournament Entry Received: ${teamName} - SHRI TRIMURTI FITNESS CLUB`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #27272a; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <h2 style="color: #39FF14; margin-top: 0; font-size: 22px;">Tournament Registration Received</h2>
@@ -255,7 +255,7 @@ async function sendTournamentRegistrationReceived({ email, captainName, teamName
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
+        SHRI TRIMURTI FITNESS CLUB &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
@@ -302,7 +302,7 @@ async function sendTournamentRegistrationConfirmed({ email, captainName, teamNam
 
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        &copy; 2026 Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
+        &copy; 2026 SHRI TRIMURTI FITNESS CLUB &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;
@@ -314,7 +314,7 @@ async function sendTournamentRegistrationConfirmed({ email, captainName, teamNam
  * Send Tournament Registration Rejected Notice
  */
 async function sendTournamentRegistrationRejected({ email, captainName, teamName, tournamentName, registrationId, reason }) {
-  const subject = `Tournament Registration Update: ${teamName} - Shri Trimurti Sports Arena`;
+  const subject = `Tournament Registration Update: ${teamName} - SHRI TRIMURTI FITNESS CLUB`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #ef4444; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <h2 style="color: #ef4444; margin-top: 0; font-size: 22px;">Registration Not Confirmed</h2>
@@ -332,7 +332,7 @@ async function sendTournamentRegistrationRejected({ email, captainName, teamName
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
       <p style="color: #71717a; font-size: 11px; text-align: center; margin: 0;">
-        Shri Trimurti Sports Arena &bull; Koparde, Kolhapur, Maharashtra
+        SHRI TRIMURTI FITNESS CLUB &bull; Koparde, Kolhapur, Maharashtra
       </p>
     </div>
   `;

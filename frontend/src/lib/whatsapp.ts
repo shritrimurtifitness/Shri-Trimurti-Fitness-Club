@@ -1,9 +1,9 @@
 /**
- * WhatsApp Helper Utilities for Shri Trimurti Sports Arena
+ * WhatsApp Helper Utilities for SHRI TRIMURTI FITNESS CLUB
  * Supports customer team-split sharing and admin 1-click notification messages.
  */
 
-export const ARENA_VENUE_NAME = "Shri Trimurti Sports Arena";
+export const ARENA_VENUE_NAME = "SHRI TRIMURTI FITNESS CLUB";
 export const ARENA_DEFAULT_MAP_URL = "https://maps.google.com/?q=Shri+Trimurti+Sports+Arena+Koparde";
 
 /**

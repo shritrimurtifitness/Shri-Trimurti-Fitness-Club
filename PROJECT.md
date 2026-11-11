@@ -1,4 +1,4 @@
-# Shri Trimurti Sports Arena (Turfbook Pro) — Complete Project Documentation
+# SHRI TRIMURTI FITNESS CLUB (Turfbook Pro) — Complete Project Documentation
 
 > **Status:** Production-Ready Full-Stack Web Platform & Progressive Web App (PWA)  
 > **Location:** Akola, Maharashtra, India  
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-**Shri Trimurti Sports Arena** (internally code-named **Turfbook Pro** / **TurfZone**) is a production-grade sports facility management and booking platform built specifically for contemporary multi-sport complexes. The system serves three primary user personas:
+**SHRI TRIMURTI FITNESS CLUB** (internally code-named **Turfbook Pro** / **TurfZone**) is a production-grade sports facility management and booking platform built specifically for contemporary multi-sport complexes. The system serves three primary user personas:
 
 1. **Customers:** Browse facilities, check live slot availability in real time, book turfs or snooker/pool tables, verify contact details via email OTP, pay online via Razorpay or direct UPI with UTR reference, download verifiable QR entry passes, calculate team cost-splits, and share match passes directly to WhatsApp squads.
 2. **On-Site Staff:** Quick-login on mobile or tablet terminals via a 6-digit PIN, scan customer QR passes for zero-friction gate check-in, monitor live on-court presence, initiate immediate slot extensions, and operate live stopwatch-based table sessions.

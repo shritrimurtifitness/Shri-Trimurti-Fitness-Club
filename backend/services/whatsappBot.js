@@ -6,6 +6,7 @@ const {
   sendInteractiveButtons,
   sendInteractiveList,
 } = require('./whatsapp');
+const adminBookingService = require('./adminBookingService');
 
 // In-memory session tracking for WhatsApp booking flow
 // Key: phone number -> { state, slotId, turfId, turfName, date, timeStr, price, userName, createdAt }
@@ -369,6 +370,12 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       io.emit('booking_updated');
     }
 
+    // Notify Admin's personal WhatsApp in real-time
+    adminBookingService.notifyAdminNewBooking({
+      bookingId: bookingRes.rows[0].id,
+      io,
+    }).catch(err => console.error('[NOTIFY ADMIN ON BOT BOOKING ERROR]', err));
+
     const successMsg =
 `🎉 *BOOKING REQUEST SUBMITTED!*
 
@@ -519,6 +526,62 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
       });
     } else {
       userFeedbackSessions.delete(from);
+    }
+  }
+
+  // ----------------------------------------------------
+  // Admin In-Chat Action: Approve or Reject Booking
+  // ----------------------------------------------------
+  if (payload.startsWith('BTN_ADMIN_APPROVE_') || payload.startsWith('BTN_ADMIN_REJECT_')) {
+    const isApprove = payload.startsWith('BTN_ADMIN_APPROVE_');
+    const targetBookingId = payload.replace(isApprove ? 'BTN_ADMIN_APPROVE_' : 'BTN_ADMIN_REJECT_', '').trim();
+    const cleanFrom = from.replace(/\D/g, '');
+
+    const isAdmin = await adminBookingService.isAuthorizedAdmin(cleanFrom);
+    if (!isAdmin) {
+      return sendTextMessage({
+        to: from,
+        text: '⛔ *Unauthorized:* Only registered club administrators can approve or reject bookings from WhatsApp.',
+      });
+    }
+
+    if (isApprove) {
+      const result = await adminBookingService.approveBookingById({
+        bookingId: targetBookingId,
+        io,
+        adminIdentifier: cleanFrom,
+      });
+
+      if (!result.success) {
+        return sendTextMessage({
+          to: from,
+          text: `⚠️ Could not approve booking: ${result.message}`,
+        });
+      }
+
+      return sendTextMessage({
+        to: from,
+        text: `✅ *Booking #${result.bookingCode} Approved!* 🏏⚽\n\nPlayer *${result.customerName}* has been issued their official Digital Entry Pass with QR code on WhatsApp!\n\n🏟️ *Turf:* ${result.turfName}\n📅 *Date:* ${result.dateStr}\n⏰ *Time:* ${result.timeStr}\n💰 *Amount:* ₹${result.amount}\n💳 *UTR:* ${result.utr || 'N/A'}`,
+      });
+    } else {
+      const result = await adminBookingService.rejectBookingById({
+        bookingId: targetBookingId,
+        io,
+        adminIdentifier: cleanFrom,
+        reason: 'Payment could not be verified by admin',
+      });
+
+      if (!result.success) {
+        return sendTextMessage({
+          to: from,
+          text: `⚠️ Could not reject booking: ${result.message}`,
+        });
+      }
+
+      return sendTextMessage({
+        to: from,
+        text: `❌ *Booking #${result.bookingCode} Rejected.* The slot (${result.dateStr} at ${result.timeStr}) has been released back to available.`,
+      });
     }
   }
 

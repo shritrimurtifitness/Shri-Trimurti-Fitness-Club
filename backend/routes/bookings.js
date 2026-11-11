@@ -7,6 +7,7 @@ const { bookingLimiter } = require('../middleware/rateLimiter');
 const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
 const notificationScheduler = require('../services/notificationScheduler');
+const adminBookingService = require('../services/adminBookingService');
 
 router.post('/', bookingLimiter, async (req, res) => {
   try {
@@ -910,6 +911,12 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
 
     req.app.get('io').emit('booking_updated');
 
+    // Notify Admin's personal WhatsApp in real-time
+    adminBookingService.notifyAdminNewBooking({
+      bookingId: createdBookings[0].id,
+      io: req.app.get('io'),
+    }).catch(err => console.error('[NOTIFY ADMIN ON WEB BOOKING ERROR]', err));
+
     res.status(201).json({
       success: true,
       message: 'Booking submitted successfully! Awaiting arena payment verification.',
@@ -923,7 +930,55 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
   }
 });
 
-// 4. Admin verify UPI payment (Approve or Reject)
+// 3.5. 1-Tap Secure Admin Action Link (opens from WhatsApp in mobile browser)
+router.get('/quick-verify', async (req, res) => {
+  try {
+    const { id, action, token } = req.query;
+    if (!id || !action || !token) {
+      return res.status(400).send(adminBookingService.renderAdminResultHtml({
+        success: false,
+        message: 'Missing verification parameters.',
+      }));
+    }
+
+    const isValid = adminBookingService.verifyAdminActionToken(id, action, token);
+    if (!isValid) {
+      return res.status(403).send(adminBookingService.renderAdminResultHtml({
+        success: false,
+        message: 'This approval link is invalid or has expired.',
+      }));
+    }
+
+    if (action === 'approve') {
+      const result = await adminBookingService.approveBookingById({
+        bookingId: id,
+        io: req.app.get('io'),
+        adminIdentifier: '1-tap-whatsapp-link',
+      });
+      return res.send(adminBookingService.renderAdminResultHtml(result));
+    } else if (action === 'reject') {
+      const result = await adminBookingService.rejectBookingById({
+        bookingId: id,
+        io: req.app.get('io'),
+        adminIdentifier: '1-tap-whatsapp-link',
+      });
+      return res.send(adminBookingService.renderAdminResultHtml(result));
+    } else {
+      return res.status(400).send(adminBookingService.renderAdminResultHtml({
+        success: false,
+        message: 'Invalid action requested.',
+      }));
+    }
+  } catch (err) {
+    console.error('[QUICK VERIFY ERROR]', err);
+    res.status(500).send(adminBookingService.renderAdminResultHtml({
+      success: false,
+      message: 'Server error: ' + err.message,
+    }));
+  }
+});
+
+// 4. Admin verify UPI payment (Approve or Reject from Dashboard)
 router.post('/:id/verify-upi', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
@@ -933,108 +988,33 @@ router.post('/:id/verify-upi', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Action must be approve or reject' });
     }
 
-    const bookingRes = await pool.query(`
-      SELECT b.*, u.name as customer_name, u.email as customer_email, u.phone as customer_phone,
-             s.date, s.start_time, s.end_time, t.name as turf_name, t.facility_type
-      FROM bookings b
-      JOIN users u ON b.user_id = u.id
-      JOIN slots s ON b.slot_id = s.id
-      JOIN turfs t ON s.turf_id = t.id
-      WHERE b.id = $1
-    `, [id]);
-
-    if (bookingRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Booking not found' });
-    }
-
-    const b = bookingRes.rows[0];
+    const io = req.app.get('io');
+    const adminIdentifier = req.user ? `${req.user.name || req.user.email} (Dashboard)` : 'admin';
 
     if (action === 'approve') {
-      await pool.query(`
-        UPDATE bookings 
-        SET status = 'confirmed', payment_status = 'paid', remaining_amount = 0
-        WHERE id = $1
-      `, [id]);
-
-      await pool.query(`
-        INSERT INTO payments (booking_id, amount, method, is_settled)
-        VALUES ($1, $2, 'upi_qr', true)
-      `, [id, b.paid_amount || 800]);
-
-      if (b.customer_email) {
-        const slotTime = `${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}`;
-        const dateFormatted = typeof b.date === 'string' ? b.date.substring(0, 10) : new Date(b.date).toISOString().split('T')[0];
-        mailer.sendBookingConfirmed({
-          email: b.customer_email,
-          name: b.customer_name,
-          bookingId: b.id.substring(0, 8).toUpperCase(),
-          turfName: b.turf_name || b.facility_type,
-          date: dateFormatted,
-          slots: [slotTime],
-          totalAmount: b.paid_amount,
-        }).catch(err => console.error('[MAILER ERROR on confirm]', err));
-      }
-
-      if (b.customer_phone) {
-        const slotTime = `${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}`;
-        const dateFormatted = typeof b.date === 'string' ? b.date.substring(0, 10) : new Date(b.date).toISOString().split('T')[0];
-        whatsappService.sendBookingConfirmationTicket({
-          phone: b.customer_phone,
-          bookingId: b.id.substring(0, 8).toUpperCase(),
-          turfName: b.turf_name || b.facility_type,
-          date: dateFormatted,
-          slots: [slotTime],
-          totalAmount: b.paid_amount,
-          utrNumber: b.utr_number,
-        }).catch(err => console.error('[WHATSAPP CONFIRM ERROR]', err.message));
-      }
-
-      // Schedule automated Matchday Reminder (2h before) and Review Collector (1h after)
-      notificationScheduler.scheduleBookingNotifications({
-        id: b.id,
-        customer_phone: b.customer_phone,
-        customer_name: b.customer_name,
-        turf_name: b.turf_name || b.facility_type,
-        date: b.date,
-        start_time: b.start_time,
-        end_time: b.end_time,
-        reminder_sent_at: b.reminder_sent_at,
-        feedback_sent_at: b.feedback_sent_at,
+      const result = await adminBookingService.approveBookingById({
+        bookingId: id,
+        io,
+        adminIdentifier,
       });
-    } else {
-      await pool.query(`
-        UPDATE bookings 
-        SET status = 'rejected', payment_status = 'failed'
-        WHERE id = $1
-      `, [id]);
-
-      notificationScheduler.cancelBookingNotifications(id);
-
-      if (b.customer_email) {
-        const dateFormatted = typeof b.date === 'string' ? b.date.substring(0, 10) : new Date(b.date).toISOString().split('T')[0];
-        mailer.sendBookingRejected({
-          email: b.customer_email,
-          name: b.customer_name,
-          bookingId: b.id.substring(0, 8).toUpperCase(),
-          turfName: b.turf_name || b.facility_type,
-          date: dateFormatted,
-          reason,
-        }).catch(err => console.error('[MAILER ERROR on reject]', err));
+      if (!result.success) {
+        return res.status(400).json({ error: result.message });
       }
+      return res.json({ success: true, message: result.message, booking: result });
+    } else {
+      const result = await adminBookingService.rejectBookingById({
+        bookingId: id,
+        io,
+        adminIdentifier,
+        reason,
+      });
+      if (!result.success) {
+        return res.status(400).json({ error: result.message });
+      }
+      return res.json({ success: true, message: result.message });
     }
-
-    await cache.delPattern('bookings:*');
-    await cache.delPattern('slots:*');
-    await cache.del('admin:stats');
-
-    req.app.get('io').emit('booking_updated');
-
-    res.json({
-      success: true,
-      message: action === 'approve' ? 'Booking & UPI payment verified and confirmed!' : 'Booking rejected.',
-    });
   } catch (err) {
-    console.error('[VERIFY UPI PAYMENT ERROR]', err);
+    console.error('[VERIFY UPI ROUTE ERROR]', err);
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });

@@ -820,7 +820,7 @@ export default function BookingPage() {
                   {/* Mobile Direct App Intent Link */}
                   <div className="block sm:hidden">
                     <a
-                      href={`upi://pay?pa=${encodeURIComponent(upiSettings.upi_id)}&pn=${encodeURIComponent("Shri Trimurti Sports Arena")}&am=${selectedSlotGroup?.price}&cu=INR`}
+                      href={`upi://pay?pa=${encodeURIComponent(upiSettings.upi_id)}&pn=${encodeURIComponent("SHRI TRIMURTI FITNESS CLUB")}&am=${selectedSlotGroup?.price}&cu=INR`}
                       className="w-full py-2.5 px-4 rounded-xl bg-secondary/50 hover:bg-secondary text-xs font-bold text-foreground flex items-center justify-center gap-1.5 border border-border transition-all"
                     >
                       <ExternalLink className="w-3.5 h-3.5 text-primary" /> Open Directly in Installed UPI App

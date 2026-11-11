@@ -72,7 +72,7 @@ export default function GallerySection() {
               Arena Gallery
             </span>
             <h2 className="font-heading text-3xl lg:text-5xl font-bold mb-4">
-              Inside <span className="text-gradient-turf">Shri Trimurti Sports Arena</span>
+              Inside <span className="text-gradient-turf">SHRI TRIMURTI FITNESS CLUB</span>
             </h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-5xl mx-auto">
@@ -121,7 +121,7 @@ export default function GallerySection() {
             Arena Gallery
           </span>
           <h2 className="font-heading text-3xl lg:text-5xl font-extrabold mb-4 text-foreground">
-            Inside <span className="text-gradient-turf">Shri Trimurti Sports Arena</span>
+            Inside <span className="text-gradient-turf">SHRI TRIMURTI FITNESS CLUB</span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
             Take a look at the immaculate playing surface, bright floodlights, and player dugouts.
@@ -164,7 +164,7 @@ export default function GallerySection() {
                     ) : (
                       <img
                         src={img.cloudinary_url}
-                        alt={img.alt_text || "Shri Trimurti Sports Arena pitch photo"}
+                        alt={img.alt_text || "SHRI TRIMURTI FITNESS CLUB pitch photo"}
                         loading="lazy"
                         className="w-full h-full object-cover"
                       />
@@ -218,7 +218,7 @@ export default function GallerySection() {
                 ) : (
                   <img
                     src={img.cloudinary_url}
-                    alt={img.alt_text || "Shri Trimurti Sports Arena highlight"}
+                    alt={img.alt_text || "SHRI TRIMURTI FITNESS CLUB highlight"}
                     loading="lazy"
                     className="w-full h-full object-cover min-h-[180px] group-hover:scale-105 transition-transform duration-500"
                   />
@@ -287,7 +287,7 @@ export default function GallerySection() {
                 ) : (
                   <img
                     src={images[selectedIndex].cloudinary_url}
-                    alt={images[selectedIndex].alt_text || "Shri Trimurti Sports Arena"}
+                    alt={images[selectedIndex].alt_text || "SHRI TRIMURTI FITNESS CLUB"}
                     className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
                   />
                 )}

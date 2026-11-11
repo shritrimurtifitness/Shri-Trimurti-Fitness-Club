@@ -76,7 +76,7 @@ export default function FooterSection() {
             <Link to="/" className="flex items-center gap-2.5 mb-4">
               <img
                 src={logoImage}
-                alt="Shri Trimurti Sports Arena logo"
+                alt="SHRI TRIMURTI FITNESS CLUB logo"
                 className="w-10 h-10 rounded-full object-cover ring-2 ring-[#39FF14]/40"
               />
               <span className="font-heading font-extrabold text-lg text-foreground">
@@ -205,7 +205,7 @@ export default function FooterSection() {
 
         <div className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <div className="flex flex-wrap items-center gap-4">
-            <p>© {new Date().getFullYear()} Shri Trimurti Sports Arena. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} SHRI TRIMURTI FITNESS CLUB. All rights reserved.</p>
             <span>•</span>
             <Link to="/privacy" className="hover:text-primary transition-colors underline-offset-4 hover:underline">
               Privacy Policy

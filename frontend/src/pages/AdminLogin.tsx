@@ -47,7 +47,7 @@ export default function AdminLogin() {
             <span className="font-heading font-bold text-primary-foreground text-2xl">S</span>
           </div>
           <h1 className="font-heading text-2xl font-bold text-foreground">Login</h1>
-          <p className="text-sm text-muted-foreground mt-1">Shri Trimurti Sports Arena Management Panel</p>
+          <p className="text-sm text-muted-foreground mt-1">SHRI TRIMURTI FITNESS CLUB Management Panel</p>
         </div>
 
         <div className="rounded-2xl bg-card border border-border p-6 shadow-xl">

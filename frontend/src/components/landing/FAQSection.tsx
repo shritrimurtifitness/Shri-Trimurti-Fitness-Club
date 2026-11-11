@@ -17,7 +17,7 @@ const faqs = [
   {
     question: "What are the arena operational hours?",
     answer:
-      "Shri Trimurti Sports Arena is open daily from 10:00 AM to 12:00 AM (midnight). High-powered LED floodlights ensure crystal-clear visibility for evening and late-night games.",
+      "SHRI TRIMURTI FITNESS CLUB is open daily from 10:00 AM to 12:00 AM (midnight). High-powered LED floodlights ensure crystal-clear visibility for evening and late-night games.",
   },
   {
     question: "Are sports equipment (bats, balls, stumps) provided?",
@@ -63,7 +63,7 @@ export default function FAQSection() {
             Frequently Asked <span className="text-gradient-turf">Questions</span>
           </h2>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Everything you need to know about booking, gear, and playing at Shri Trimurti Sports Arena.
+            Everything you need to know about booking, gear, and playing at SHRI TRIMURTI FITNESS CLUB.
           </p>
         </motion.div>
 

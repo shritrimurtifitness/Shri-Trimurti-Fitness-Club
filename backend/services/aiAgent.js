@@ -1,5 +1,5 @@
 /**
- * AI Conversational Agent for Shri Trimurti Sports Arena WhatsApp Bot
+ * AI Conversational Agent for SHRI TRIMURTI FITNESS CLUB WhatsApp Bot
  * Powered by Google Gemini API with Tool/Function Calling & Multi-turn Memory.
  */
 

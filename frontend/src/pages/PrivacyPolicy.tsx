@@ -28,7 +28,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">1. Introduction</h2>
             <p>
-              Welcome to <strong>Shri Trimurti Sports Arena</strong> ("we", "our", or "us"). We operate
+              Welcome to <strong>SHRI TRIMURTI FITNESS CLUB</strong> ("we", "our", or "us"). We operate
               the sports turf booking platform at{" "}
               <a href="https://shritrimurtifitnessclub.in" className="text-emerald-400 underline">
                 shritrimurtifitnessclub.in

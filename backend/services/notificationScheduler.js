@@ -109,7 +109,7 @@ See you on the pitch! 🏆`;
           to: phone,
           headerText: '🏏 Matchday Reminder',
           bodyText: reminderMsg,
-          footerText: 'Shri Trimurti Sports Arena',
+          footerText: 'SHRI TRIMURTI FITNESS CLUB',
           buttons: [
             { id: 'BTN_LOCATION', title: '📍 Directions' },
             { id: 'BTN_STAFF', title: '📞 Call Arena' },
@@ -173,7 +173,7 @@ How was your pitch condition and match experience?`;
           to: phone,
           headerText: '🏆 Matchday Experience',
           bodyText: surveyMsg,
-          footerText: 'Shri Trimurti Sports Arena',
+          footerText: 'SHRI TRIMURTI FITNESS CLUB',
           buttons: [
             { id: `BTN_FEEDBACK_5STAR_${bookingId}`, title: '⭐ Loved it!' },
             { id: `BTN_FEEDBACK_IMPROVE_${bookingId}`, title: '💬 Give Feedback' },

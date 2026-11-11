@@ -102,7 +102,7 @@ async function sendImageMessage({ to, imageUrl, caption = '' }) {
  * @param {string} [args.headerText] - Optional header
  * @param {string} [args.footerText] - Optional footer
  */
-async function sendInteractiveButtons({ to, bodyText, buttons = [], headerText = '', footerText = 'Shri Trimurti Sports Arena' }) {
+async function sendInteractiveButtons({ to, bodyText, buttons = [], headerText = '', footerText = 'SHRI TRIMURTI FITNESS CLUB' }) {
   const phone = normalizePhone(to);
   if (!process.env.WHATSAPP_TOKEN || !process.env.PHONE_NUMBER_ID) {
     console.log(`[WHATSAPP MOCK BUTTONS] To: ${phone}\nHeader: ${headerText}\nBody: ${bodyText}\nButtons:`, buttons);
@@ -158,7 +158,7 @@ async function sendInteractiveButtons({ to, bodyText, buttons = [], headerText =
 /**
  * Sends an interactive List Menu message (up to 10 options across sections).
  */
-async function sendInteractiveList({ to, bodyText, buttonTitle = 'View Options', sections = [], headerText = '', footerText = 'Shri Trimurti Sports Arena' }) {
+async function sendInteractiveList({ to, bodyText, buttonTitle = 'View Options', sections = [], headerText = '', footerText = 'SHRI TRIMURTI FITNESS CLUB' }) {
   const phone = normalizePhone(to);
   if (!process.env.WHATSAPP_TOKEN || !process.env.PHONE_NUMBER_ID) {
     console.log(`[WHATSAPP MOCK LIST] To: ${phone}\nBody: ${bodyText}\nSections:`, JSON.stringify(sections));
@@ -288,7 +288,7 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
 async function sendBookingConfirmationTicket({ phone, bookingId, turfName, date, slots, totalAmount, utrNumber }) {
   const formattedSlots = Array.isArray(slots) ? slots.join(', ') : slots;
   const message = 
-`🎉 *BOOKING CONFIRMED — SHRI TRIMURTI SPORTS ARENA*
+`🎉 *BOOKING CONFIRMED — SHRI TRIMURTI FITNESS CLUB*
 
 Hi Player! Your booking has been verified. We look forward to seeing you on the field.
 

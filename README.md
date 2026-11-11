@@ -1,4 +1,4 @@
-# Shri Trimurti Sports Arena (Turfbook Pro)
+# SHRI TRIMURTI FITNESS CLUB (Turfbook Pro)
 
 A comprehensive, full-stack sports facility management and booking platform designed for modern sports arenas. It handles turfs (cricket, football), tables (snooker, pool), tournaments, staff management, financial reporting, and live occupancy tracking.
 

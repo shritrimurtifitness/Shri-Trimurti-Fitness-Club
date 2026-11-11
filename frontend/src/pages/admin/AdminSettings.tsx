@@ -609,7 +609,7 @@ export default function AdminSettings() {
 
                     <div className="space-y-0.5">
                       <p className="text-xs font-mono font-bold text-foreground">{upiId || 'harshvardhanp@slc'}</p>
-                      <p className="text-[10px] text-muted-foreground">Shri Trimurti Sports Arena</p>
+                      <p className="text-[10px] text-muted-foreground">SHRI TRIMURTI FITNESS CLUB</p>
                     </div>
 
                     <div className="w-full pt-1 space-y-1.5">

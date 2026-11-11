@@ -116,7 +116,7 @@ export default function AdminLayout() {
           <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/10 shrink-0">
             <img src={logoImage} alt="Logo" className="w-full h-full object-cover scale-110" />
           </div>
-          <span className="font-heading font-bold text-foreground truncate">Shri Trimurti Sports Arena <span className="text-primary text-xs">{isAdmin ? "Admin" : "Staff"}</span></span>
+          <span className="font-heading font-bold text-foreground truncate">SHRI TRIMURTI FITNESS CLUB <span className="text-primary text-xs">{isAdmin ? "Admin" : "Staff"}</span></span>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto text-muted-foreground shrink-0"><X size={20} /></button>
         </div>
         <nav className="p-4 space-y-6 flex-1 overflow-y-auto scrollbar-thin">

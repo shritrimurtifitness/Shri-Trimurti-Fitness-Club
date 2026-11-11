@@ -28,7 +28,7 @@ export default function TermsOfService() {
           <section>
             <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">1. Acceptance of Terms</h2>
             <p>
-              By accessing, browsing, or booking turf slots at <strong>Shri Trimurti Sports Arena</strong> through
+              By accessing, browsing, or booking turf slots at <strong>SHRI TRIMURTI FITNESS CLUB</strong> through
               our website or WhatsApp bot, you agree to comply with and be bound by these Terms of Service.
             </p>
           </section>

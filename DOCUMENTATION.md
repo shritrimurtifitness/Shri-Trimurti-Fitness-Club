@@ -1,4 +1,4 @@
-# Shri Trimurti Sports Arena - Technical Documentation
+# SHRI TRIMURTI FITNESS CLUB - Technical Documentation
 
 ## 1. Architecture Overview
 
