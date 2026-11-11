@@ -6,7 +6,6 @@ const {
   sendInteractiveButtons,
   sendInteractiveList,
 } = require('./whatsapp');
-const { generateAIResponse } = require('./aiAgent');
 
 // In-memory session tracking for WhatsApp booking flow
 // Key: phone number -> { state, slotId, turfId, turfName, date, timeStr, price, userName, createdAt }
@@ -100,15 +99,27 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
     }
 
     // 4. Query vacant slots for today that have not passed current time
+    // Accounts for shared physical resources (e.g. Cricket & Football sharing the same turf)
     const query = `
       SELECT s.id, s.start_time, s.end_time, s.price, s.date
       FROM slots s
-      LEFT JOIN bookings b ON b.slot_id = s.id AND b.status NOT IN ('cancelled', 'rejected')
+      JOIN turfs t ON s.turf_id = t.id
       WHERE s.turf_id = $1
         AND s.date = $2
         AND s.is_available = true
-        AND b.id IS NULL
         AND s.end_time > $3
+        AND NOT EXISTS (
+          SELECT 1 FROM bookings b
+          JOIN slots s_other ON b.slot_id = s_other.id
+          JOIN turfs t_other ON s_other.turf_id = t_other.id
+          WHERE b.status NOT IN ('cancelled', 'rejected')
+            AND s_other.date = s.date
+            AND s_other.start_time = s.start_time
+            AND (
+              s_other.id = s.id
+              OR (t.physical_resource_id IS NOT NULL AND t.physical_resource_id = t_other.physical_resource_id)
+            )
+        )
       ORDER BY s.start_time ASC
       LIMIT 10
     `;
@@ -624,8 +635,8 @@ Our arena manager is also reachable directly at 📞 +91 7083738373.`;
   // ----------------------------------------------------
   if (
     payload === 'BTN_CRICKET_SLOTS' ||
-    normalizedText.includes('cricket slots') ||
-    normalizedText.includes('box cricket')
+    normalizedText.includes('cricket') ||
+    normalizedText.includes('box')
   ) {
     const result = await getTodayAvailableSlots('cricket');
 
@@ -683,7 +694,7 @@ ${slotsList}
   // ----------------------------------------------------
   if (
     payload === 'BTN_FOOTBALL_SLOTS' ||
-    normalizedText.includes('football slots') ||
+    normalizedText.includes('football') ||
     normalizedText.includes('soccer')
   ) {
     const result = await getTodayAvailableSlots('football');
@@ -737,20 +748,54 @@ ${slotsList}
   }
 
   // ----------------------------------------------------
-  // F. AI Conversational Assistant (Natural language slot queries & multilingual chat)
+  // F. Common User Intents (Thank you, Slot inquiries, Generic questions)
   // ----------------------------------------------------
-  if (!payload && text.trim().length > 1) {
-    const isPureGreeting = ['hi', 'hello', 'hey', 'start', 'menu', 'options'].includes(normalizedText);
-    if (!isPureGreeting) {
-      try {
-        const aiReply = await generateAIResponse({ phone: from, userMessage: text });
-        if (aiReply) {
-          return sendTextMessage({ to: from, text: aiReply });
-        }
-      } catch (aiErr) {
-        console.warn('[AI BOT BYPASS] Falling back to rule engine:', aiErr.message);
-      }
-    }
+  // F1: Thank you / Appreciation
+  if (
+    normalizedText.includes('thank') ||
+    normalizedText.includes('thx') ||
+    normalizedText.includes('dhanyawad') ||
+    normalizedText.includes('shukriya')
+  ) {
+    const thanksMsg =
+`You're very welcome! 🙌 We look forward to hosting your squad at *Shri Trimurti Fitness Club*! 🏏⚽
+
+Need to check other times or book another session? Choose an option below:`;
+
+    return sendInteractiveButtons({
+      to: from,
+      headerText: 'Shri Trimurti Sports Arena',
+      bodyText: thanksMsg,
+      buttons: [
+        { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
+        { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
+        { id: 'BTN_LOCATION', title: '📍 Directions' },
+      ],
+    });
+  }
+
+  // F2: General Slot / Timing / Booking inquiry
+  if (
+    normalizedText.includes('slot') ||
+    normalizedText.includes('time') ||
+    normalizedText.includes('timing') ||
+    normalizedText.includes('available') ||
+    normalizedText.includes('book') ||
+    normalizedText.includes('aaj') ||
+    normalizedText.includes('kal') ||
+    normalizedText.includes('tomorrow')
+  ) {
+    return sendInteractiveButtons({
+      to: from,
+      headerText: 'Check Live Slots',
+      bodyText:
+        'Which sport would you like to check today?\n\nTap below to view real-time vacant slots and reserve directly with our official UPI QR code:',
+      buttons: [
+        { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
+        { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
+        { id: 'BTN_PRICING', title: '💰 Pricing & Rates' },
+      ],
+    });
   }
 
   // ----------------------------------------------------
