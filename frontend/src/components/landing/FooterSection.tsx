@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Phone, Mail, Clock, MessageCircle, Heart } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, MessageCircle, Heart, Sparkles } from "lucide-react";
 import logoImage from "@/assets/logo.png";
 import api from "@/lib/api";
 
@@ -203,21 +203,34 @@ export default function FooterSection() {
           </div>
         </div>
 
-        <div className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <div className="flex flex-wrap items-center gap-4">
+        <div className="border-t border-border pt-8 flex flex-col lg:flex-row items-center justify-between gap-5 text-xs text-muted-foreground">
+          {/* Copyright & Legal Links */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-center sm:text-left">
             <p>© {new Date().getFullYear()} SHRI TRIMURTI FITNESS CLUB. All rights reserved.</p>
-            <span>•</span>
-            <Link to="/privacy" className="hover:text-primary transition-colors underline-offset-4 hover:underline">
-              Privacy Policy
-            </Link>
-            <span>•</span>
-            <Link to="/terms" className="hover:text-primary transition-colors underline-offset-4 hover:underline">
-              Terms of Service
-            </Link>
+            <span className="hidden sm:inline text-muted-foreground/40">•</span>
+            <div className="flex items-center gap-3">
+              <Link to="/privacy" className="hover:text-primary transition-colors underline-offset-4 hover:underline">
+                Privacy Policy
+              </Link>
+              <span className="text-muted-foreground/40">•</span>
+              <Link to="/terms" className="hover:text-primary transition-colors underline-offset-4 hover:underline">
+                Terms of Service
+              </Link>
+            </div>
           </div>
-          <p className="flex items-center gap-1">
-            Crafted for sports lovers in Kolhapur & Koparde <Heart className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500" />
-          </p>
+
+          {/* Tagline & Option 2: Created by Harsh Pill Badge */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center">
+            <p className="flex items-center justify-center gap-1.5">
+              <span>Crafted for sports lovers in Kolhapur & Koparde</span>
+              <Heart className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500 shrink-0" />
+            </p>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px] shadow-sm tracking-wide select-none">
+              <Sparkles className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
+              <span>Created by Harsh</span>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

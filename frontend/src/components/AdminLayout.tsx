@@ -158,6 +158,13 @@ export default function AdminLayout() {
           <Button variant="ghost" onClick={handleLogout} className="w-full justify-start text-muted-foreground hover:text-destructive">
             <LogOut className="w-4 h-4 mr-2" /> Logout
           </Button>
+          <div className="mt-3 px-2 flex items-center justify-between text-[11px] text-muted-foreground/70 select-none">
+            <span>v1.0.0</span>
+            <span className="inline-flex items-center gap-1.5 font-medium text-foreground/80">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Created by Harsh
+            </span>
+          </div>
         </div>
       </aside>
 
