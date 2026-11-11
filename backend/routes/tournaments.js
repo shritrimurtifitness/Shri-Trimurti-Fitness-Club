@@ -4,6 +4,7 @@ const pool = require('../config/db');
 const authMiddleware = require('../middleware/auth');
 const cache = require('../config/cache');
 const mailer = require('../utils/mailer');
+const whatsappService = require('../services/whatsapp');
 
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
@@ -179,13 +180,14 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Public: Send OTP to Captain's Email
+// Public: Send OTP to Captain via WhatsApp or Email
 router.post('/send-otp', async (req, res) => {
   try {
-    const { email, name, tournament_id } = req.body;
-    if (!email || !email.includes('@')) {
-      return res.status(400).json({ error: 'A valid email address is required' });
-    }
+    const { email, phone, name, tournament_id, channel = 'whatsapp' } = req.body;
+
+    // Generate 4-digit code
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
     let tournamentName = 'Shri Trimurti Tournament';
     if (tournament_id) {
@@ -193,14 +195,52 @@ router.post('/send-otp', async (req, res) => {
       if (tRes.rows.length > 0) tournamentName = tRes.rows[0].name;
     }
 
+    // WhatsApp verification
+    if (channel === 'whatsapp' || (!email && phone)) {
+      const rawPhone = String(phone || '').replace(/\D/g, '');
+      const cleanPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
+      const phone10 = rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
+
+      if (phone10.length !== 10) {
+        return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number' });
+      }
+
+      await pool.query(
+        'DELETE FROM otp_verifications WHERE (phone = $1 OR phone = $2) AND verified = false',
+        [cleanPhone, phone10]
+      );
+      await pool.query(
+        'INSERT INTO otp_verifications (phone, otp_code, expires_at, channel) VALUES ($1, $2, $3, $4)',
+        [cleanPhone, otp, expiresAt, 'whatsapp']
+      );
+
+      await cache.set(`otp:whatsapp:${cleanPhone}`, otp, 300);
+      await cache.set(`otp:whatsapp:${phone10}`, otp, 300);
+
+      // Attempt to send WhatsApp notification
+      const waText = `🏆 *Shri Trimurti Fitness Club*\n\nYour tournament registration OTP for *${tournamentName}* is: *${otp}*\n\nValid for 5 minutes. Enter this code on our website or reply with *VERIFY ${otp}* to verify your mobile number!`;
+      await whatsappService.sendTextMessage({ to: cleanPhone, text: waText }).catch(() => {});
+
+      return res.json({
+        success: true,
+        channel: 'whatsapp',
+        message: 'Verification code generated! Tap the WhatsApp button to verify in 1 tap, or enter the 4-digit code.',
+        phone: phone10,
+        verificationLink: `https://wa.me/919595153006?text=${encodeURIComponent(`VERIFY ${otp}`)}`,
+      });
+    }
+
+    // Email verification
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'A valid email address is required' });
+    }
+
     const cleanEmail = email.toLowerCase().trim();
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
     await pool.query('DELETE FROM otp_verifications WHERE email = $1 AND verified = false', [cleanEmail]);
     await pool.query(
-      'INSERT INTO otp_verifications (email, otp_code, expires_at) VALUES ($1, $2, $3)',
-      [cleanEmail, otp, expiresAt]
+      'INSERT INTO otp_verifications (email, otp_code, expires_at, channel) VALUES ($1, $2, $3, $4)',
+      [cleanEmail, otp, expiresAt, 'email']
     );
 
     await cache.set(`otp:${cleanEmail}`, otp, 300);
@@ -214,6 +254,7 @@ router.post('/send-otp', async (req, res) => {
 
     res.json({
       success: true,
+      channel: 'email',
       message: 'Verification code sent to your email',
       provider: mailRes?.provider || 'default',
     });
@@ -223,57 +264,122 @@ router.post('/send-otp', async (req, res) => {
   }
 });
 
-// Public: Verify OTP
+// Public: Verify OTP (via WhatsApp or Email)
 router.post('/verify-otp', async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    if (!email || !otp) {
-      return res.status(400).json({ error: 'Email and OTP code are required' });
+    const { email, phone, otp, channel } = req.body;
+    if (!otp) {
+      return res.status(400).json({ error: 'OTP code is required' });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
     const cleanOtp = otp.toString().trim();
+    const cleanEmail = email ? email.toLowerCase().trim() : null;
+    const rawPhone = phone ? String(phone).replace(/\D/g, '') : null;
+    const cleanPhone = rawPhone && rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
+    const phone10 = rawPhone && rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
 
-    const result = await pool.query(
-      'SELECT id FROM otp_verifications WHERE email = $1 AND otp_code = $2 AND verified = false AND expires_at > NOW() ORDER BY id DESC LIMIT 1',
-      [cleanEmail, cleanOtp]
-    );
+    // Verify WhatsApp Phone
+    if (channel === 'whatsapp' || (cleanPhone && !cleanEmail)) {
+      const result = await pool.query(
+        `SELECT id, expires_at, phone FROM otp_verifications 
+         WHERE (phone = $1 OR phone = $2) 
+           AND otp_code = $3 
+           AND verified = false 
+           AND expires_at > NOW() 
+         ORDER BY id DESC LIMIT 1`,
+        [cleanPhone, phone10, cleanOtp]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid or expired OTP. Please request a new code.' });
+      if (result.rows.length === 0) {
+        return res.status(400).json({ error: 'Invalid or expired OTP. Please request a new code.' });
+      }
+
+      await pool.query('UPDATE otp_verifications SET verified = true WHERE id = $1', [result.rows[0].id]);
+      await cache.set(`otp_verified:whatsapp:${cleanPhone}`, 'true', 900);
+      if (phone10) await cache.set(`otp_verified:whatsapp:${phone10}`, 'true', 900);
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('otp_verified', { phone: cleanPhone, phone10, channel: 'whatsapp' });
+      }
+
+      return res.json({ success: true, channel: 'whatsapp', message: 'Captain mobile number verified successfully!' });
     }
 
-    await pool.query('UPDATE otp_verifications SET verified = true WHERE id = $1', [result.rows[0].id]);
-    await cache.set(`otp_verified:${cleanEmail}`, 'true', 900); // 15 mins window
+    // Verify Email
+    if (cleanEmail) {
+      const result = await pool.query(
+        `SELECT id FROM otp_verifications WHERE email = $1 AND otp_code = $2 AND verified = false AND expires_at > NOW() ORDER BY id DESC LIMIT 1`,
+        [cleanEmail, cleanOtp]
+      );
 
-    res.json({ success: true, message: 'Email verified successfully!' });
+      if (result.rows.length === 0) {
+        return res.status(400).json({ error: 'Invalid or expired OTP. Please request a new code.' });
+      }
+
+      await pool.query('UPDATE otp_verifications SET verified = true WHERE id = $1', [result.rows[0].id]);
+      await cache.set(`otp_verified:${cleanEmail}`, 'true', 900); // 15 mins window
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('otp_verified', { email: cleanEmail, channel: 'email' });
+      }
+
+      return res.json({ success: true, channel: 'email', message: 'Captain email verified successfully!' });
+    }
+
+    return res.status(400).json({ error: 'Either email or mobile number is required to verify' });
   } catch (err) {
     console.error('[TOURNAMENT VERIFY OTP ERROR]', err);
     res.status(500).json({ error: 'Failed to verify OTP' });
   }
 });
 
-// Public: Register Team (Direct UPI Flow with Brevo OTP Verified Email)
+// Public: Register Team (Direct UPI Flow with Dual-Channel OTP Verified Contact)
 router.post('/:id/register', async (req, res) => {
   const { team_name, captain_name, phone, email, utr_number } = req.body;
   try {
     // Basic validation
     if (!team_name || !captain_name || !phone) {
-      return res.status(400).json({ error: 'Team name, Captain name, and Phone are required' });
+      return res.status(400).json({ error: "Team name, Captain's name, and Mobile number are required" });
     }
 
-    const cleanEmail = (email || '').toLowerCase().trim();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      return res.status(400).json({ error: 'A valid captain email address is required' });
+    const rawPhone = String(phone).replace(/\D/g, '');
+    const cleanPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
+    const phone10 = rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
+    const cleanEmail = email ? email.toLowerCase().trim() : '';
+
+    if (phone10.length !== 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number' });
     }
 
-    // Verify email was OTP verified
-    const otpCheck = await pool.query(
-      "SELECT id FROM otp_verifications WHERE email = $1 AND verified = true AND expires_at > NOW() - INTERVAL '30 minutes' ORDER BY id DESC LIMIT 1",
-      [cleanEmail]
+    // Verify OTP: Either Phone (WhatsApp) OR Email must be verified within last 30 mins
+    let isVerified = false;
+
+    // 1. Check Phone verification
+    const phoneRecord = await pool.query(
+      "SELECT id FROM otp_verifications WHERE (phone = $1 OR phone = $2) AND verified = true AND created_at > NOW() - INTERVAL '30 minutes'",
+      [cleanPhone, phone10]
     );
-    if (otpCheck.rows.length === 0) {
-      return res.status(400).json({ error: 'Please verify your email address with the OTP code first' });
+    const cachedPhone = (await cache.get(`otp_verified:whatsapp:${cleanPhone}`)) || (await cache.get(`otp_verified:whatsapp:${phone10}`));
+    if (phoneRecord.rows.length > 0 || cachedPhone) {
+      isVerified = true;
+    }
+
+    // 2. Check Email verification (if not already verified by phone)
+    if (!isVerified && cleanEmail) {
+      const emailRecord = await pool.query(
+        "SELECT id FROM otp_verifications WHERE email = $1 AND verified = true AND created_at > NOW() - INTERVAL '30 minutes'",
+        [cleanEmail]
+      );
+      const cachedEmail = await cache.get(`otp_verified:${cleanEmail}`);
+      if (emailRecord.rows.length > 0 || cachedEmail) {
+        isVerified = true;
+      }
+    }
+
+    if (!isVerified) {
+      return res.status(400).json({ error: "Please verify Captain's contact details (via WhatsApp or Email OTP) first" });
     }
 
     if (!utr_number || utr_number.trim().length < 6) {
@@ -283,7 +389,7 @@ router.post('/:id/register', async (req, res) => {
     // Verify slots left
     const tournamentRes = await pool.query('SELECT max_teams, is_active, entry_fee, name, sport_type FROM tournaments WHERE id=$1', [req.params.id]);
     if (tournamentRes.rows.length === 0 || !tournamentRes.rows[0].is_active) {
-       return res.status(400).json({ error: 'Tournament not available' });
+      return res.status(400).json({ error: 'Tournament not available' });
     }
     const max_teams = tournamentRes.rows[0].max_teams;
 
@@ -294,7 +400,7 @@ router.post('/:id/register', async (req, res) => {
     const registered_teams = parseInt(regObj.rows[0].count);
 
     if (registered_teams >= max_teams) {
-       return res.status(400).json({ error: 'Tournament is already full' });
+      return res.status(400).json({ error: 'Tournament is already full' });
     }
 
     // Check duplicate UTR
@@ -306,23 +412,57 @@ router.post('/:id/register', async (req, res) => {
       return res.status(400).json({ error: 'This UPI UTR / Reference number has already been submitted for a registration' });
     }
 
-    // Create registration with pending_verification and verified email
+    // Create registration with pending_verification
     const insertRes = await pool.query(
       `INSERT INTO tournament_registrations (tournament_id, team_name, captain_name, phone, email, utr_number, payment_mode, payment_status) 
        VALUES ($1, $2, $3, $4, $5, $6, 'upi', 'pending_verification') RETURNING *`,
-      [req.params.id, team_name.trim(), captain_name.trim(), phone.trim(), cleanEmail, utr_number.trim()]
+      [req.params.id, team_name.trim(), captain_name.trim(), phone10, cleanEmail || null, utr_number.trim()]
     );
 
-    // Send confirmation receipt email
-    mailer.sendTournamentRegistrationReceived({
-      email: cleanEmail,
-      captainName: captain_name.trim(),
-      teamName: team_name.trim(),
-      tournamentName: tournamentRes.rows[0].name,
-      entryFee: tournamentRes.rows[0].entry_fee,
-      utrNumber: utr_number.trim(),
-      registrationId: insertRes.rows[0].id
-    }).catch(err => console.error('[TOURNAMENT RECEIPT EMAIL ERROR]', err));
+    // Send confirmation receipt email if email provided
+    if (cleanEmail) {
+      mailer.sendTournamentRegistrationReceived({
+        email: cleanEmail,
+        captainName: captain_name.trim(),
+        teamName: team_name.trim(),
+        tournamentName: tournamentRes.rows[0].name,
+        entryFee: tournamentRes.rows[0].entry_fee,
+        utrNumber: utr_number.trim(),
+        registrationId: insertRes.rows[0].id
+      }).catch(err => console.error('[TOURNAMENT RECEIPT EMAIL ERROR]', err));
+    }
+
+    // Send WhatsApp confirmation to Captain
+    const captainWaText = 
+`🏆 *TOURNAMENT REGISTRATION SUBMITTED!*
+
+🏟️ *Tournament:* ${tournamentRes.rows[0].name}
+👥 *Team:* ${team_name.trim()}
+👤 *Captain:* ${captain_name.trim()}
+💰 *Entry Fee:* ₹${tournamentRes.rows[0].entry_fee}
+💳 *UTR Reference:* ${utr_number.trim()}
+
+⏳ *Status:* *Pending Admin Verification*
+Our club desk is verifying your payment with our bank. You will receive your official tournament match pass once verified!
+
+📞 *Helpline:* +91 9595153006
+Shri Trimurti Fitness Club`;
+
+    whatsappService.sendTextMessage({ to: cleanPhone, text: captainWaText }).catch(() => {});
+
+    // Notify Admin's Personal WhatsApp in Real-Time
+    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
+    const adminAlert = 
+`🚨 *NEW TOURNAMENT REGISTRATION!*
+
+🏆 *Tournament:* ${tournamentRes.rows[0].name}
+👥 *Team:* ${team_name.trim()}
+👤 *Captain:* ${captain_name.trim()} (📞 +91 ${phone10})
+💰 *Entry Fee:* ₹${tournamentRes.rows[0].entry_fee}
+💳 *Submitted UTR:* ${utr_number.trim()}
+
+Please verify payment in club bank account.`;
+    whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
 
     await cache.delPattern('tournaments:*');
     const io = req.app.get('io');
@@ -337,7 +477,7 @@ router.post('/:id/register', async (req, res) => {
       success: true, 
       id: insertRes.rows[0].id, 
       registration: insertRes.rows[0],
-      message: 'Registration submitted successfully! A confirmation receipt has been sent to your email.'
+      message: 'Registration submitted successfully! Our tournament committee is verifying your payment.'
     });
   } catch (err) {
     console.error("Registration initiation error:", err);
