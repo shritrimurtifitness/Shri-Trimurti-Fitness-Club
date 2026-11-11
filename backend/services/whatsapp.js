@@ -283,10 +283,34 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
 }
 
 /**
- * Sends a structured booking confirmation receipt ticket to the customer via WhatsApp.
+ * Sends a structured booking confirmation receipt ticket to the customer via WhatsApp,
+ * including their official Gate Entry Pass QR code image.
  */
-async function sendBookingConfirmationTicket({ phone, bookingId, turfName, date, slots, totalAmount, utrNumber }) {
+async function sendBookingConfirmationTicket({ phone, bookingId, turfName, date, slots, totalAmount, utrNumber, qrToken }) {
   const formattedSlots = Array.isArray(slots) ? slots.join(', ') : slots;
+  const tokenToEncode = qrToken || bookingId;
+  const qrImageUrl = `https://quickchart.io/qr?text=${encodeURIComponent(tokenToEncode)}&size=600&ecLevel=H&margin=2`;
+
+  const qrCaption = 
+`🎟️ *OFFICIAL TURF ENTRY PASS*
+🏟️ *Facility:* ${turfName || 'Sports Turf'}
+📅 *Date:* ${date} | ⏰ *Slot:* ${formattedSlots}
+📋 *Booking ID:* #${bookingId ? bookingId.slice(0, 8).toUpperCase() : 'CONFIRMED'}
+
+👉 *Show this QR code at the turf entry gate for staff check-in scan!*`;
+
+  // 1. Send the Entry Pass QR Code Image
+  try {
+    await sendImageMessage({
+      to: phone,
+      imageUrl: qrImageUrl,
+      caption: qrCaption,
+    });
+  } catch (imgErr) {
+    console.error('[WHATSAPP ENTRY PASS QR SEND ERROR]', imgErr.message);
+  }
+
+  // 2. Send Detailed Booking Confirmation Receipt
   const message = 
 `🎉 *BOOKING CONFIRMED — SHRI TRIMURTI FITNESS CLUB*
 
@@ -304,7 +328,7 @@ ${utrNumber ? `💳 *UTR Reference:* ${utrNumber}\n` : ''}
 ⚠️ *Player Instructions:*
 1. Arrive 10–15 minutes before your scheduled slot.
 2. Proper sports footwear is required on the turf.
-3. Bring this WhatsApp confirmation on your phone.
+3. Show the official Entry Pass QR code above at the gate for fast check-in.
 
 Play Hard. Compete Better! 🔥`;
 

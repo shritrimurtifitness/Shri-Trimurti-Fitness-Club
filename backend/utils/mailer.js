@@ -132,8 +132,11 @@ async function sendBookingReceived({ email, name, bookingId, turfName, date, slo
 /**
  * Send Booking Confirmed Receipt
  */
-async function sendBookingConfirmed({ email, name, bookingId, turfName, date, slots, totalAmount }) {
+async function sendBookingConfirmed({ email, name, bookingId, turfName, date, slots, totalAmount, qrToken }) {
   const subject = `Booking Confirmed! (${bookingId}) - SHRI TRIMURTI FITNESS CLUB`;
+  const tokenToEncode = qrToken || bookingId;
+  const qrImageUrl = `https://quickchart.io/qr?text=${encodeURIComponent(tokenToEncode)}&size=300&ecLevel=H&margin=2`;
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #22c55e; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <div style="text-align: center; margin-bottom: 20px;">
@@ -142,7 +145,14 @@ async function sendBookingConfirmed({ email, name, bookingId, turfName, date, sl
       </div>
 
       <p style="color: #d4d4d8; font-size: 14px;">Hi <strong>${name}</strong>, your payment has been verified by the arena staff. We look forward to seeing you on the field!</p>
-      
+
+      <!-- Official Gate Entry Pass QR Code -->
+      <div style="text-align: center; margin: 22px 0; background: #18181b; padding: 18px; border-radius: 12px; border: 1px dashed #39FF14;">
+        <p style="color: #39FF14; font-weight: bold; font-size: 12px; text-transform: uppercase; margin-top: 0; letter-spacing: 1px;">Official Gate Entry Pass</p>
+        <img src="${qrImageUrl}" alt="Turf Entry Pass QR Code" style="width: 180px; height: 180px; border-radius: 8px; background: #ffffff; padding: 8px; display: inline-block;" />
+        <p style="color: #a1a1aa; font-size: 11px; margin: 10px 0 0 0;">Show this QR code upon arrival at the turf entrance for staff scan & check-in.</p>
+      </div>
+
       <div style="background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 16px; margin: 20px 0;">
         <table style="width: 100%; font-size: 14px; color: #e4e4e7; border-collapse: collapse;">
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Booking ID:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #39FF14;">${bookingId}</td></tr>
@@ -163,7 +173,7 @@ async function sendBookingConfirmed({ email, name, bookingId, turfName, date, sl
     </div>
   `;
 
-  return sendEmail({ to: email, subject, html, text: `Your booking ${bookingId} is confirmed!` });
+  return sendEmail({ to: email, subject, html, text: `Your booking ${bookingId} is confirmed! Entry Pass QR: ${qrImageUrl}` });
 }
 
 /**

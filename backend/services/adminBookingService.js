@@ -199,7 +199,7 @@ async function approveBookingById({ bookingId, io, adminIdentifier = 'admin' }) 
       `, [b.id, amount]);
     } catch {}
 
-    // 3. Send WhatsApp Confirmation Entry Pass to Customer
+    // 3. Send WhatsApp Confirmation Entry Pass (with QR Code) to Customer
     if (b.customer_phone) {
       whatsappService.sendBookingConfirmationTicket({
         phone: b.customer_phone,
@@ -209,6 +209,7 @@ async function approveBookingById({ bookingId, io, adminIdentifier = 'admin' }) 
         slots: [slotTime],
         totalAmount: amount,
         utrNumber: b.utr_number,
+        qrToken: b.qr_token,
       }).catch(err => console.error('[WHATSAPP CONFIRM ERROR]', err.message));
     }
 
@@ -222,6 +223,7 @@ async function approveBookingById({ bookingId, io, adminIdentifier = 'admin' }) 
         date: dateFormatted,
         slots: [slotTime],
         totalAmount: amount,
+        qrToken: b.qr_token,
       }).catch(err => console.error('[MAILER ERROR on confirm]', err.message));
     }
 

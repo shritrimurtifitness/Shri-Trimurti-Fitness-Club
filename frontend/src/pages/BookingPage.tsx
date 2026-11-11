@@ -899,14 +899,26 @@ export default function BookingPage() {
                         <div className="flex justify-between"><span className="text-muted-foreground">Submitted UTR:</span><span className="font-mono font-bold text-amber-400">{utrNumber || confirmedBooking?.utr_number}</span></div>
                         <div className="flex justify-between pt-1 border-t border-border/50 items-center">
                           <span className="text-muted-foreground">Status:</span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase">
-                            Awaiting Staff Approval
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                            confirmedBooking?.status === 'confirmed'
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                          }`}>
+                            {confirmedBooking?.status === 'confirmed' ? "Confirmed" : "Awaiting Staff Approval"}
                           </span>
                         </div>
                       </div>
 
+                      {confirmedBooking?.qr_token && (
+                        <div className="my-5 p-4 rounded-2xl bg-white text-zinc-900 border border-zinc-200 flex flex-col items-center justify-center text-center shadow-sm">
+                          <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 mb-2">Official Gate Entry Pass</p>
+                          <QRCodeSVG value={confirmedBooking.qr_token} size={150} level="H" />
+                          <p className="text-[11px] text-zinc-600 font-medium mt-2">Show this QR code at turf gate for instant check-in</p>
+                        </div>
+                      )}
+
                       <p className="text-xs text-muted-foreground leading-relaxed text-center">
-                        A booking receipt has been sent to {email ? <strong className="text-foreground">{email}</strong> : <strong className="text-foreground">+91 {phone} (WhatsApp)</strong>}. Once club staff verifies the UPI transfer, your slot will be permanently marked confirmed!
+                        A booking receipt and your official Entry Pass QR code have been sent to {email ? <strong className="text-foreground">{email}</strong> : <strong className="text-foreground">+91 {phone} (WhatsApp)</strong>}. Once club staff verifies the UPI transfer, your slot is confirmed!
                       </p>
                    </div>
                    <div className="bg-black/5 border-t border-border p-3 flex items-center justify-center gap-2">
