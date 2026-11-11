@@ -330,9 +330,9 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
             <DialogTitle className="flex items-center gap-2 text-xl font-heading font-black">
               <Trophy className="w-5 h-5 text-primary" /> Register Team
             </DialogTitle>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+            {/* <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
               <Sparkles className="w-3 h-3" /> 0% Platform Fee
-            </span>
+            </span> */}
           </div>
           <p className="text-xs text-muted-foreground mt-1 truncate">
             {tournament.name} • Entry Fee: <strong className="text-foreground">₹{tournament.entry_fee}</strong>

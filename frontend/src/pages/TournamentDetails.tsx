@@ -199,9 +199,9 @@ export default function TournamentDetails() {
                       Register Team <ChevronRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1" />
                     </Button>
                   )}
-                  <p className="text-center text-xs text-muted-foreground mt-3 flex justify-center items-center gap-1.5">
+                  {/* <p className="text-center text-xs text-muted-foreground mt-3 flex justify-center items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Direct Arena UPI • 0% Platform Fee
-                  </p>
+                  </p> */}
                 </div>
 
               </div>
