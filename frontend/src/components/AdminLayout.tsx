@@ -4,6 +4,7 @@ import logoImage from "@/assets/logo.png";
 import { LayoutDashboard, Calendar, CalendarDays, Settings, LogOut, BarChart3, Menu, X, Layers, Clock, Timer, DollarSign, Image as LucideImage, MessageSquare, Sun, Moon, Trophy, Megaphone, Shield, Users, QrCode, Activity, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
+import SportsThemeToggle from "@/components/SportsThemeToggle";
 import { title } from "process";
 
 interface SidebarLink {
@@ -168,13 +169,9 @@ export default function AdminLayout() {
           <h2 className="font-heading font-semibold text-foreground">
             {allSidebarLinks.find((l) => l.path === location.pathname)?.name || "Dashboard"}
           </h2>
-          <button
-            onClick={toggleTheme}
-            className="ml-auto w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+          <div className="ml-auto">
+            <SportsThemeToggle />
+          </div>
         </header>
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           {isBlocked ? (

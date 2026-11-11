@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Sun, Moon, Phone, MessageCircle } from "lucide-react";
+import { Menu, X, Phone, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
 import logoImage from "@/assets/logo.png";
 import api from "@/lib/api";
+import SportsThemeToggle from "@/components/SportsThemeToggle";
 
 const navLinks = [
   { name: "Home", path: "/", hash: "" },
@@ -87,14 +88,7 @@ export default function Navbar() {
               <MessageCircle className="w-5 h-5 text-emerald-500" />
             </a>
 
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
+            <SportsThemeToggle />
 
             <Link to="/book">
               <Button size="sm" className="bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-95 transition-opacity px-5">
@@ -104,7 +98,7 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Right Quick Actions */}
-          <div className="flex md:hidden items-center gap-1">
+          <div className="flex md:hidden items-center gap-1.5">
             <a
               href={`tel:${phone}`}
               aria-label="Call arena"
@@ -123,14 +117,7 @@ export default function Navbar() {
               <MessageCircle className="w-4 h-4" />
             </a>
 
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-800 dark:text-zinc-100"
-              title="Toggle theme"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+            <SportsThemeToggle size="sm" />
 
             <button
               className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-900 dark:text-white ml-0.5"

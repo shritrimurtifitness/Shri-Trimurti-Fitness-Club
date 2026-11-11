@@ -208,3 +208,18 @@
   0%, 100% { box-shadow: 0 0 20px hsl(142 76% 36% / 0.3); }
   50% { box-shadow: 0 0 40px hsl(142 76% 36% / 0.6); }
 }
+
+/* Circular Stadium Wave Theme Transition */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
