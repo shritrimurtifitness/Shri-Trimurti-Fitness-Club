@@ -196,9 +196,9 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
     if (timeBand === 'morning') {
       bandSqlClause = "AND s.start_time >= '06:00:00' AND s.start_time < '12:00:00'";
     } else if (timeBand === 'afternoon') {
-      bandSqlClause = "AND s.start_time >= '12:00:00' AND s.start_time < '17:00:00'";
+      bandSqlClause = "AND s.start_time >= '12:00:00' AND s.start_time < '18:00:00'";
     } else if (timeBand === 'night') {
-      bandSqlClause = "AND s.start_time >= '17:00:00' AND s.start_time <= '23:59:59'";
+      bandSqlClause = "AND s.start_time >= '18:00:00' AND s.start_time <= '23:59:59'";
     }
 
     const query = `
@@ -247,8 +247,8 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
 
     if (!timeBand) {
       morningCount = formattedSlots.filter((s) => s.start_time >= '06:00:00' && s.start_time < '12:00:00').length;
-      afternoonCount = formattedSlots.filter((s) => s.start_time >= '12:00:00' && s.start_time < '17:00:00').length;
-      nightCount = formattedSlots.filter((s) => s.start_time >= '17:00:00').length;
+      afternoonCount = formattedSlots.filter((s) => s.start_time >= '12:00:00' && s.start_time < '18:00:00').length;
+      nightCount = formattedSlots.filter((s) => s.start_time >= '18:00:00').length;
     } else {
       if (timeBand === 'morning') morningCount = formattedSlots.length;
       if (timeBand === 'afternoon') afternoonCount = formattedSlots.length;
@@ -349,10 +349,10 @@ async function sendDateListMenu({ to, facilityType = 'cricket' }) {
 }
 
 /**
- * Sends a 3-button Time Band prompt (Option 3):
- * 1. 🌙 Night (5-12)
- * 2. ☀️ Morning (6-12)
- * 3. ⛅ Afternoon (12-5)
+ * Sends a 3-button Time Band prompt:
+ * 1. 🌙 Night (6:00 PM to 12:00 AM)
+ * 2. ☀️ Morning (6:00 AM to 12:00 PM)
+ * 3. ⛅ Afternoon (12:00 PM to 6:00 PM)
  */
 async function sendTimeBandPrompt({ to, facilityType = 'cricket', date, counts = null }) {
   const isCricket = facilityType.toLowerCase().includes('cricket');
@@ -364,19 +364,19 @@ async function sendTimeBandPrompt({ to, facilityType = 'cricket', date, counts =
   const dateLabel = date === todayIST ? `Today (${dateFormatted})` : date === tomorrowIST ? `Tomorrow (${dateFormatted})` : dateFormatted;
 
   const mCount = counts ? counts.morning : 6;
-  const aCount = counts ? counts.afternoon : 5;
-  const nCount = counts ? counts.night : 7;
+  const aCount = counts ? counts.afternoon : 6;
+  const nCount = counts ? counts.night : 6;
 
   const buttons = [];
   // Night first as prime-time
   if (nCount > 0 || (mCount === 0 && aCount === 0)) {
-    buttons.push({ id: `BAND_${date}_${facilityType}_night`, title: '🌙 Night (5-12)' });
+    buttons.push({ id: `BAND_${date}_${facilityType}_night`, title: '🌙 Night (6-12)' });
   }
   if (mCount > 0) {
     buttons.push({ id: `BAND_${date}_${facilityType}_morning`, title: '☀️ Morning (6-12)' });
   }
   if (aCount > 0) {
-    buttons.push({ id: `BAND_${date}_${facilityType}_afternoon`, title: '⛅ Afternoon (12-5)' });
+    buttons.push({ id: `BAND_${date}_${facilityType}_afternoon`, title: '⛅ Afternoon (12-6)' });
   }
 
   if (buttons.length === 0) {
@@ -388,9 +388,9 @@ async function sendTimeBandPrompt({ to, facilityType = 'cricket', date, counts =
   const bodyText =
 `Which match session would you like to book for *${sportName}* on *${dateLabel}*?
 
-🌙 *Floodlit Night (5 PM - 12 AM):* ${nCount} open (₹800/hr)
-☀️ *Morning (6 AM - 12 PM):* ${mCount} open (₹600/hr)
-⛅ *Afternoon (12 PM - 5 PM):* ${aCount} open (₹600/hr)
+🌙 *Floodlit Night (6:00 PM - 12:00 AM):* ${nCount} open (₹800/hr)
+☀️ *Morning (6:00 AM - 12:00 PM):* ${mCount} open (₹600/hr)
+⛅ *Afternoon (12:00 PM - 6:00 PM):* ${aCount} open (₹600/hr)
 
 👇 *Tap a session below to view live slots:*`;
 
@@ -415,9 +415,9 @@ async function sendSlotsListMenu({ to, facilityType = 'cricket', date, timeBand 
   const dateLabel = date === todayIST ? `Today (${dateFormatted})` : date === tomorrowIST ? `Tomorrow (${dateFormatted})` : dateFormatted;
 
   const bandHeaders = {
-    morning: '☀️ Morning (6 AM - 12 PM)',
-    afternoon: '⛅ Afternoon (12 PM - 5 PM)',
-    night: '🌙 Floodlit Night (5 PM - 12 AM)',
+    morning: '☀️ Morning (6:00 AM - 12:00 PM)',
+    afternoon: '⛅ Afternoon (12:00 PM - 6:00 PM)',
+    night: '🌙 Floodlit Night (6:00 PM - 12:00 AM)',
   };
   const sessionLabel = timeBand && bandHeaders[timeBand] ? ` • ${bandHeaders[timeBand]}` : '';
 
