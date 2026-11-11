@@ -128,7 +128,7 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
 
     const formattedSlots = slotsRes.rows.map((row) => {
       const price = parseInt(row.price, 10) || 800;
-      const timeLabel = `${formatTime12h(row.start_time)} – ${formatTime12h(row.end_time)}`;
+      const timeLabel = `${formatTime12h(row.start_time)} - ${formatTime12h(row.end_time)}`;
       return {
         id: row.id,
         start_time: row.start_time,
@@ -142,7 +142,7 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
     return {
       isClosed: false,
       turfId: turf.id,
-      facilityName: turf.name || (facilityType === 'football' ? 'Football Arena' : 'Box Cricket Turf'),
+      facilityName: turf.name || (facilityType === 'football' ? 'Football Turf' : 'Cricket Turf'),
       slots: formattedSlots,
     };
   } catch (err) {
@@ -202,7 +202,7 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
       return sendInteractiveButtons({
         to: from,
         headerText: 'Slot Already Reserved',
-        bodyText: `⚠️ The ${formatTime12h(slot.start_time)} – ${formatTime12h(slot.end_time)} slot was just booked by another player.\n\nWould you like to check remaining slots?`,
+        bodyText: `⚠️ The ${formatTime12h(slot.start_time)} - ${formatTime12h(slot.end_time)} slot was just booked by another player.\n\nWould you like to check remaining slots?`,
         buttons: [
           { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
           { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
@@ -212,8 +212,8 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
     }
 
     const price = Number(slot.price) || 800;
-    const turfName = slot.turf_name || (slot.facility_type === 'football' ? 'Football Arena' : 'Box Cricket Turf');
-    const timeStr = `${formatTime12h(slot.start_time)} – ${formatTime12h(slot.end_time)}`;
+    const turfName = slot.turf_name || (slot.facility_type === 'football' ? 'Football Turf' : 'Cricket Turf');
+    const timeStr = `${formatTime12h(slot.start_time)} - ${formatTime12h(slot.end_time)}`;
 
     // Save active session
     setBookingSession(from, {
@@ -390,7 +390,7 @@ Once verified, you will automatically receive your official *Digital Entry Pass*
 
     return sendInteractiveButtons({
       to: from,
-      headerText: 'Shri Trimurti Sports Arena',
+      headerText: 'Shri Trimurti Fitness Club',
       bodyText: successMsg,
       buttons: [
         { id: 'BTN_LOCATION', title: '📍 Directions' },
@@ -643,16 +643,16 @@ Our arena manager is also reachable directly at 📞 +91 7083738373.`;
     if (result.isClosed) {
       return sendTextMessage({
         to: from,
-        text: `⚠️ *Arena Update for Today:*\n${result.reason}\n\nYou can still book upcoming dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=cricket`,
+        text: `⚠️ *Update for Today:*\n${result.reason}\n\nYou can still book upcoming dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=cricket`,
       });
     }
 
     if (!result.slots || result.slots.length === 0) {
       return sendInteractiveButtons({
         to: from,
-        headerText: '🏏 Box Cricket Turf',
+        headerText: '🏏 Cricket Turf',
         bodyText:
-          'All remaining slots for tonight are currently booked or in progress!\n\nWould you like to check football or talk to the arena desk?',
+          'All remaining slots for tonight are currently booked or in progress!\n\nWould you like to check football or talk to the club desk?',
         buttons: [
           { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Check Football' },
           { id: 'BTN_STAFF', title: '👤 Talk to Staff' },
@@ -676,7 +676,7 @@ Our arena manager is also reachable directly at 📞 +91 7083738373.`;
 
     return sendInteractiveList({
       to: from,
-      headerText: '🏏 Box Cricket Turf',
+      headerText: '🏏 Cricket Turf',
       bodyText:
 `*TODAY'S AVAILABLE CRICKET SLOTS:*
 
@@ -685,7 +685,7 @@ ${slotsList}
 👉 *Tap "Select Slot to Book" below to reserve directly on WhatsApp with UPI QR code:*`,
       buttonTitle: '📅 Select Slot to Book',
       sections,
-      footerText: 'Shri Trimurti Sports Arena',
+      footerText: 'Shri Trimurti Fitness Club',
     });
   }
 
@@ -702,16 +702,16 @@ ${slotsList}
     if (result.isClosed) {
       return sendTextMessage({
         to: from,
-        text: `⚠️ *Arena Update for Today:*\n${result.reason}\n\nYou can book upcoming dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=football`,
+        text: `⚠️ *Club Update for Today:*\n${result.reason}\n\nYou can book upcoming dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=football`,
       });
     }
 
     if (!result.slots || result.slots.length === 0) {
       return sendInteractiveButtons({
         to: from,
-        headerText: '⚽ Football Arena',
+        headerText: '⚽ Football Turf',
         bodyText:
-          'No more vacant football slots tonight. Would you like to check cricket turf or talk to arena management?',
+          'No more vacant football slots tonight. Would you like to check cricket turf or talk to Club management?',
         buttons: [
           { id: 'BTN_CRICKET_SLOTS', title: '🏏 Check Cricket' },
           { id: 'BTN_STAFF', title: '👤 Talk to Staff' },
@@ -734,7 +734,7 @@ ${slotsList}
 
     return sendInteractiveList({
       to: from,
-      headerText: '⚽ Football Arena',
+      headerText: '⚽ Football Turf',
       bodyText:
 `*TODAY'S AVAILABLE FOOTBALL SLOTS:*
 
@@ -743,7 +743,7 @@ ${slotsList}
 👉 *Tap "Select Slot to Book" below to reserve directly on WhatsApp with UPI QR code:*`,
       buttonTitle: '📅 Select Slot to Book',
       sections,
-      footerText: 'Shri Trimurti Sports Arena',
+      footerText: 'Shri Trimurti Fitness Club',
     });
   }
 
@@ -752,10 +752,11 @@ ${slotsList}
   // ----------------------------------------------------
   // F1: Thank you / Appreciation
   if (
-    normalizedText.includes('thank') ||
+    normalizedText.includes('thanks') ||
     normalizedText.includes('thx') ||
     normalizedText.includes('dhanyawad') ||
-    normalizedText.includes('shukriya')
+    normalizedText.includes('shukriya') || 
+    normalizedText.includes('thank you')
   ) {
     const thanksMsg =
 `You're very welcome! 🙌 We look forward to hosting your squad at *Shri Trimurti Fitness Club*! 🏏⚽
@@ -764,7 +765,7 @@ Need to check other times or book another session? Choose an option below:`;
 
     return sendInteractiveButtons({
       to: from,
-      headerText: 'Shri Trimurti Sports Arena',
+      headerText: 'Shri Trimurti Fitness Club',
       bodyText: thanksMsg,
       buttons: [
         { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
@@ -809,21 +810,22 @@ Need to check other times or book another session? Choose an option below:`;
     normalizedText.includes('charges')
   ) {
     const pricingMsg =
-`💰 *OFFICIAL ARENA PRICING & AMENITIES*
+`💰 *OFFICIAL Fitness Club PRICING & AMENITIES*
 
-🏏 *Box Cricket Turf:*
-• Day Slots (10:00 AM – 6:00 PM): *₹600 / Hour*
-• Floodlit Night Slots (6:00 PM – 12:00 AM): *₹800 / Hour*
-• _Includes high-grade cricket bats, tennis balls & stumps._
+🏏 *Cricket Turf:*
+• Day Slots (6:00 AM - 6:00 PM): *₹600 / Hour*
+• Floodlit Night Slots (6:00 PM - 12:00 AM): *₹800 / Hour*
+• _Includes high-grade cricket bats & stumps._
 
-⚽ *Football Arena:*
-• Regular Slots: *₹800 / Hour*
+⚽ *Football Turf:*
+• Day Slots (6:00 AM - 6:00 PM): *₹600 / Hour*
+• Floodlit Night Slots (6:00 PM - 12:00 AM): *₹800 / Hour*
 • _Includes quality footballs, perimeter netting & bibs._
 
 🚗 *Amenities:*
 • Free on-site vehicle parking
 • Covered player dugout & spectator lounge
-• Purified drinking water & chilled energy drinks
+• Purified drinking water & chilled energy drinks (Paid)
 
 Ready to hit the pitch?`;
 
@@ -851,22 +853,22 @@ Ready to hit the pitch?`;
     normalizedText.includes('where')
   ) {
     const locationMsg =
-`📍 *SHRI TRIMURTI SPORTS ARENA LOCATION*
+`📍 *Shri Trimurti Fitness Club LOCATION*
 
 📌 *Address:*
 Kudire Factory, Sangrul Fata, Koparde, Maharashtra 416205
 
 ⏰ *Operating Hours:*
-Mon – Sun: 10:00 AM – 12:00 AM (Midnight)
+Mon - Sun: 6:00 AM - 12:00 AM (Midnight)
 
 🗺️ *Google Maps Directions:*
 https://maps.google.com/?q=Kudire+Factory+Sangrul+Fata+Koparde
 
-📞 *Arena Phone:* +91 7083738373`;
+📞 *Fitness Club Phone:* +91 9595153006`;
 
     return sendInteractiveButtons({
       to: from,
-      headerText: 'Arena Location',
+      headerText: 'Fitness Club Location',
       bodyText: locationMsg,
       buttons: [
         { id: 'BTN_CRICKET_SLOTS', title: '🏏 Check Slots' },
@@ -888,13 +890,13 @@ https://maps.google.com/?q=Kudire+Factory+Sangrul+Fata+Koparde
     normalizedText.includes('corporate')
   ) {
     const staffMsg =
-`👤 *ARENA MANAGEMENT SUPPORT*
+`👤 *CLUB MANAGEMENT SUPPORT*
 
 Our desk team is ready to assist you!
 
-📞 *Direct Call:* +91 7083738373
-💬 *WhatsApp:* +91 7083738373
-✉️ *Email:* shritrimurtisportsarena@gmail.com
+📞 *Direct Call:* +91 9595153006
+💬 *WhatsApp:* +91 9595153006
+✉️ *Email:* shritrimurtifitness@gmail.com
 
 For corporate events, full-day tournaments, or recurring league bookings, please call the number above or let us know your preferred date and squad size right here.`;
 
@@ -908,15 +910,15 @@ For corporate events, full-day tournaments, or recurring league bookings, please
   // J. Default / Welcome Greeting Menu
   // ----------------------------------------------------
   const welcomeMsg =
-`Welcome to *Shri Trimurti Sports Arena*! 🏏⚽
+`Welcome to *Shri Trimurti Fitness Club*! 🏏⚽
 
-Koparde's premier floodlit venue for Box Cricket & Football.
+Koparde's premier floodlit venue for Cricket & Football.
 
 Book your turf slot directly here on WhatsApp with instant UPI payment, or check live availability below:`;
 
   return sendInteractiveButtons({
     to: from,
-    headerText: 'Shri Trimurti Sports Arena',
+    headerText: 'Shri Trimurti Fitness Club',
     bodyText: welcomeMsg,
     buttons: [
       { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
