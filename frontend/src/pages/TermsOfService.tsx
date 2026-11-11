@@ -62,7 +62,7 @@ export default function TermsOfService() {
             <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">5. Contact Us</h2>
             <div className="space-y-1 text-slate-400 text-sm">
               <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-400" /> Kudire Factory, Sangrul Fata, Koparde, Maharashtra 416204</div>
-              <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-emerald-400" /> +91 7083738373</div>
+              <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-emerald-400" /> +91 9595153006</div>
               <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-emerald-400" /> shritrimurtifitness@gmail.com</div>
             </div>
           </section>

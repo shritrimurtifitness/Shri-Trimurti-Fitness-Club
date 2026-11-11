@@ -34,7 +34,7 @@ function parseIST(dateVal, timeStr) {
 }
 
 /**
- * Formats phone number into standard international format for WhatsApp (e.g. 917083738373)
+ * Formats phone number into standard international format for WhatsApp (e.g. 919595153006)
  */
 function formatPhone(phone) {
   if (!phone) return '';

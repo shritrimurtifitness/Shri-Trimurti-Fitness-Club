@@ -17,8 +17,8 @@ interface ContactInfo {
 export default function ContactSection() {
   const [contact, setContact] = useState<ContactInfo>({
     address: "Kudire Factory , Sangrul Fata , Koparde",
-    phone: "+91 7083738373",
-    email: "shritrimurtisportsarena@gmail.com",
+    phone: "+91 9595153006",
+    email: "shritrimurtifitness@gmail.com",
     working_hours: "Mon–Sun: 10:00 AM – 12:00 AM",
     map_embed_url: "",
   });
@@ -60,7 +60,7 @@ export default function ContactSection() {
       )}&t=&z=14&ie=UTF8&iwloc=&output=embed`
     : "";
 
-  const cleanPhone = contact.phone.replace(/[^0-9]/g, "") || "917083738373";
+  const cleanPhone = contact.phone.replace(/[^0-9]/g, "") || "919595153006";
 
   const handleInquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();

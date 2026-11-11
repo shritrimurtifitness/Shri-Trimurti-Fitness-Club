@@ -104,7 +104,7 @@ export default function FAQSection() {
           </div>
 
           <a
-            href="https://wa.me/917083738373?text=Hi%20Shri%20Trimurti%20Sports%20Arena,%20I%20have%20a%20question%20regarding%20booking."
+            href="https://wa.me/919595153006?text=Hi%20Shri%20Trimurti%20Fitness%20Club,%20I%20have%20a%20question%20regarding%20booking."
             target="_blank"
             rel="noopener noreferrer"
           >

@@ -119,11 +119,11 @@ router.post('/webhook', async (req, res) => {
  * Development & Testing Helper Route
  * Allows simulating an incoming WhatsApp message without needing Meta API keys.
  * POST /api/whatsapp/simulate
- * Body: { from: "917083738373", text: "cricket slots" }
+ * Body: { from: "919595153006", text: "cricket slots" }
  */
 router.post('/simulate', async (req, res) => {
   try {
-    const { from = '917083738373', text = 'hi', buttonPayload = '', userName = 'Test Player' } = req.body;
+    const { from = '919595153006', text = 'hi', buttonPayload = '', userName = 'Test Player' } = req.body;
     const result = await whatsappBot.handleIncomingMessage({
       from,
       text,

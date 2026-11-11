@@ -43,8 +43,8 @@ interface ContactInfo {
 export default function FooterSection() {
   const [contact, setContact] = useState<ContactInfo>({
     address: "Kudire Factory , Sangrul Fata , Koparde",
-    phone: "+91 7083738373",
-    email: "shritrimurtisportsarena@gmail.com",
+    phone: "+91 9595153006",
+    email: "shritrimurtifitness@gmail.com",
     working_hours: "Mon–Sun: 10:00 AM – 12:00 AM",
     facebook_url: "",
     instagram_url: "",
@@ -59,7 +59,7 @@ export default function FooterSection() {
       .catch(() => {});
   }, []);
 
-  const cleanPhone = contact.phone.replace(/[^0-9]/g, "") || "917083738373";
+  const cleanPhone = contact.phone.replace(/[^0-9]/g, "") || "919595153006";
 
   const socials = [
     { icon: FacebookIcon, url: contact.facebook_url, label: "Facebook" },

@@ -148,7 +148,7 @@ export default function PricingSection() {
                       </Button>
                     </Link>
                   ) : (
-                    <a href="https://wa.me/917083738373?text=Hi,%20I%20want%20to%20inquire%20about%20custom%20slot%20pricing.">
+                    <a href="https://wa.me/919595153006?text=Hi,%20I%20want%20to%20inquire%20about%20custom%20slot%20pricing.">
                       <Button className="w-full font-bold text-sm bg-secondary text-secondary-foreground">
                         Inquire on WhatsApp
                       </Button>
@@ -246,7 +246,7 @@ export default function PricingSection() {
                   </Button>
                 </Link>
               ) : (
-                <a href="https://wa.me/917083738373?text=Hi,%20I%20want%20to%20inquire%20about%20turf%20pricing." className="w-full">
+                <a href="https://wa.me/919595153006?text=Hi,%20I%20want%20to%20inquire%20about%20turf%20pricing." className="w-full">
                   <Button className="w-full font-bold h-11 bg-secondary text-secondary-foreground">
                     Inquire on WhatsApp
                   </Button>
@@ -261,7 +261,7 @@ export default function PricingSection() {
           <p className="text-sm text-muted-foreground">
             Looking for monthly memberships, coaching batches, or full-day corporate tournament bookings?{" "}
             <a
-              href="https://wa.me/917083738373?text=Hi,%20I%20would%20like%20to%20inquire%20about%20corporate/bulk%20turf%20booking."
+              href="https://wa.me/919595153006?text=Hi,%20I%20would%20like%20to%20inquire%20about%20corporate/bulk%20turf%20booking."
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary font-semibold hover:underline inline-flex items-center gap-1"

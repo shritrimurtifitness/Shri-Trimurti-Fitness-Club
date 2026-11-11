@@ -18,7 +18,7 @@ const navLinks = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [phone, setPhone] = useState("+917083738373");
+  const [phone, setPhone] = useState("+919595153006");
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
 

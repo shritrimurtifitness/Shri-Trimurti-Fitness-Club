@@ -2,7 +2,7 @@ const axios = require('axios');
 const pool = require('../config/db');
 
 /**
- * Normalizes a phone number to standard international format (e.g. 917083738373)
+ * Normalizes a phone number to standard international format (e.g. 919595153006)
  */
 function normalizePhone(phone) {
   if (!phone) return '';

@@ -273,7 +273,7 @@ _Tap Cancel below if you change your mind._`;
     console.error('[INITIATE BOOKING ERROR]', err);
     return sendTextMessage({
       to: from,
-      text: '⚠️ Something went wrong while reserving the slot. Please try again or call +91 7083738373.',
+      text: '⚠️ Something went wrong while reserving the slot. Please try again or call +91 9595153006.',
     });
   }
 }
@@ -401,7 +401,7 @@ Once verified, you will automatically receive your official *Digital Entry Pass*
     console.error('[HANDLE UTR SUBMISSION ERROR]', err);
     return sendTextMessage({
       to: from,
-      text: '⚠️ Error submitting your UPI payment. Please contact our desk directly at +91 7083738373.',
+      text: '⚠️ Error submitting your UPI payment. Please contact our desk directly at +91 9595153006.',
     });
   }
 }
@@ -485,7 +485,7 @@ Our management team is dedicated to keeping the pitch, lighting, and facilities 
 
 Please reply directly with your thoughts, suggestions, or anything we can improve!
 
-Our arena manager is also reachable directly at 📞 +91 7083738373.`;
+Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
     return sendTextMessage({
       to: from,

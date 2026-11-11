@@ -113,7 +113,7 @@ export default function FacilitiesSection() {
                   </Link>
 
                   <a
-                    href={`https://wa.me/917083738373?text=Hi,%20I%20want%20to%20inquire%20about%20${encodeURIComponent(f.name)}%20slots.`}
+                    href={`https://wa.me/919595153006?text=Hi,%20I%20want%20to%20inquire%20about%20${encodeURIComponent(f.name)}%20slots.`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

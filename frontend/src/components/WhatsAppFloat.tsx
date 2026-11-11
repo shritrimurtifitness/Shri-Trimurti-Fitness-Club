@@ -5,7 +5,7 @@ import api from "@/lib/api";
 
 export default function WhatsAppFloat() {
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [phone, setPhone] = useState("917083738373");
+  const [phone, setPhone] = useState("919595153006");
 
   useEffect(() => {
     api.get("/settings/contact")
