@@ -10,7 +10,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const qrStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'shri-trimurti-sports-arena/upi-qr',
+    folder: 'shri-trimurti-fitness-club/upi-qr',
     allowed_formats: ['jpg', 'png', 'webp', 'jpeg'],
   },
 });
@@ -38,7 +38,9 @@ router.get('/contact', async (req, res) => {
         facebook_url: '', instagram_url: '', twitter_url: '', map_embed_url: '',
         gateway_percent: 2.00, gst_percent: 18.00,
         google_rating: 4.6, google_reviews_count: 150, google_maps_url: 'https://www.google.com/search?q=Shri+Trimurti+Fitness+Club+reviews',
-        show_testimonials: false
+        show_testimonials: false,
+        upi_id: 'harshvardhanp@slc',
+        upi_qr_url: 'https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png'
       });
     }
     res.json(result.rows[0]);

@@ -61,7 +61,7 @@ export default function BookingPage() {
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [upiSettings, setUpiSettings] = useState({
     upi_id: "harshvardhanp@slc",
-    upi_qr_url: "/upi-qr.png"
+    upi_qr_url: "https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png"
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<any>(null);
@@ -70,21 +70,27 @@ export default function BookingPage() {
   const [closureReason, setClosureReason] = useState("");
   const [showTeamSplit, setShowTeamSplit] = useState(false);
 
-  // Fetch settings for dynamic fee calculation and UPI
-  useEffect(() => {
+  const loadUpiAndFeeSettings = () => {
     api.get('/settings/contact').then(res => {
       setFeeSettings({
         gateway: Number(res.data.gateway_percent) || 0,
         gst: Number(res.data.gst_percent) || 0
       });
-      if (res.data.upi_id || res.data.upi_qr_url) {
+      if (res.data?.upi_id || res.data?.upi_qr_url) {
         setUpiSettings({
           upi_id: res.data.upi_id || "harshvardhanp@slc",
-          upi_qr_url: res.data.upi_qr_url || "/upi-qr.png"
+          upi_qr_url: res.data.upi_qr_url || "https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png"
         });
       }
     }).catch(err => console.error("Failed to fetch settings", err));
+  };
+
+  // Fetch settings for dynamic fee calculation and UPI
+  useEffect(() => {
+    loadUpiAndFeeSettings();
   }, []);
+
+  useSocket('settings_updated', loadUpiAndFeeSettings);
  
   const effectiveRate = (feeSettings.gateway / 100) * (1 + feeSettings.gst / 100);
 

@@ -63,22 +63,28 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
 
   const [upiSettings, setUpiSettings] = useState({
     upi_id: "harshvardhanp@slc",
-    upi_qr_url: "/upi-qr.png"
+    upi_qr_url: "https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png"
   });
+
+  const fetchUpiSettings = () => {
+    api.get('/settings/contact').then(res => {
+      if (res.data?.upi_id || res.data?.upi_qr_url) {
+        setUpiSettings({
+          upi_id: res.data.upi_id || "harshvardhanp@slc",
+          upi_qr_url: res.data.upi_qr_url || "https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png"
+        });
+      }
+    }).catch(err => console.error("Failed to fetch UPI settings", err));
+  };
 
   // Fetch UPI credentials and QR settings
   useEffect(() => {
     if (isOpen) {
-      api.get('/settings/contact').then(res => {
-        if (res.data?.upi_id || res.data?.upi_qr_url) {
-          setUpiSettings({
-            upi_id: res.data.upi_id || "harshvardhanp@slc",
-            upi_qr_url: res.data.upi_qr_url || "/upi-qr.png"
-          });
-        }
-      }).catch(err => console.error("Failed to fetch UPI settings", err));
+      fetchUpiSettings();
     }
   }, [isOpen]);
+
+  useSocket('settings_updated', fetchUpiSettings);
 
   // Reset state when opened
   useEffect(() => {

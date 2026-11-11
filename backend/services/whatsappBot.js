@@ -69,6 +69,48 @@ function formatDisplayDate(dateStr) {
 }
 
 /**
+ * Fetches dynamic UPI configuration from database / Redis cache (Cloudinary QR)
+ */
+async function getLiveUpiSettings() {
+  const fallbackQr = 'https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png';
+  const fallbackUpi = process.env.UPI_ID || 'harshvardhanp@slc';
+
+  try {
+    const cached = await cache.get('site:settings');
+    if (cached) {
+      const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      if (parsed?.upi_qr_url) {
+        return {
+          upi_id: parsed.upi_id || fallbackUpi,
+          upi_qr_url: parsed.upi_qr_url.startsWith('http') ? parsed.upi_qr_url : fallbackQr,
+        };
+      }
+    }
+  } catch (err) {
+    // ignore cache failure
+  }
+
+  try {
+    const res = await pool.query('SELECT upi_id, upi_qr_url FROM site_settings WHERE id = 1');
+    if (res.rows.length > 0) {
+      const dbQr = res.rows[0].upi_qr_url;
+      const dbUpi = res.rows[0].upi_id;
+      return {
+        upi_id: dbUpi || fallbackUpi,
+        upi_qr_url: (dbQr && dbQr.startsWith('http')) ? dbQr : fallbackQr,
+      };
+    }
+  } catch (dbErr) {
+    console.error('Error fetching dynamic UPI settings from DB:', dbErr);
+  }
+
+  return {
+    upi_id: fallbackUpi,
+    upi_qr_url: fallbackQr,
+  };
+}
+
+/**
  * Detects whether the user's message mentions a specific upcoming date/day (e.g. tomorrow, kal, friday)
  */
 function parseNaturalDate(text) {
@@ -554,13 +596,10 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
       userName: userName || '',
     });
 
-    const upiId = process.env.UPI_ID || 'harshvardhanp@slc';
-    const qrUrl = process.env.UPI_QR_URL
-      ? (process.env.UPI_QR_URL.startsWith('http') ? process.env.UPI_QR_URL : `https://shritrimurtifitnessclub.in${process.env.UPI_QR_URL}`)
-      : 'https://shritrimurtifitnessclub.in/upi-qr.png';
+    const { upi_id: upiId, upi_qr_url: qrUrl } = await getLiveUpiSettings();
     const upiPayLink = `upi://pay?pa=${upiId}&pn=Shri%20Trimurti%20Fitness%20Club&am=${price}&cu=INR&tn=TRM-${slotDateStr.replace(/-/g, '')}`;
 
-    // 1. Send the UPI QR code image
+    // 1. Send the Cloudinary-hosted UPI QR code image
     await sendImageMessage({
       to: from,
       imageUrl: qrUrl,

@@ -387,7 +387,7 @@ CREATE TABLE public.site_settings (
     google_maps_url text DEFAULT 'https://www.google.com/search?q=Akola+Sports+Arena+reviews'::text,
     show_testimonials boolean DEFAULT false,
     upi_id text DEFAULT 'harshvardhanp@slc'::text,
-    upi_qr_url text DEFAULT '/upi-qr.png'::text
+    upi_qr_url text DEFAULT 'https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png'::text
 );
 
 

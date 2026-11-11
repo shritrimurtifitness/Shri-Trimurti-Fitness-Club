@@ -53,7 +53,7 @@ export default function AdminSettings() {
   const [gatewayPercent, setGatewayPercent] = useState("2.0");
   const [gstPercent, setGstPercent] = useState("18.0");
   const [upiId, setUpiId] = useState("harshvardhanp@slc");
-  const [upiQrUrl, setUpiQrUrl] = useState("/upi-qr.png");
+  const [upiQrUrl, setUpiQrUrl] = useState("https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png");
   const [uploadingQr, setUploadingQr] = useState(false);
   const qrFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,7 +75,7 @@ export default function AdminSettings() {
       setGatewayPercent(res.data.gateway_percent?.toString() || "2.0");
       setGstPercent(res.data.gst_percent?.toString() || "18.0");
       setUpiId(res.data.upi_id || "harshvardhanp@slc");
-      setUpiQrUrl(res.data.upi_qr_url || "/upi-qr.png");
+      setUpiQrUrl(res.data.upi_qr_url || "https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png");
       setShowTestimonials(res.data.show_testimonials === true);
     }).catch(() => { });
   };
@@ -558,7 +558,7 @@ export default function AdminSettings() {
                       <Input
                         value={upiQrUrl}
                         onChange={(e) => setUpiQrUrl(e.target.value.trim())}
-                        placeholder="/upi-qr.png or https://res.cloudinary.com/..."
+                        placeholder="https://res.cloudinary.com/..."
                         className="bg-background font-mono text-xs"
                       />
                       <p className="text-[11px] text-muted-foreground">
@@ -595,7 +595,7 @@ export default function AdminSettings() {
 
                     <div className="relative bg-white p-3 rounded-2xl shadow-xl border border-zinc-200 inline-block overflow-hidden group">
                       <img
-                        src={upiQrUrl || "/upi-qr.png"}
+                        src={upiQrUrl || "https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png"}
                         alt="Arena UPI QR Preview"
                         className="w-44 h-44 object-contain rounded-lg"
                       />
