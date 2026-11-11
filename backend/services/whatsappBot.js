@@ -47,6 +47,53 @@ function getTodayString() {
 }
 
 /**
+ * Returns YYYY-MM-DD for a given offset from today in Asia/Kolkata timezone
+ */
+function getISTDate(offsetDays = 0) {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  now.setDate(now.getDate() + offsetDays);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Formats YYYY-MM-DD into a human-friendly label (e.g. "Wed, 11 Nov")
+ */
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = String(dateStr).substring(0, 10).split('-');
+  const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+  return dateObj.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/**
+ * Detects whether the user's message mentions a specific upcoming date/day (e.g. tomorrow, kal, friday)
+ */
+function parseNaturalDate(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  if (t.includes('tomorrow') || t.includes('kal') || t.includes('udya')) {
+    return getISTDate(1);
+  }
+  if (t.includes('today') || t.includes('aaj')) {
+    return getISTDate(0);
+  }
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  for (let i = 0; i < days.length; i++) {
+    if (t.includes(days[i])) {
+      const currentDay = now.getDay();
+      let diff = i - currentDay;
+      if (diff <= 0) diff += 7;
+      return getISTDate(diff);
+    }
+  }
+  return null;
+}
+
+/**
  * Formats 24h time string (e.g. "18:00:00") into 12h time (e.g. "6:00 PM")
  */
 function formatTime12h(timeStr) {
@@ -60,23 +107,26 @@ function formatTime12h(timeStr) {
 }
 
 /**
- * Queries Neon DB for available slots today for a given facility type ('cricket' | 'football')
+ * Queries Neon DB for available slots for a specific date and facility type ('cricket' | 'football')
  */
-async function getTodayAvailableSlots(facilityType = 'cricket') {
+async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = null) {
   try {
     const today = getTodayString();
+    const dateToQuery = targetDate || today;
+    const isToday = (dateToQuery === today);
     const nowIST = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false });
 
-    // 1. Check if arena or turf is closed today
+    // 1. Check if club is closed on this date
     const closureCheck = await pool.query(
       'SELECT reason FROM arena_closures WHERE date = $1',
-      [today]
+      [dateToQuery]
     );
     if (closureCheck.rows.length > 0) {
       return {
         isClosed: true,
-        reason: closureCheck.rows[0].reason || 'Arena closed for maintenance',
+        reason: closureCheck.rows[0].reason || 'Club closed for maintenance on this date',
         slots: [],
+        date: dateToQuery,
       };
     }
 
@@ -87,20 +137,20 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
     );
 
     if (turfRes.rows.length === 0) {
-      return { isClosed: false, slots: [], facilityName: 'Turf' };
+      return { isClosed: false, slots: [], facilityName: 'Turf', date: dateToQuery };
     }
 
     const turf = turfRes.rows[0];
 
-    // 3. Ensure slots are generated for today
+    // 3. Ensure slots are generated for this date
     try {
-      await pool.query('SELECT generate_daily_slots($1, $2)', [today, turf.id]);
+      await pool.query('SELECT generate_daily_slots($1, $2)', [dateToQuery, turf.id]);
     } catch {
-      // Ignore if function not available or slots already populated
+      // Ignore if function already populated
     }
 
-    // 4. Query vacant slots for today that have not passed current time
-    // Accounts for shared physical resources (e.g. Cricket & Football sharing the same turf)
+    // 4. Query vacant slots for the date
+    // If today, filter out passed hours (s.end_time > nowIST). If future date, include all day.
     const query = `
       SELECT s.id, s.start_time, s.end_time, s.price, s.date
       FROM slots s
@@ -108,7 +158,7 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
       WHERE s.turf_id = $1
         AND s.date = $2
         AND s.is_available = true
-        AND s.end_time > $3
+        AND ($4 = false OR s.end_time > $3)
         AND NOT EXISTS (
           SELECT 1 FROM bookings b
           JOIN slots s_other ON b.slot_id = s_other.id
@@ -125,7 +175,7 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
       LIMIT 10
     `;
 
-    const slotsRes = await pool.query(query, [turf.id, today, nowIST]);
+    const slotsRes = await pool.query(query, [turf.id, dateToQuery, nowIST, isToday]);
 
     const formattedSlots = slotsRes.rows.map((row) => {
       const price = parseInt(row.price, 10) || 800;
@@ -143,13 +193,152 @@ async function getTodayAvailableSlots(facilityType = 'cricket') {
     return {
       isClosed: false,
       turfId: turf.id,
+      date: dateToQuery,
+      isToday,
       facilityName: turf.name || (facilityType === 'football' ? 'Football Turf' : 'Cricket Turf'),
       slots: formattedSlots,
     };
   } catch (err) {
-    console.error('Error fetching today available slots for bot:', err.message);
-    return { isClosed: false, slots: [], error: true };
+    console.error('Error fetching available slots for date:', err.message);
+    return { isClosed: false, slots: [], error: true, date: targetDate };
   }
+}
+
+/**
+ * Backward compatibility wrapper for today's slots
+ */
+function getTodayAvailableSlots(facilityType = 'cricket') {
+  return getAvailableSlotsForDate(facilityType, getTodayString());
+}
+
+/**
+ * Sends a 3-button date selection prompt (Today, Tomorrow, Next 7 Days)
+ */
+async function sendDatePickerPrompt({ to, facilityType = 'cricket' }) {
+  const isCricket = facilityType.toLowerCase().includes('cricket');
+  const sportEmoji = isCricket ? '🏏' : '⚽';
+  const sportName = isCricket ? 'Cricket Turf' : 'Football Turf';
+
+  const todayStr = getISTDate(0);
+  const tomorrowStr = getISTDate(1);
+  const todayLabel = formatDisplayDate(todayStr).split(', ')[1] || 'Today';
+  const tomorrowLabel = formatDisplayDate(tomorrowStr).split(', ')[1] || 'Tomorrow';
+
+  const todayBtn = (`📅 Today (${todayLabel})`).length <= 20 ? `📅 Today (${todayLabel})` : '📅 Today';
+  const tomorrowBtn = (`📅 Tomorrow (${tomorrowLabel})`).length <= 20 ? `📅 Tomorrow (${tomorrowLabel})` : '📅 Tomorrow';
+
+  return sendInteractiveButtons({
+    to,
+    headerText: `${sportEmoji} ${sportName}`,
+    bodyText: `Which date would you like to book for *${sportName}*?\n\nChoose *Today*, *Tomorrow*, or browse upcoming dates:`,
+    buttons: [
+      { id: `DATE_${todayStr}_${facilityType}`, title: todayBtn },
+      { id: `DATE_${tomorrowStr}_${facilityType}`, title: tomorrowBtn },
+      { id: `DATE_PICKER_${facilityType}`, title: '🗓️ Next 7 Days' },
+    ],
+  });
+}
+
+/**
+ * Sends a WhatsApp List Menu showing the upcoming 7 calendar days
+ */
+async function sendDateListMenu({ to, facilityType = 'cricket' }) {
+  const isCricket = facilityType.toLowerCase().includes('cricket');
+  const sportEmoji = isCricket ? '🏏' : '⚽';
+  const sportName = isCricket ? 'Cricket Turf' : 'Football Turf';
+
+  const rows = [];
+  for (let i = 0; i < 7; i++) {
+    const dStr = getISTDate(i);
+    const dLabel = formatDisplayDate(dStr);
+    const prefix = i === 0 ? 'Today • ' : i === 1 ? 'Tomorrow • ' : '';
+    rows.push({
+      id: `DATE_${dStr}_${facilityType}`,
+      title: `${prefix}${dLabel}`.substring(0, 24),
+      description: `View available ${sportName} slots`,
+    });
+  }
+
+  const sections = [
+    {
+      title: 'Upcoming 7 Days',
+      rows,
+    },
+  ];
+
+  return sendInteractiveList({
+    to,
+    headerText: `${sportEmoji} ${sportName} Dates`,
+    bodyText: `Select any of the upcoming 7 days to view live available slots for *${sportName}*:`,
+    buttonTitle: '📅 Choose Date',
+    sections,
+    footerText: 'Shri Trimurti Fitness Club',
+  });
+}
+
+/**
+ * Sends an interactive list menu displaying available slots for the selected date
+ */
+async function sendSlotsListMenu({ to, facilityType = 'cricket', date, result }) {
+  const isCricket = facilityType.toLowerCase().includes('cricket');
+  const sportEmoji = isCricket ? '🏏' : '⚽';
+  const sportName = isCricket ? 'Cricket Turf' : 'Football Turf';
+  const todayIST = getTodayString();
+  const tomorrowIST = getISTDate(1);
+  const dateFormatted = formatDisplayDate(date);
+  const dateLabel = date === todayIST ? `Today (${dateFormatted})` : date === tomorrowIST ? `Tomorrow (${dateFormatted})` : dateFormatted;
+
+  if (result.isClosed) {
+    return sendTextMessage({
+      to,
+      text: `⚠️ *Update for ${dateLabel}:*\n${result.reason}\n\nYou can book other dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=${facilityType}`,
+    });
+  }
+
+  if (!result.slots || result.slots.length === 0) {
+    return sendInteractiveButtons({
+      to,
+      headerText: `${sportEmoji} ${sportName}`,
+      bodyText:
+        `All remaining slots for *${dateLabel}* are currently booked or have passed!\n\nWould you like to pick another date or check ${isCricket ? 'Football' : 'Cricket'}?`,
+      buttons: [
+        { id: `DATE_PICKER_${facilityType}`, title: '🗓️ Pick Another Date' },
+        { id: isCricket ? 'BTN_FOOTBALL_SLOTS' : 'BTN_CRICKET_SLOTS', title: isCricket ? '⚽ Check Football' : '🏏 Check Cricket' },
+        { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+      ],
+    });
+  }
+
+  const slotsList = result.slots
+    .map((s) => `• *${s.timeLabel}* (₹${s.price})`)
+    .join('\n');
+
+  const rows = result.slots.map((s) => ({
+    id: `BOOK_SLOT_${s.id}`,
+    title: s.timeLabel.substring(0, 24),
+    description: `₹${s.price} • Tap to Book with UPI`,
+  }));
+
+  const sections = [
+    {
+      title: `${dateLabel} Slots`.substring(0, 24),
+      rows,
+    },
+  ];
+
+  return sendInteractiveList({
+    to,
+    headerText: `${sportEmoji} ${sportName}`,
+    bodyText:
+`*AVAILABLE ${sportName.toUpperCase()} SLOTS FOR ${dateLabel.toUpperCase()}:*
+
+${slotsList}
+
+👉 *Tap "Choose Slot" below to reserve directly on WhatsApp with UPI QR code:*`,
+    buttonTitle: '📅 Choose Slot',
+    sections,
+    footerText: 'Shri Trimurti Fitness Club',
+  });
 }
 
 /**
@@ -701,6 +890,26 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   }
 
   // ----------------------------------------------------
+  // B1. Handle Date Picker List Request (e.g. DATE_PICKER_cricket)
+  // ----------------------------------------------------
+  if (payload.startsWith('DATE_PICKER_')) {
+    const facilityType = payload.replace('DATE_PICKER_', '').trim();
+    return sendDateListMenu({ to: from, facilityType });
+  }
+
+  // ----------------------------------------------------
+  // B2. Handle Date Selection Click (e.g. DATE_2026-11-12_cricket)
+  // ----------------------------------------------------
+  if (payload.startsWith('DATE_')) {
+    const parts = payload.replace('DATE_', '').split('_');
+    const selectedDate = parts[0];
+    const facilityType = parts[1] || 'cricket';
+
+    const result = await getAvailableSlotsForDate(facilityType, selectedDate);
+    return sendSlotsListMenu({ to: from, facilityType, date: selectedDate, result });
+  }
+
+  // ----------------------------------------------------
   // C. Handle standalone 12-digit UTR sent without active session
   // ----------------------------------------------------
   const standaloneUtrMatch = (text || '').match(/\b\d{10,18}\b/);
@@ -744,55 +953,15 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     normalizedText.includes('cricket') ||
     normalizedText.includes('box')
   ) {
-    const result = await getTodayAvailableSlots('cricket');
-
-    if (result.isClosed) {
-      return sendTextMessage({
-        to: from,
-        text: `⚠️ *Update for Today:*\n${result.reason}\n\nYou can still book upcoming dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=cricket`,
-      });
+    // Check if user specifically mentioned a date in natural text (e.g. "cricket tomorrow" or "friday cricket")
+    const naturalDate = parseNaturalDate(normalizedText);
+    if (naturalDate) {
+      const result = await getAvailableSlotsForDate('cricket', naturalDate);
+      return sendSlotsListMenu({ to: from, facilityType: 'cricket', date: naturalDate, result });
     }
 
-    if (!result.slots || result.slots.length === 0) {
-      return sendInteractiveButtons({
-        to: from,
-        headerText: '🏏 Cricket Turf',
-        bodyText:
-          'All remaining slots for tonight are currently booked or in progress!\n\nWould you like to check football or talk to the club desk?',
-        buttons: [
-          { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Check Football' },
-          { id: 'BTN_STAFF', title: '👤 Talk to Staff' },
-        ],
-      });
-    }
-
-    const slotsList = result.slots.map((s) => `• ${s.label}`).join('\n');
-
-    // If slots are available, send interactive list so user can tap to book!
-    const sections = [
-      {
-        title: 'Today Available Slots',
-        rows: result.slots.slice(0, 10).map((s) => ({
-          id: `BOOK_SLOT_${s.id}`,
-          title: s.timeLabel.slice(0, 24),
-          description: `₹${s.price} • Tap to Book with UPI`,
-        })),
-      },
-    ];
-
-    return sendInteractiveList({
-      to: from,
-      headerText: '🏏 Cricket Turf',
-      bodyText:
-`*TODAY'S AVAILABLE CRICKET SLOTS:*
-
-${slotsList}
-
-👉 *Tap "Select Slot to Book" below to reserve directly on WhatsApp with UPI QR code:*`,
-      buttonTitle: '📅 Select Slot to Book',
-      sections,
-      footerText: 'Shri Trimurti Fitness Club',
-    });
+    // Default: Present Date Selection (Today, Tomorrow, Next 7 Days)
+    return sendDatePickerPrompt({ to: from, facilityType: 'cricket' });
   }
 
   // ----------------------------------------------------
@@ -803,54 +972,13 @@ ${slotsList}
     normalizedText.includes('football') ||
     normalizedText.includes('soccer')
   ) {
-    const result = await getTodayAvailableSlots('football');
-
-    if (result.isClosed) {
-      return sendTextMessage({
-        to: from,
-        text: `⚠️ *Club Update for Today:*\n${result.reason}\n\nYou can book upcoming dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=football`,
-      });
+    const naturalDate = parseNaturalDate(normalizedText);
+    if (naturalDate) {
+      const result = await getAvailableSlotsForDate('football', naturalDate);
+      return sendSlotsListMenu({ to: from, facilityType: 'football', date: naturalDate, result });
     }
 
-    if (!result.slots || result.slots.length === 0) {
-      return sendInteractiveButtons({
-        to: from,
-        headerText: '⚽ Football Turf',
-        bodyText:
-          'No more vacant football slots tonight. Would you like to check cricket turf or talk to Club management?',
-        buttons: [
-          { id: 'BTN_CRICKET_SLOTS', title: '🏏 Check Cricket' },
-          { id: 'BTN_STAFF', title: '👤 Talk to Staff' },
-        ],
-      });
-    }
-
-    const slotsList = result.slots.map((s) => `• ${s.label}`).join('\n');
-
-    const sections = [
-      {
-        title: 'Today Football Slots',
-        rows: result.slots.slice(0, 10).map((s) => ({
-          id: `BOOK_SLOT_${s.id}`,
-          title: s.timeLabel.slice(0, 24),
-          description: `₹${s.price} • Tap to Book with UPI`,
-        })),
-      },
-    ];
-
-    return sendInteractiveList({
-      to: from,
-      headerText: '⚽ Football Turf',
-      bodyText:
-`*TODAY'S AVAILABLE FOOTBALL SLOTS:*
-
-${slotsList}
-
-👉 *Tap "Select Slot to Book" below to reserve directly on WhatsApp with UPI QR code:*`,
-      buttonTitle: '📅 Select Slot to Book',
-      sections,
-      footerText: 'Shri Trimurti Fitness Club',
-    });
+    return sendDatePickerPrompt({ to: from, facilityType: 'football' });
   }
 
   // ----------------------------------------------------
