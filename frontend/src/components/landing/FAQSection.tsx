@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button";
 
 const faqs = [
   {
-    question: "How do I book a box cricket or football slot?",
+    question: "How do I book a Cricket or football slot?",
     answer:
-      "Simply click 'Book Now', choose your preferred sport (Box Cricket or Football), select the date and time slot, and make an instant payment via UPI QR. Your slot is confirmed within seconds!",
+      "Simply click 'Book Now', choose your preferred sport (Cricket or Football), select the date and time slot, and make an instant payment via UPI QR. Your slot is confirmed within seconds!",
   },
   {
     question: "What are the arena operational hours?",

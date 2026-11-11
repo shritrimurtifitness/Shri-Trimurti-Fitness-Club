@@ -129,7 +129,7 @@ export default function HeroSection() {
               variants={itemVariants}
               className="text-base sm:text-lg text-zinc-600 dark:text-zinc-400 font-light leading-relaxed max-w-xl mb-7 sm:mb-9"
             >
-              Premier box cricket turf with full safety netting & championship football arena in Koparde. High-lumen floodlights for day & night matches.
+              Premier Cricket turf with full safety netting & championship Football Turf in Koparde. High-lumen floodlights for day & night matches.
             </motion.p>
 
             {/* 4. Action Buttons */}
@@ -199,7 +199,7 @@ export default function HeroSection() {
             <div className="relative w-full max-w-[34rem] aspect-[6/5] rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden border border-zinc-200 dark:border-zinc-800/80 shadow-[0_15px_45px_rgba(0,0,0,0.25)] group bg-zinc-100 dark:bg-zinc-950">
               <img
                 src={heroImage}
-                alt="SHRI TRIMURTI FITNESS CLUB box cricket and football turf"
+                alt="SHRI TRIMURTI FITNESS CLUB Cricket and football turf"
                 // @ts-expect-error fetchpriority attribute
                 fetchpriority="high"
                 loading="eager"
@@ -216,7 +216,7 @@ export default function HeroSection() {
                   </div>
                   <div>
                     <span className="text-[9px] sm:text-xs uppercase tracking-wider text-[#39FF14] font-bold">
-                      Box Cricket • Football
+                      Cricket • Football
                     </span>
                     <h4 className="text-white text-xs sm:text-sm font-semibold flex items-center gap-1 mt-0.5">
                       <MapPin className="w-3 h-3 text-zinc-400" /> Koparde, Sangrul Fata

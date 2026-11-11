@@ -55,7 +55,7 @@ function scheduleBookingNotifications(booking) {
 
   const bookingId = booking.id;
   const customerName = booking.customer_name || booking.name || 'Captain';
-  const turfName = booking.turf_name || booking.facility_name || 'Box Cricket Turf';
+  const turfName = booking.turf_name || booking.facility_name || 'Cricket Turf';
   const dateStr = typeof booking.date === 'string'
     ? booking.date.substring(0, 10)
     : new Date(booking.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });

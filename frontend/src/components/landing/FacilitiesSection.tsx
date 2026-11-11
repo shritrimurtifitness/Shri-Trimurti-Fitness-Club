@@ -84,7 +84,7 @@ export default function FacilitiesSection() {
                     className="w-full h-[280px] sm:h-[340px] lg:h-[380px] xl:h-[420px] object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                   />
                   <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-white text-xs font-bold uppercase tracking-wider">
-                    {f.facility_type === "cricket" ? "Box Cricket Turf" : f.facility_type === "football" ? "Championship Turf" : f.facility_type}
+                    {f.facility_type === "cricket" ? "Cricket Turf" : f.facility_type === "football" ? "Championship Turf" : f.facility_type}
                   </div>
                 </div>
               </div>

@@ -232,9 +232,9 @@ Rather than pre-generating millions of empty database rows months in advance, sl
 5. Redundant slots created before a table count reduction are automatically pruned, provided they have no active bookings.
 
 ### 5.2 Shared Physical Resource Management
-In multi-sport arenas, the same physical court often serves multiple sports (e.g., Box Cricket and 5-a-side Football share the main turf).
+In multi-sport arenas, the same physical court often serves multiple sports (e.g., Cricket and 5-a-side Football share the main turf).
 - Both turfs share an identical `physical_resource_id` (e.g., `1`).
-- When a booking is confirmed on Box Cricket at 19:00, the availability query in `slots.js` and `bookings.js` detects the overlapping slot on the same `physical_resource_id` and marks Football at 19:00 as booked/unavailable.
+- When a booking is confirmed on Cricket at 19:00, the availability query in `slots.js` and `bookings.js` detects the overlapping slot on the same `physical_resource_id` and marks Football at 19:00 as booked/unavailable.
 - This prevents physical double-booking while preserving independent pricing and marketing metrics for each sport.
 
 ### 5.3 Dual Payment & Verification Pipelines

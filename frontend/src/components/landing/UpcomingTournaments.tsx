@@ -81,7 +81,7 @@ export default function UpcomingTournaments() {
                 New Tournaments Coming Soon!
               </h3>
               <p className="text-sm md:text-base text-muted-foreground mb-6">
-                We regularly host Box Cricket and Football tournaments with cash prizes and trophies. Stay tuned or organize your own private tournament with us.
+                We regularly host Cricket and Football tournaments with cash prizes and trophies. Stay tuned or organize your own private tournament with us.
               </p>
               <div className="flex flex-wrap justify-center gap-3">
                 <Link to="/book">

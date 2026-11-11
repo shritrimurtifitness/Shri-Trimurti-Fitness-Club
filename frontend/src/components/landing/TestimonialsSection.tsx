@@ -308,7 +308,7 @@ export default function TestimonialsSection() {
                       <Input
                         value={role}
                         onChange={(e) => setRole(e.target.value)}
-                        placeholder="e.g. Box Cricket"
+                        placeholder="e.g. Cricket"
                       />
                     </div>
                   </div>

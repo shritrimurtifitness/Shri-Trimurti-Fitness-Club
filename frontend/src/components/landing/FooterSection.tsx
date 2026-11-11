@@ -84,7 +84,7 @@ export default function FooterSection() {
               </span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed mb-5">
-              Koparde’s premier sports destination featuring high-grade Box Cricket Turf and Championship Football Arena with floodlights.
+              Koparde’s premier sports destination featuring high-grade Cricket Turf and Championship Football Turf with floodlights.
             </p>
             <div className="flex items-center gap-2">
               <a
@@ -147,8 +147,8 @@ export default function FooterSection() {
             </h4>
             <ul className="space-y-2.5">
               {[
-                { name: "Box Cricket Turf", path: "/book?facility=cricket" },
-                { name: "Football Arena", path: "/book?facility=football" },
+                { name: "Cricket Turf", path: "/book?facility=cricket" },
+                { name: "Football Turf", path: "/book?facility=football" },
                 { name: "Night Floodlit Matches", path: "/book" },
                 { name: "Tournaments & Leagues", path: "/#tournaments" },
                 { name: "Corporate Bookings", path: "/#contact-section" },

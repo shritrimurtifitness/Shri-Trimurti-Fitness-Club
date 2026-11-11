@@ -235,8 +235,8 @@ export default function ContactSection() {
                   onChange={(e) => setFormSport(e.target.value)}
                   className="w-full h-10 px-3 rounded-md bg-background border border-input text-foreground text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  <option value="Box Cricket Turf">Box Cricket Turf</option>
-                  <option value="Football Arena">Football Arena</option>
+                  <option value="Cricket Turf">Cricket Turf</option>
+                  <option value="Football Turf">Football Turf</option>
                   <option value="Tournament / Corporate Booking">Tournament / Corporate Booking</option>
                   <option value="Other Inquiry">Other Inquiry</option>
                 </select>

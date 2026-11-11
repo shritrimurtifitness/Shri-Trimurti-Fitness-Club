@@ -44,7 +44,7 @@ turfbook-pro/
 The system uses a robust relational schema in PostgreSQL:
 
 - \`users\`: Authentication and authorization. Roles include \`user\`, \`admin\`, and \`staff\`. Staff can have PIN hashes for quick tablet login.
-- \`turfs\`: The physical facilities (e.g., Box Cricket, Snooker). Includes dynamic pricing configurations for time/day combinations and physical resource mapping (to prevent double booking shared physical spaces).
+- \`turfs\`: The physical facilities (e.g., Cricket, Snooker). Includes dynamic pricing configurations for time/day combinations and physical resource mapping (to prevent double booking shared physical spaces).
 - \`slot_templates\`: Pre-configured rules for generating daily slots based on the turf's operational hours and pricing model.
 - \`slots\`: Individual bookable time units generated dynamically from templates.
 - \`bookings\`: Customer reservations mapping users to slots. Includes Razorpay order tracking and payment status.
@@ -60,7 +60,7 @@ To save database space, slots are not generated years in advance.
 Instead, when a user selects a date on the \`BookingPage\`, the backend checks if slots exist for that date/turf. If not, it executes the \`generate_daily_slots\` PostgreSQL function, which reads \`slot_templates\` and inserts the slots for that specific day instantly.
 
 ### 4.2 Shared Physical Resources
-If "Box Cricket" and "Football" utilize the same physical ground, they are mapped to the same \`physical_resource_id\`.
+If "Cricket" and "Football" utilize the same physical ground, they are mapped to the same \`physical_resource_id\`.
 When a slot is booked for Cricket, the backend automatically blocks the overlapping time slot for Football to prevent physical double-booking, while keeping the digital entities separate.
 
 ### 4.3 Live Occupancy Pulse

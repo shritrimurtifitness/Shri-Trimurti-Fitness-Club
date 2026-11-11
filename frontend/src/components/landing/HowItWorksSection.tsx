@@ -8,7 +8,7 @@ const steps = [
     step: "01",
     icon: Calendar,
     title: "Pick Your Sport & Slot",
-    desc: "Choose between Box Cricket Turf or Football Arena. Select your preferred date, hour, and duration.",
+    desc: "Choose between Cricket Turf or Football Turf. Select your preferred date, hour, and duration.",
   },
   {
     step: "02",
