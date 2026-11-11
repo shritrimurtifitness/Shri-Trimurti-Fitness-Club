@@ -380,13 +380,13 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 💳 *UTR Reference:* ${cleanUtr}
 
 ⏳ *Status:* *Pending Admin Verification*
-Our arena manager has received your booking and is verifying the payment in our bank account.
+Our turf manager has received your booking and is verifying the payment in our bank account.
 
 🎟️ *What happens next?*
 Once verified, you will automatically receive your official *Digital Entry Pass* with check-in instructions right here on WhatsApp!
 
-📍 *Arena Location:* Kudire Factory, Sangrul Fata, Koparde
-📞 *Helpdesk:* +91 7083738373`;
+📍 *Turf Location:* Kudire Factory, Sangrul Fata, Koparde
+📞 *Helpdesk:* +91 9595153006`;
 
     return sendInteractiveButtons({
       to: from,
