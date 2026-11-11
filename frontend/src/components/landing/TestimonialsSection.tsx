@@ -299,7 +299,7 @@ export default function TestimonialsSection() {
                       <Input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. Rahul Patil"
+                        placeholder="e.g. Harshvardhan Patil"
                         required
                       />
                     </div>

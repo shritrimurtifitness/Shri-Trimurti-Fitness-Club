@@ -216,7 +216,7 @@ export default function ContactSection() {
                     id="inquiry-name"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder="e.g. Rahul Patil"
+                    placeholder="e.g. Harshvardhan Patil"
                     required
                   />
                 </div>

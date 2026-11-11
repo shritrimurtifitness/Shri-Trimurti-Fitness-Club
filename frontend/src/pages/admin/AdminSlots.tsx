@@ -630,7 +630,7 @@ export default function AdminSlots() {
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       required
-                      placeholder="e.g. Rahul Sharma"
+                      placeholder="e.g. Harshvardhan Patil"
                       value={custName}
                       onChange={(e) => setCustName(e.target.value)}
                       className="pl-9 bg-background"

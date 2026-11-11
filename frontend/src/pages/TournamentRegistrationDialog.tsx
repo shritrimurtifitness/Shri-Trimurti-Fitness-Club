@@ -365,7 +365,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
                   value={captainName} 
                   onChange={(e) => setCaptainName(e.target.value)} 
                   required 
-                  placeholder="e.g. Rahul Patil" 
+                  placeholder="e.g. Harshvardhan Patil" 
                   className="bg-muted/40 font-medium" 
                 />
               </div>

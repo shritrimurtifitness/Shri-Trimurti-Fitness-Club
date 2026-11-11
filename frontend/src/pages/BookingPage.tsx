@@ -570,7 +570,7 @@ export default function BookingPage() {
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Full Name *</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rahul Sharma" className="pl-10 bg-card border-border" />
+                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Harshvardhan Patil" className="pl-10 bg-card border-border" />
                     </div>
                   </div>
 
