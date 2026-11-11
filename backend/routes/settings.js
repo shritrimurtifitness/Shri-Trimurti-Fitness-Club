@@ -37,7 +37,7 @@ router.get('/contact', async (req, res) => {
         address: '', phone: '', email: '', working_hours: '', 
         facebook_url: '', instagram_url: '', twitter_url: '', map_embed_url: '',
         gateway_percent: 2.00, gst_percent: 18.00,
-        google_rating: 4.6, google_reviews_count: 150, google_maps_url: 'https://www.google.com/search?q=Shri+Trimurti+Sports+Arena+reviews',
+        google_rating: 4.6, google_reviews_count: 150, google_maps_url: 'https://www.google.com/search?q=Shri+Trimurti+Fitness+Club+reviews',
         show_testimonials: false
       });
     }

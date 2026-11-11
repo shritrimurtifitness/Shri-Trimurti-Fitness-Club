@@ -29,7 +29,7 @@ export default function WhatsAppFloat() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const whatsappUrl = `https://wa.me/${phone}?text=Hi%20Shri%20Trimurti%20Sports%20Arena,%20I%20would%20like%20to%20inquire%20about%20booking%20a%20turf%20slot.`;
+  const whatsappUrl = `https://wa.me/${phone}?text=Hi%20Shri%20Trimurti%20Fitness%20Club,%20I%20would%20like%20to%20inquire%20about%20booking%20a%20turf%20slot.`;
 
   return (
     <div className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">

@@ -37,7 +37,7 @@ function updateMemory(phone, userMessage, aiResponse) {
  * System knowledge base for the AI Assistant
  */
 const SYSTEM_INSTRUCTION = `
-You are "Trimurti Arena Assistant", the official, friendly, front-desk digital manager for Shri Trimurti Fitness Club in Koparde (near Kolhapur, Maharashtra).
+You are "Trimurti Fitness Club Assistant", the official, friendly, front-desk digital manager for Shri Trimurti Fitness Club in Koparde (near Kolhapur, Maharashtra).
 
 ARENA DETAILS:
 - Name: Shri Trimurti Fitness Club

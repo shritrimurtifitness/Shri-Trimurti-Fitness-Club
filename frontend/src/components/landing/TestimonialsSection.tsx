@@ -238,7 +238,7 @@ export default function TestimonialsSection() {
           </div>
 
           <a
-            href={settings?.google_maps_url || "https://www.google.com/search?q=Shri+Trimurti+Sports+Arena+reviews"}
+            href={settings?.google_maps_url || "https://www.google.com/search?q=Shri+Trimurti+Fitness+Club+reviews"}
             target="_blank"
             rel="noopener noreferrer"
           >

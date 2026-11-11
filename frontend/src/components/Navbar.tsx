@@ -51,9 +51,9 @@ export default function Navbar() {
               className="w-10 h-10 rounded-full object-cover ring-2 ring-[#39FF14]/50 shadow-turf"
             />
             <span className="font-heading font-extrabold text-base sm:text-xl text-zinc-900 dark:text-white tracking-tight">
-              <span className="hidden sm:inline">Shri Trimurti Sports </span>
+              <span className="hidden sm:inline">Shri Trimurti Fitness </span>
               <span className="sm:hidden">Trimurti </span>
-              <span className="text-gradient-turf">Arena</span>
+              <span className="text-gradient-turf">Club</span>
             </span>
           </Link>
 
@@ -77,7 +77,7 @@ export default function Navbar() {
           {/* Desktop Right CTAs */}
           <div className="hidden md:flex items-center gap-3">
             <a
-              href={`https://wa.me/${cleanPhone}?text=Hi%20Shri%20Trimurti%20Sports%20Arena,%20I%20would%20like%20to%20inquire%20about%20turf%20booking.`}
+              href={`https://wa.me/${cleanPhone}?text=Hi%20Shri%20Trimurti%20Fitness%20Club,%20I%20would%20like%20to%20inquire%20about%20turf%20booking.`}
               target="_blank"
               rel="noopener noreferrer"
               className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-emerald-500 dark:hover:text-[#39FF14] hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"

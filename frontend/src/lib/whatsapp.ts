@@ -4,7 +4,7 @@
  */
 
 export const ARENA_VENUE_NAME = "SHRI TRIMURTI FITNESS CLUB";
-export const ARENA_DEFAULT_MAP_URL = "https://maps.google.com/?q=Shri+Trimurti+Sports+Arena+Koparde";
+export const ARENA_DEFAULT_MAP_URL = "https://maps.google.com/?q=Shri+Trimurti+Fitness+Club+Koparde";
 
 /**
  * Sanitizes and formats an Indian phone number for WhatsApp deep-linking.

@@ -170,7 +170,7 @@ export default function ContactSection() {
               </a>
 
               <a
-                href={`https://wa.me/${cleanPhone}?text=Hi%20Shri%20Trimurti%20Sports%20Arena,%20I%20have%20an%20inquiry.`}
+                href={`https://wa.me/${cleanPhone}?text=Hi%20Shri%20Trimurti%20Fitness%20Club,%20I%20have%20an%20inquiry.`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm transition-colors shadow-sm"

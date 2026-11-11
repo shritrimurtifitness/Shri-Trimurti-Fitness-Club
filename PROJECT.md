@@ -449,7 +449,7 @@ All routes are prefixed with `/api`.
 # Server Configuration
 PORT=5000
 NODE_ENV=production
-FRONTEND_URL=https://shritrimurtisports.com
+FRONTEND_URL=https://shritrimurtifitnessclub.in
 
 # PostgreSQL Connection String (Neon / AWS / Supabase)
 DATABASE_URL=postgresql://user:password@ep-plain-wave.us-east-1.aws.neon.tech/neondb?sslmode=require
@@ -469,7 +469,7 @@ RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
 
 # Email Delivery (Dual-Provider)
 BREVO_API_KEY=xkeysib-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-BREVO_SENDER_EMAIL=hello@shritrimurtisports.com
+BREVO_SENDER_EMAIL=hello@shritrimurtifitnessclub.in
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Cloudinary Media Storage
@@ -482,7 +482,7 @@ CLOUDINARY_API_SECRET=abcdefghijklmnopqrstuvwxyz
 
 ```ini
 # Base URL for backend REST API
-VITE_API_BASE_URL=https://api.shritrimurtisports.com/api
+VITE_API_BASE_URL=https://shritrimurtifitnessclub.in/api
 ```
 
 ---
@@ -555,7 +555,7 @@ npm run dev
 ### 12.2 Automated Scheduled Jobs
 To ensure abandoned checkouts do not lock active slots, schedule an external HTTPS POST trigger every 15 minutes:
 ```bash
-curl -X POST https://api.shritrimurtisports.com/api/bookings/cleanup \
+curl -X POST https://shritrimurtifitnessclub.in/api/bookings/cleanup \
   -H "x-cron-secret: your-cron-secret"
 ```
 

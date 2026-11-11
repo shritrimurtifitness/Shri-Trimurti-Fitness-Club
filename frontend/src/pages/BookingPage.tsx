@@ -868,7 +868,7 @@ export default function BookingPage() {
                   <Clock className="w-10 h-10 text-amber-400 animate-pulse" />
                 </div>
                 <h1 className="font-heading text-3xl font-bold mb-2">Booking <span className="text-gradient-turf">Submitted!</span></h1>
-                <p className="text-muted-foreground text-sm mb-6">Payment verification in progress by Shri Trimurti Arena team.</p>
+                <p className="text-muted-foreground text-sm mb-6">Payment verification in progress by Shri Trimurti Fitness Club team.</p>
 
                 {/* Digital Receipt Pass */}
                 <div id="entry-pass" className="bg-card border-2 border-primary/20 rounded-3xl overflow-hidden shadow-2xl mb-8 relative">

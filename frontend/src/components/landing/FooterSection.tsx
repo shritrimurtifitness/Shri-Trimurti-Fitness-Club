@@ -80,7 +80,7 @@ export default function FooterSection() {
                 className="w-10 h-10 rounded-full object-cover ring-2 ring-[#39FF14]/40"
               />
               <span className="font-heading font-extrabold text-lg text-foreground">
-                Shri Trimurti <span className="text-gradient-turf">Arena</span>
+                Shri Trimurti <span className="text-gradient-turf">Fitness Club</span>
               </span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed mb-5">
@@ -88,7 +88,7 @@ export default function FooterSection() {
             </p>
             <div className="flex items-center gap-2">
               <a
-                href={`https://wa.me/${cleanPhone}?text=Hi%20Shri%20Trimurti%20Sports%20Arena`}
+                href={`https://wa.me/${cleanPhone}?text=Hi%20Shri%20Trimurti%20Fitness%20Club`}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="WhatsApp"

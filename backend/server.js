@@ -157,7 +157,7 @@ server.listen(PORT, async () => {
     await pool.query(`ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'internal'`);
     await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS google_rating NUMERIC(2,1) DEFAULT 4.6`);
     await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS google_reviews_count INTEGER DEFAULT 150`);
-    await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS google_maps_url TEXT DEFAULT 'https://www.google.com/search?q=Shri+Trimurti+Sports+Arena+reviews'`);
+    await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS google_maps_url TEXT DEFAULT 'https://www.google.com/search?q=Shri+Trimurti+Fitness+Club+reviews'`);
     await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS show_testimonials BOOLEAN DEFAULT false`);
     
     // Shared Resource Management & Facility Status
