@@ -47,7 +47,7 @@ export default function AdminSettings() {
   const [contactFacebook, setContactFacebook] = useState("");
   const [contactInstagram, setContactInstagram] = useState("");
   const [contactTwitter, setContactTwitter] = useState("");
-  const [contactMapUrl, setContactMapUrl] = useState("");
+  const [contactMapUrl, setContactMapUrl] = useState("https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3821.6516423908665!2d74.120735!3d16.6943068!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc1adfbed242d0d%3A0x78d9a54fdca8460e!2sShri%20Trimurti%20Fitness%20Club!5e0!3m2!1sen!2sin!4v1794397156504!5m2!1sen!2sin");
 
   // Financial Settings
   const [gatewayPercent, setGatewayPercent] = useState("2.0");
@@ -71,7 +71,7 @@ export default function AdminSettings() {
       setContactFacebook(res.data.facebook_url || "");
       setContactInstagram(res.data.instagram_url || "");
       setContactTwitter(res.data.twitter_url || "");
-      setContactMapUrl(res.data.map_embed_url || "");
+      setContactMapUrl(res.data.map_embed_url || "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3821.6516423908665!2d74.120735!3d16.6943068!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc1adfbed242d0d%3A0x78d9a54fdca8460e!2sShri%20Trimurti%20Fitness%20Club!5e0!3m2!1sen!2sin!4v1794397156504!5m2!1sen!2sin");
       setGatewayPercent(res.data.gateway_percent?.toString() || "2.0");
       setGstPercent(res.data.gst_percent?.toString() || "18.0");
       setUpiId(res.data.upi_id || "harshvardhanp@slc");

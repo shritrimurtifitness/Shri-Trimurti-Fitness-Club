@@ -35,7 +35,8 @@ router.get('/contact', async (req, res) => {
     if (result.rows.length === 0) {
       return res.json({ 
         address: '', phone: '', email: '', working_hours: '', 
-        facebook_url: '', instagram_url: '', twitter_url: '', map_embed_url: '',
+        facebook_url: '', instagram_url: '', twitter_url: '',
+        map_embed_url: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3821.6516423908665!2d74.120735!3d16.6943068!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc1adfbed242d0d%3A0x78d9a54fdca8460e!2sShri%20Trimurti%20Fitness%20Club!5e0!3m2!1sen!2sin!4v1794397156504!5m2!1sen!2sin',
         gateway_percent: 2.00, gst_percent: 18.00,
         google_rating: 4.6, google_reviews_count: 150, google_maps_url: 'https://www.google.com/search?q=Shri+Trimurti+Fitness+Club+reviews',
         show_testimonials: false,

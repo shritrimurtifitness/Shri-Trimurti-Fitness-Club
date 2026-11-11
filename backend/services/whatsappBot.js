@@ -815,7 +815,7 @@ async function handleIncomingMessage({ from, text = '', buttonPayload = '', user
       } catch {}
     }
     if (!reviewUrl) {
-      reviewUrl = 'https://maps.google.com/?q=Kudire+Factory+Sangrul+Fata+Koparde';
+      reviewUrl = 'https://g.page/r/CQ5GqNxPpdl4ECE/review';
     }
 
     const reviewMsg =
@@ -1359,7 +1359,7 @@ Kudire Factory, Sangrul Fata, Koparde, Maharashtra 416205
 Mon - Sun: 6:00 AM - 12:00 AM (Midnight)
 
 🗺️ *Google Maps Directions:*
-https://maps.google.com/?q=Kudire+Factory+Sangrul+Fata+Koparde
+https://maps.google.com/?q=16.6943068,74.120735
 
 📞 *Fitness Club Phone:* +91 9595153006`;
 

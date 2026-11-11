@@ -323,7 +323,7 @@ Hi Player! Your booking has been verified. We look forward to seeing you on the 
 💰 *Total Paid:* ₹${totalAmount} (Fully Paid)
 ${utrNumber ? `💳 *UTR Reference:* ${utrNumber}\n` : ''}
 📍 *Location:* Kudire Factory, Sangrul Fata, Koparde, Maharashtra
-🗺️ *Map:* https://maps.google.com/?q=Kudire+Factory+Sangrul+Fata+Koparde
+🗺️ *Map:* https://maps.google.com/?q=16.6943068,74.120735
 
 ⚠️ *Player Instructions:*
 1. Arrive 10–15 minutes before your scheduled slot.
