@@ -94,6 +94,44 @@ function parseNaturalDate(text) {
 }
 
 /**
+ * Detects whether the user's message mentions a specific session / time band
+ * Returns 'morning' | 'afternoon' | 'night' | null
+ */
+function parseTimeBand(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  if (
+    t.includes('morning') ||
+    t.includes('sakal') ||
+    t.includes('subah') ||
+    t.includes('early')
+  ) {
+    return 'morning';
+  }
+  if (
+    t.includes('afternoon') ||
+    t.includes('dupari') ||
+    t.includes('dophar') ||
+    t.includes('noon')
+  ) {
+    return 'afternoon';
+  }
+  if (
+    t.includes('night') ||
+    t.includes('evening') ||
+    t.includes('floodlight') ||
+    t.includes('floodlit') ||
+    t.includes('ratri') ||
+    t.includes('rat') ||
+    t.includes('shaam') ||
+    t.includes('sandhyakal')
+  ) {
+    return 'night';
+  }
+  return null;
+}
+
+/**
  * Formats 24h time string (e.g. "18:00:00") into 12h time (e.g. "6:00 PM")
  */
 function formatTime12h(timeStr) {
@@ -108,8 +146,9 @@ function formatTime12h(timeStr) {
 
 /**
  * Queries Neon DB for available slots for a specific date and facility type ('cricket' | 'football')
+ * Supports filtering by 3 Time Bands: 'morning' (6-12), 'afternoon' (12-17), 'night' (17-24)
  */
-async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = null) {
+async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = null, timeBand = null) {
   try {
     const today = getTodayString();
     const dateToQuery = targetDate || today;
@@ -127,6 +166,8 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
         reason: closureCheck.rows[0].reason || 'Club closed for maintenance on this date',
         slots: [],
         date: dateToQuery,
+        timeBand,
+        counts: { morning: 0, afternoon: 0, night: 0, total: 0 },
       };
     }
 
@@ -137,7 +178,7 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
     );
 
     if (turfRes.rows.length === 0) {
-      return { isClosed: false, slots: [], facilityName: 'Turf', date: dateToQuery };
+      return { isClosed: false, slots: [], facilityName: 'Turf', date: dateToQuery, timeBand, counts: { morning: 0, afternoon: 0, night: 0, total: 0 } };
     }
 
     const turf = turfRes.rows[0];
@@ -151,6 +192,15 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
 
     // 4. Query vacant slots for the date
     // If today, filter out passed hours (s.end_time > nowIST). If future date, include all day.
+    let bandSqlClause = '';
+    if (timeBand === 'morning') {
+      bandSqlClause = "AND s.start_time >= '06:00:00' AND s.start_time < '12:00:00'";
+    } else if (timeBand === 'afternoon') {
+      bandSqlClause = "AND s.start_time >= '12:00:00' AND s.start_time < '17:00:00'";
+    } else if (timeBand === 'night') {
+      bandSqlClause = "AND s.start_time >= '17:00:00' AND s.start_time <= '23:59:59'";
+    }
+
     const query = `
       SELECT s.id, s.start_time, s.end_time, s.price, s.date
       FROM slots s
@@ -159,6 +209,7 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
         AND s.date = $2
         AND s.is_available = true
         AND ($4 = false OR s.end_time > $3)
+        ${bandSqlClause}
         AND NOT EXISTS (
           SELECT 1 FROM bookings b
           JOIN slots s_other ON b.slot_id = s_other.id
@@ -172,7 +223,6 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
             )
         )
       ORDER BY s.start_time ASC
-      LIMIT 10
     `;
 
     const slotsRes = await pool.query(query, [turf.id, dateToQuery, nowIST, isToday]);
@@ -190,17 +240,39 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
       };
     });
 
+    // Compute session slot counts
+    let morningCount = 0;
+    let afternoonCount = 0;
+    let nightCount = 0;
+
+    if (!timeBand) {
+      morningCount = formattedSlots.filter((s) => s.start_time >= '06:00:00' && s.start_time < '12:00:00').length;
+      afternoonCount = formattedSlots.filter((s) => s.start_time >= '12:00:00' && s.start_time < '17:00:00').length;
+      nightCount = formattedSlots.filter((s) => s.start_time >= '17:00:00').length;
+    } else {
+      if (timeBand === 'morning') morningCount = formattedSlots.length;
+      if (timeBand === 'afternoon') afternoonCount = formattedSlots.length;
+      if (timeBand === 'night') nightCount = formattedSlots.length;
+    }
+
     return {
       isClosed: false,
       turfId: turf.id,
       date: dateToQuery,
       isToday,
+      timeBand,
       facilityName: turf.name || (facilityType === 'football' ? 'Football Turf' : 'Cricket Turf'),
       slots: formattedSlots,
+      counts: {
+        morning: morningCount,
+        afternoon: afternoonCount,
+        night: nightCount,
+        total: formattedSlots.length,
+      },
     };
   } catch (err) {
     console.error('Error fetching available slots for date:', err.message);
-    return { isClosed: false, slots: [], error: true, date: targetDate };
+    return { isClosed: false, slots: [], error: true, date: targetDate, timeBand, counts: { morning: 0, afternoon: 0, night: 0, total: 0 } };
   }
 }
 
@@ -277,9 +349,12 @@ async function sendDateListMenu({ to, facilityType = 'cricket' }) {
 }
 
 /**
- * Sends an interactive list menu displaying available slots for the selected date
+ * Sends a 3-button Time Band prompt (Option 3):
+ * 1. 🌙 Night (5-12)
+ * 2. ☀️ Morning (6-12)
+ * 3. ⛅ Afternoon (12-5)
  */
-async function sendSlotsListMenu({ to, facilityType = 'cricket', date, result }) {
+async function sendTimeBandPrompt({ to, facilityType = 'cricket', date, counts = null }) {
   const isCricket = facilityType.toLowerCase().includes('cricket');
   const sportEmoji = isCricket ? '🏏' : '⚽';
   const sportName = isCricket ? 'Cricket Turf' : 'Football Turf';
@@ -287,6 +362,64 @@ async function sendSlotsListMenu({ to, facilityType = 'cricket', date, result })
   const tomorrowIST = getISTDate(1);
   const dateFormatted = formatDisplayDate(date);
   const dateLabel = date === todayIST ? `Today (${dateFormatted})` : date === tomorrowIST ? `Tomorrow (${dateFormatted})` : dateFormatted;
+
+  const mCount = counts ? counts.morning : 6;
+  const aCount = counts ? counts.afternoon : 5;
+  const nCount = counts ? counts.night : 7;
+
+  const buttons = [];
+  // Night first as prime-time
+  if (nCount > 0 || (mCount === 0 && aCount === 0)) {
+    buttons.push({ id: `BAND_${date}_${facilityType}_night`, title: '🌙 Night (5-12)' });
+  }
+  if (mCount > 0) {
+    buttons.push({ id: `BAND_${date}_${facilityType}_morning`, title: '☀️ Morning (6-12)' });
+  }
+  if (aCount > 0) {
+    buttons.push({ id: `BAND_${date}_${facilityType}_afternoon`, title: '⛅ Afternoon (12-5)' });
+  }
+
+  if (buttons.length === 0) {
+    buttons.push({ id: `DATE_PICKER_${facilityType}`, title: '🗓️ Pick Another Date' });
+  } else if (buttons.length < 3) {
+    buttons.push({ id: `DATE_PICKER_${facilityType}`, title: '🗓️ Other Date' });
+  }
+
+  const bodyText =
+`Which match session would you like to book for *${sportName}* on *${dateLabel}*?
+
+🌙 *Floodlit Night (5 PM - 12 AM):* ${nCount} open (₹800/hr)
+☀️ *Morning (6 AM - 12 PM):* ${mCount} open (₹600/hr)
+⛅ *Afternoon (12 PM - 5 PM):* ${aCount} open (₹600/hr)
+
+👇 *Tap a session below to view live slots:*`;
+
+  return sendInteractiveButtons({
+    to,
+    headerText: `${sportEmoji} ${sportName} Sessions`,
+    bodyText,
+    buttons: buttons.slice(0, 3),
+  });
+}
+
+/**
+ * Sends an interactive list menu displaying available slots for the selected date and time band
+ */
+async function sendSlotsListMenu({ to, facilityType = 'cricket', date, timeBand = null, result }) {
+  const isCricket = facilityType.toLowerCase().includes('cricket');
+  const sportEmoji = isCricket ? '🏏' : '⚽';
+  const sportName = isCricket ? 'Cricket Turf' : 'Football Turf';
+  const todayIST = getTodayString();
+  const tomorrowIST = getISTDate(1);
+  const dateFormatted = formatDisplayDate(date);
+  const dateLabel = date === todayIST ? `Today (${dateFormatted})` : date === tomorrowIST ? `Tomorrow (${dateFormatted})` : dateFormatted;
+
+  const bandHeaders = {
+    morning: '☀️ Morning (6 AM - 12 PM)',
+    afternoon: '⛅ Afternoon (12 PM - 5 PM)',
+    night: '🌙 Floodlit Night (5 PM - 12 AM)',
+  };
+  const sessionLabel = timeBand && bandHeaders[timeBand] ? ` • ${bandHeaders[timeBand]}` : '';
 
   if (result.isClosed) {
     return sendTextMessage({
@@ -300,10 +433,10 @@ async function sendSlotsListMenu({ to, facilityType = 'cricket', date, result })
       to,
       headerText: `${sportEmoji} ${sportName}`,
       bodyText:
-        `All remaining slots for *${dateLabel}* are currently booked or have passed!\n\nWould you like to pick another date or check ${isCricket ? 'Football' : 'Cricket'}?`,
+        `All slots for *${dateLabel}${sessionLabel}* are currently booked or have passed!\n\nWould you like to check other sessions or pick another date?`,
       buttons: [
-        { id: `DATE_PICKER_${facilityType}`, title: '🗓️ Pick Another Date' },
-        { id: isCricket ? 'BTN_FOOTBALL_SLOTS' : 'BTN_CRICKET_SLOTS', title: isCricket ? '⚽ Check Football' : '🏏 Check Cricket' },
+        { id: `SESSION_PICKER_${date}_${facilityType}`, title: '⏰ Other Sessions' },
+        { id: `DATE_PICKER_${facilityType}`, title: '🗓️ Other Date' },
         { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
       ],
     });
@@ -313,15 +446,19 @@ async function sendSlotsListMenu({ to, facilityType = 'cricket', date, result })
     .map((s) => `• *${s.timeLabel}* (₹${s.price})`)
     .join('\n');
 
-  const rows = result.slots.map((s) => ({
+  const rows = result.slots.slice(0, 10).map((s) => ({
     id: `BOOK_SLOT_${s.id}`,
     title: s.timeLabel.substring(0, 24),
     description: `₹${s.price} • Tap to Book with UPI`,
   }));
 
+  const sectionTitle = (timeBand && bandHeaders[timeBand])
+    ? bandHeaders[timeBand].substring(0, 24)
+    : `${dateLabel} Slots`.substring(0, 24);
+
   const sections = [
     {
-      title: `${dateLabel} Slots`.substring(0, 24),
+      title: sectionTitle,
       rows,
     },
   ];
@@ -331,7 +468,7 @@ async function sendSlotsListMenu({ to, facilityType = 'cricket', date, result })
     headerText: `${sportEmoji} ${sportName}`,
     bodyText:
 `*AVAILABLE ${sportName.toUpperCase()} SLOTS FOR ${dateLabel.toUpperCase()}:*
-
+${timeBand && bandHeaders[timeBand] ? `📌 Session: *${bandHeaders[timeBand]}*\n` : ''}
 ${slotsList}
 
 👉 *Tap "Choose Slot" below to reserve directly on WhatsApp with UPI QR code:*`,
@@ -890,7 +1027,32 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   }
 
   // ----------------------------------------------------
-  // B1. Handle Date Picker List Request (e.g. DATE_PICKER_cricket)
+  // B0. Handle Session / Time Band Picker Request (e.g. SESSION_PICKER_2026-11-12_cricket)
+  // ----------------------------------------------------
+  if (payload.startsWith('SESSION_PICKER_')) {
+    const parts = payload.replace('SESSION_PICKER_', '').split('_');
+    const selectedDate = parts[0];
+    const facilityType = parts[1] || 'cricket';
+
+    const result = await getAvailableSlotsForDate(facilityType, selectedDate, null);
+    return sendTimeBandPrompt({ to: from, facilityType, date: selectedDate, counts: result.counts });
+  }
+
+  // ----------------------------------------------------
+  // B1. Handle Time Band Selection Click (e.g. BAND_2026-11-12_cricket_night)
+  // ----------------------------------------------------
+  if (payload.startsWith('BAND_')) {
+    const parts = payload.replace('BAND_', '').split('_');
+    const selectedDate = parts[0];
+    const facilityType = parts[1] || 'cricket';
+    const timeBand = parts[2] || 'night';
+
+    const result = await getAvailableSlotsForDate(facilityType, selectedDate, timeBand);
+    return sendSlotsListMenu({ to: from, facilityType, date: selectedDate, timeBand, result });
+  }
+
+  // ----------------------------------------------------
+  // B2. Handle Date Picker List Request (e.g. DATE_PICKER_cricket)
   // ----------------------------------------------------
   if (payload.startsWith('DATE_PICKER_')) {
     const facilityType = payload.replace('DATE_PICKER_', '').trim();
@@ -898,15 +1060,46 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   }
 
   // ----------------------------------------------------
-  // B2. Handle Date Selection Click (e.g. DATE_2026-11-12_cricket)
+  // B3. Handle Date Selection Click (e.g. DATE_2026-11-12_cricket)
   // ----------------------------------------------------
   if (payload.startsWith('DATE_')) {
     const parts = payload.replace('DATE_', '').split('_');
     const selectedDate = parts[0];
     const facilityType = parts[1] || 'cricket';
 
-    const result = await getAvailableSlotsForDate(facilityType, selectedDate);
-    return sendSlotsListMenu({ to: from, facilityType, date: selectedDate, result });
+    const result = await getAvailableSlotsForDate(facilityType, selectedDate, null);
+
+    if (result.isClosed) {
+      const dateFormatted = formatDisplayDate(selectedDate);
+      return sendTextMessage({
+        to: from,
+        text: `⚠️ *Update for ${dateFormatted}:*\n${result.reason}\n\nYou can book other dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=${facilityType}`,
+      });
+    }
+
+    if (!result.slots || result.slots.length === 0) {
+      const isCricket = facilityType.toLowerCase().includes('cricket');
+      const sportName = isCricket ? 'Cricket Turf' : 'Football Turf';
+      const dateFormatted = formatDisplayDate(selectedDate);
+      return sendInteractiveButtons({
+        to: from,
+        headerText: sportName,
+        bodyText: `No vacant slots available for *${dateFormatted}*.\n\nWould you like to pick another date or check ${isCricket ? 'Football' : 'Cricket'}?`,
+        buttons: [
+          { id: `DATE_PICKER_${facilityType}`, title: '🗓️ Pick Another Date' },
+          { id: isCricket ? 'BTN_FOOTBALL_SLOTS' : 'BTN_CRICKET_SLOTS', title: isCricket ? '⚽ Check Football' : '🏏 Check Cricket' },
+          { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+        ],
+      });
+    }
+
+    // If available slots > 10, present Option 3: 3 Time Bands
+    if (result.slots.length > 10) {
+      return sendTimeBandPrompt({ to: from, facilityType, date: selectedDate, counts: result.counts });
+    }
+
+    // If 10 or fewer slots, display them directly in the list
+    return sendSlotsListMenu({ to: from, facilityType, date: selectedDate, timeBand: null, result });
   }
 
   // ----------------------------------------------------
@@ -953,11 +1146,26 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     normalizedText.includes('cricket') ||
     normalizedText.includes('box')
   ) {
-    // Check if user specifically mentioned a date in natural text (e.g. "cricket tomorrow" or "friday cricket")
     const naturalDate = parseNaturalDate(normalizedText);
+    const timeBand = parseTimeBand(normalizedText);
+
+    if (naturalDate && timeBand) {
+      const result = await getAvailableSlotsForDate('cricket', naturalDate, timeBand);
+      return sendSlotsListMenu({ to: from, facilityType: 'cricket', date: naturalDate, timeBand, result });
+    }
+
     if (naturalDate) {
-      const result = await getAvailableSlotsForDate('cricket', naturalDate);
-      return sendSlotsListMenu({ to: from, facilityType: 'cricket', date: naturalDate, result });
+      const result = await getAvailableSlotsForDate('cricket', naturalDate, null);
+      if (result.slots.length > 10) {
+        return sendTimeBandPrompt({ to: from, facilityType: 'cricket', date: naturalDate, counts: result.counts });
+      }
+      return sendSlotsListMenu({ to: from, facilityType: 'cricket', date: naturalDate, timeBand: null, result });
+    }
+
+    if (timeBand) {
+      const today = getTodayString();
+      const result = await getAvailableSlotsForDate('cricket', today, timeBand);
+      return sendSlotsListMenu({ to: from, facilityType: 'cricket', date: today, timeBand, result });
     }
 
     // Default: Present Date Selection (Today, Tomorrow, Next 7 Days)
@@ -973,9 +1181,25 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     normalizedText.includes('soccer')
   ) {
     const naturalDate = parseNaturalDate(normalizedText);
+    const timeBand = parseTimeBand(normalizedText);
+
+    if (naturalDate && timeBand) {
+      const result = await getAvailableSlotsForDate('football', naturalDate, timeBand);
+      return sendSlotsListMenu({ to: from, facilityType: 'football', date: naturalDate, timeBand, result });
+    }
+
     if (naturalDate) {
-      const result = await getAvailableSlotsForDate('football', naturalDate);
-      return sendSlotsListMenu({ to: from, facilityType: 'football', date: naturalDate, result });
+      const result = await getAvailableSlotsForDate('football', naturalDate, null);
+      if (result.slots.length > 10) {
+        return sendTimeBandPrompt({ to: from, facilityType: 'football', date: naturalDate, counts: result.counts });
+      }
+      return sendSlotsListMenu({ to: from, facilityType: 'football', date: naturalDate, timeBand: null, result });
+    }
+
+    if (timeBand) {
+      const today = getTodayString();
+      const result = await getAvailableSlotsForDate('football', today, timeBand);
+      return sendSlotsListMenu({ to: from, facilityType: 'football', date: today, timeBand, result });
     }
 
     return sendDatePickerPrompt({ to: from, facilityType: 'football' });
