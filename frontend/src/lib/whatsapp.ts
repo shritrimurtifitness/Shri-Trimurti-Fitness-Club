@@ -4,7 +4,7 @@
  */
 
 export const ARENA_VENUE_NAME = "SHRI TRIMURTI FITNESS CLUB";
-export const ARENA_DEFAULT_MAP_URL = "https://maps.google.com/?q=16.6943068,74.120735";
+export const ARENA_DEFAULT_MAP_URL = "https://maps.app.goo.gl/XCxniFWMMtnfw2MJA";
 
 /**
  * Sanitizes and formats an Indian phone number for WhatsApp deep-linking.
@@ -127,10 +127,12 @@ export function generateAdminReminderMessage({
   timeSlot: string;
   mapUrl?: string;
 }): string {
-  let msg = `⏰ *Match Reminder - ${ARENA_VENUE_NAME}*\n\n`;
+  const isFootball = /football|soccer/i.test(facilityName);
+  const sportEmoji = isFootball ? '⚽' : '🏏';
+  let msg = `${sportEmoji} *Match Reminder - ${ARENA_VENUE_NAME}*\n\n`;
   msg += `Hi *${customerName}*! Your match starts shortly at *${timeSlot}* on *${facilityName}*.\n\n`;
   msg += `📍 *Arena Location:* ${mapUrl}\n`;
-  msg += `Please assemble with your squad 10-15 minutes early to warm up and get ready. Have a great match! ⚽🏏`;
+  msg += `Please assemble with your squad 10-15 minutes early to warm up and get ready. Have a great match! ${sportEmoji}`;
   return msg;
 }
 

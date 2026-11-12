@@ -89,9 +89,16 @@ function scheduleBookingNotifications(booking) {
           return;
         }
 
+        const isFootball = /football|soccer/i.test(turfName) || /football|soccer/i.test(booking.facility_type || '');
+        const sportEmoji = isFootball ? '⚽' : '🏏';
+        const sportHeader = `${sportEmoji} Matchday Reminder`;
+        const dugoutEquipment = isFootball
+          ? 'Match-grade footballs, team bibs, and goal posts are all set up for your squad.'
+          : 'High-grade cricket bats, tennis balls, and stumps are all set up for your squad.';
+
         const slotTimeLabel = `${formatTime12h(startTime)} – ${formatTime12h(endTime)}`;
         const reminderMsg =
-`🏏 *MATCH REMINDER — SHRI TRIMURTI FITNESS CLUB*
+`${sportEmoji} *MATCH REMINDER — SHRI TRIMURTI FITNESS CLUB*
 
 Hi *${customerName}*! Your match session is coming up in 2 hours! 🔥
 
@@ -101,13 +108,13 @@ Hi *${customerName}*! Your match session is coming up in 2 hours! 🔥
 📍 *Location:* Kudire Factory, Sangrul Fata, Koparde
 
 💡 *Dugout Ready:*
-High-grade cricket bats, tennis balls, and stumps are all set up for your squad.
+${dugoutEquipment}
 
 See you on the pitch! 🏆`;
 
         await sendInteractiveButtons({
           to: phone,
-          headerText: '🏏 Matchday Reminder',
+          headerText: sportHeader,
           bodyText: reminderMsg,
           footerText: 'SHRI TRIMURTI FITNESS CLUB',
           buttons: [
@@ -164,10 +171,12 @@ See you on the pitch! 🏆`;
           return;
         }
 
+        const isFootball = /football|soccer/i.test(turfName) || /football|soccer/i.test(booking.facility_type || '');
+        const sportTerm = isFootball ? 'turf' : 'pitch';
         const surveyMsg =
 `Hope your squad had a blast today at *Shri Trimurti Fitness Club*! 🏆🔥
 
-How was your pitch condition and match experience?`;
+How was your ${sportTerm} condition and match experience?`;
 
         await sendInteractiveButtons({
           to: phone,

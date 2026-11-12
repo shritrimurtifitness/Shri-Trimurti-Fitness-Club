@@ -16,7 +16,12 @@ router.post('/', bookingLimiter, async (req, res) => {
     if (!name || !phone || !slot_id) return res.status(400).json({ error: 'Name, phone, and slot_id required' });
 
     // Check availability
-    const slotResult = await pool.query('SELECT * FROM slots WHERE id = $1 AND is_available = true', [slot_id]);
+    const slotResult = await pool.query(`
+      SELECT s.*, COALESCE(t.name, t.facility_type, 'Arena Turf') as turf_name 
+      FROM slots s 
+      JOIN turfs t ON s.turf_id = t.id 
+      WHERE s.id = $1 AND s.is_available = true
+    `, [slot_id]);
     if (slotResult.rows.length === 0) return res.status(400).json({ error: 'Slot not available' });
 
     // Ensure slot doesn't already have an active booking (considering shared physical resources)
@@ -124,7 +129,7 @@ router.post('/', bookingLimiter, async (req, res) => {
         id: booking.rows[0].id,
         customer_phone: phone,
         customer_name: name,
-        turf_name: 'Arena Turf',
+        turf_name: slot.turf_name || 'Arena Turf',
         date: slot.date,
         start_time: slot.start_time,
         end_time: slot.end_time,

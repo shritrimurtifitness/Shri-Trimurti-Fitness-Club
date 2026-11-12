@@ -1358,7 +1358,7 @@ Kudire Factory, Sangrul Fata, Koparde, Maharashtra 416205
 Mon - Sun: 6:00 AM - 12:00 AM (Midnight)
 
 🗺️ *Google Maps Directions:*
-https://maps.google.com/?q=16.6943068,74.120735
+https://maps.app.goo.gl/XCxniFWMMtnfw2MJA
 
 📞 *Fitness Club Phone:* +91 9595153006`;
 

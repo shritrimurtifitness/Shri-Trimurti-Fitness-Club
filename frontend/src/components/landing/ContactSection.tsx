@@ -189,7 +189,7 @@ export default function ContactSection() {
 
             {contact.address && (
               <a
-                href="https://www.google.com/maps/dir/?api=1&destination=16.6943068,74.120735"
+                href="https://maps.app.goo.gl/XCxniFWMMtnfw2MJA"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full px-5 py-3.5 bg-gradient-turf text-primary-foreground rounded-xl font-bold text-sm shadow-turf hover:opacity-95 transition-opacity"
