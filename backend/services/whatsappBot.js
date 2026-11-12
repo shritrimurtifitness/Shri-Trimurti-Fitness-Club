@@ -597,7 +597,7 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
     });
 
     const { upi_id: upiId, upi_qr_url: qrUrl } = await getLiveUpiSettings();
-    const upiPayLink = `upi://pay?pa=${upiId}&pn=Shri%20Trimurti%20Fitness%20Club&am=${price}&cu=INR&tn=TRM-${slotDateStr.replace(/-/g, '')}`;
+    const upiPayLink = `upi://pay?pa=${upiId}&am=${price}&pn=Trimurti`;
 
     // 1. Send the Cloudinary-hosted UPI QR code image
     await sendImageMessage({
@@ -606,22 +606,22 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
       caption: `📲 Scan to Pay ₹${price} for ${turfName}\n⏰ Slot: ${timeStr} (${slotDateStr})`,
     });
 
-    // 2. Send compact payment instructions with high-visibility UTR action box
+    // 2. Send clean, single-screen mobile-optimized payment instructions
     const paymentInstructions =
-`📋 *SLOT RESERVED (HELD FOR 15 MINS)*
-🏟️ *Turf:* ${turfName} | 💰 *Amount:* *₹${price}*
-📅 *Date:* ${slotDateStr} | ⏰ *Time:* ${timeStr}
+`📋 *SLOT RESERVED (15 MINS)*
+🏟️ *Turf:* ${turfName}
+📅 *Date:* ${slotDateStr}
+⏰ *Time:* ${timeStr}
+💰 *Amount Due:* *₹${price}*
 
-📲 *Pay Directly via UPI:*
-👉 *UPI ID:* ${upiId}
-👉 *Mobile 1-Tap Link:* ${upiPayLink}
+📲 *Pay via UPI:*
+👉 *UPI ID:* \`${upiId}\`
+👉 *1-Tap Pay:* ${upiPayLink}
 
-━━━━━━━━━━━━━━━━━━━━
 ⚡ *ACTION REQUIRED TO CONFIRM:*
-After paying, *reply directly here* with your *12-digit UPI Reference / UTR Number*:
+Reply here with your *12-digit UTR Number*:
 👉 Example: \`431289012345\`
 *(Or upload your payment screenshot)*
-━━━━━━━━━━━━━━━━━━━━
 
 _Tap Cancel below if you change your mind._`;
 
