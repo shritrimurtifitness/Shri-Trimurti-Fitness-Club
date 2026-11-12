@@ -814,8 +814,8 @@ async function handleIncomingMessage({ from, text = '', buttonPayload = '', user
         }
       } catch {}
     }
-    if (!reviewUrl) {
-      reviewUrl = 'https://g.page/r/CQ5GqNxPpdl4ECE/review';
+    if (!reviewUrl || reviewUrl.includes('CQ5GqNxPpdl4ECE') || reviewUrl.includes('Akola') || reviewUrl.includes('search?q=')) {
+      reviewUrl = 'https://maps.app.goo.gl/XCxniFWMMtnfw2MJA';
     }
 
     const reviewMsg =

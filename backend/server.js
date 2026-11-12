@@ -157,8 +157,18 @@ server.listen(PORT, async () => {
     await pool.query(`ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'internal'`);
     await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS google_rating NUMERIC(2,1) DEFAULT 4.6`);
     await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS google_reviews_count INTEGER DEFAULT 150`);
-    await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS google_maps_url TEXT DEFAULT 'https://www.google.com/search?q=Shri+Trimurti+Fitness+Club+reviews'`);
+    await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS google_maps_url TEXT DEFAULT 'https://maps.app.goo.gl/XCxniFWMMtnfw2MJA'`);
     await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS show_testimonials BOOLEAN DEFAULT false`);
+    
+    // Auto-update legacy review links to the new official Koparde location
+    await pool.query(`
+      UPDATE site_settings 
+      SET google_maps_url = 'https://maps.app.goo.gl/XCxniFWMMtnfw2MJA'
+      WHERE google_maps_url IS NULL 
+         OR google_maps_url LIKE '%search?q=%' 
+         OR google_maps_url LIKE '%CQ5GqNxPpdl4ECE%' 
+         OR google_maps_url LIKE '%Akola%'
+    `).catch(() => {});
     
     // Shared Resource Management & Facility Status
     await pool.query(`ALTER TABLE turfs ADD COLUMN IF NOT EXISTS physical_resource_id INTEGER`);

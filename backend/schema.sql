@@ -384,7 +384,7 @@ CREATE TABLE public.site_settings (
     gst_percent numeric(5,2) DEFAULT 18.00,
     google_rating numeric(2,1) DEFAULT 4.6,
     google_reviews_count integer DEFAULT 150,
-    google_maps_url text DEFAULT 'https://www.google.com/search?q=Akola+Sports+Arena+reviews'::text,
+    google_maps_url text DEFAULT 'https://maps.app.goo.gl/XCxniFWMMtnfw2MJA'::text,
     show_testimonials boolean DEFAULT false,
     upi_id text DEFAULT 'harshvardhanp@slc'::text,
     upi_qr_url text DEFAULT 'https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png'::text

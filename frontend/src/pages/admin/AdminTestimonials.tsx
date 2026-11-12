@@ -58,7 +58,7 @@ export default function AdminTestimonials() {
       const res = await api.get("/settings/contact");
       setGoogleRating(res.data.google_rating?.toString() || "4.6");
       setGoogleCount(res.data.google_reviews_count?.toString() || "150");
-      setGoogleUrl(res.data.google_maps_url || "");
+      setGoogleUrl(res.data.google_maps_url || "https://maps.app.goo.gl/XCxniFWMMtnfw2MJA");
       if (typeof res.data.show_testimonials === "boolean") {
         setShowTestimonials(res.data.show_testimonials);
       }
@@ -266,7 +266,7 @@ export default function AdminTestimonials() {
                 value={googleUrl} 
                 onChange={e => setGoogleUrl(e.target.value)}
                 className="bg-background pr-10 h-9"
-                placeholder="https://google.com/maps/..."
+                placeholder="https://maps.app.goo.gl/XCxniFWMMtnfw2MJA"
               />
               <a href={googleUrl} target="_blank" rel="noreferrer" className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity">
                 <ExternalLink className="w-4 h-4" />
