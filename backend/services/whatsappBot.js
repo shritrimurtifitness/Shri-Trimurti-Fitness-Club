@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const cache = require('../config/cache');
+const { normalizeTo10Digits } = require('../utils/phone');
 const {
   sendTextMessage,
   sendImageMessage,
@@ -696,8 +697,8 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       });
     }
 
-    // Find or create user
-    const customerPhone = String(from).replace(/\D/g, '');
+    // Find or create user - standardize to 10-digit number without country code
+    const customerPhone = normalizeTo10Digits(from);
     let userRes = await pool.query('SELECT id, name FROM users WHERE phone = $1', [customerPhone]);
     let userId;
     if (userRes.rows.length === 0) {
@@ -1145,7 +1146,7 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   // ----------------------------------------------------
   const standaloneUtrMatch = (text || '').match(/\b\d{10,18}\b/);
   if (standaloneUtrMatch && !activeSession) {
-    const customerPhone = String(from).replace(/\D/g, '');
+    const customerPhone = normalizeTo10Digits(from);
     const recentBooking = await pool.query(`
       SELECT b.id, b.status, s.start_time, s.end_time, t.name as turf_name
       FROM bookings b

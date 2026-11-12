@@ -1,16 +1,12 @@
 const axios = require('axios');
 const pool = require('../config/db');
+const { toWhatsAppPhone } = require('../utils/phone');
 
 /**
  * Normalizes a phone number to standard international format (e.g. 919595153006)
  */
 function normalizePhone(phone) {
-  if (!phone) return '';
-  let clean = String(phone).replace(/\D/g, '');
-  if (clean.length === 10) {
-    clean = '91' + clean; // Default to India
-  }
-  return clean;
+  return toWhatsAppPhone(phone);
 }
 
 /**

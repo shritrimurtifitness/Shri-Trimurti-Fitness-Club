@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/auth');
 const cache = require('../config/cache');
 const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
+const { normalizeTo10Digits } = require('../utils/phone');
 
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
@@ -197,9 +198,8 @@ router.post('/send-otp', async (req, res) => {
 
     // WhatsApp verification
     if (channel === 'whatsapp' || (!email && phone)) {
-      const rawPhone = String(phone || '').replace(/\D/g, '');
-      const cleanPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-      const phone10 = rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
+      const phone10 = normalizeTo10Digits(phone);
+      const cleanPhone = phone10.length === 10 ? '91' + phone10 : phone10;
 
       if (phone10.length !== 10) {
         return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number' });
@@ -274,9 +274,8 @@ router.post('/verify-otp', async (req, res) => {
 
     const cleanOtp = otp.toString().trim();
     const cleanEmail = email ? email.toLowerCase().trim() : null;
-    const rawPhone = phone ? String(phone).replace(/\D/g, '') : null;
-    const cleanPhone = rawPhone && rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-    const phone10 = rawPhone && rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
+    const phone10 = phone ? normalizeTo10Digits(phone) : null;
+    const cleanPhone = phone10 ? '91' + phone10 : null;
 
     // Verify WhatsApp Phone
     if (channel === 'whatsapp' || (cleanPhone && !cleanEmail)) {
@@ -344,9 +343,8 @@ router.post('/:id/register', async (req, res) => {
       return res.status(400).json({ error: "Team name, Captain's name, and Mobile number are required" });
     }
 
-    const rawPhone = String(phone).replace(/\D/g, '');
-    const cleanPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-    const phone10 = rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
+    const phone10 = normalizeTo10Digits(phone);
+    const cleanPhone = phone10 ? '91' + phone10 : '';
     const cleanEmail = email ? email.toLowerCase().trim() : '';
 
     if (phone10.length !== 10) {

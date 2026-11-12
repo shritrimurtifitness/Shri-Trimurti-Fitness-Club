@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Search, Calendar, Clock, MapPin, ArrowRight, History, ShieldCheck, Ticket } from "lucide-react";
 import { format } from "date-fns";
-import { formatTime12Hour } from "@/lib/utils";
+import { formatTime12Hour, normalizeTo10Digits } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,16 +17,29 @@ export default function MyBookings() {
   const [data, setData] = useState<{ active: any[], history: any[] } | null>(null);
   const [searched, setSearched] = useState(false);
 
+  const handlePhoneChange = (val: string) => {
+    const rawDigits = val.replace(/\D/g, "");
+    // If user enters/pastes 12 digits starting with 91, extract the 10 digits after 91
+    if (rawDigits.length === 12 && rawDigits.startsWith("91")) {
+      setPhone(rawDigits.substring(2));
+    } else if (rawDigits.length === 11 && rawDigits.startsWith("0")) {
+      setPhone(rawDigits.substring(1));
+    } else {
+      setPhone(rawDigits.slice(0, 10));
+    }
+  };
+
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (phone.length < 10) {
+    const cleanPhone = normalizeTo10Digits(phone);
+    if (cleanPhone.length !== 10) {
       toast.error("Please enter a valid 10-digit phone number");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await api.get(`/bookings/my-bookings/${phone}`);
+      const res = await api.get(`/bookings/my-bookings/${cleanPhone}`);
       setData(res.data);
       setSearched(true);
     } catch (error) {
@@ -118,7 +131,7 @@ export default function MyBookings() {
               type="tel"
               placeholder="Enter your 10-digit phone number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              onChange={(e) => handlePhoneChange(e.target.value)}
               className="pl-12 pr-32 h-14 rounded-2xl border-2 border-border bg-card shadow-lg focus-visible:ring-0 focus-visible:border-primary transition-all text-lg font-medium"
             />
             <Button 

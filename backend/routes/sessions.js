@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const cache = require('../config/cache');
 const { sessionLimiter } = require('../middleware/rateLimiter');
+const { normalizeTo10Digits } = require('../utils/phone');
 
 // Get running sessions
 router.get('/', async (req, res) => {
@@ -38,9 +39,10 @@ router.post('/', sessionLimiter, async (req, res) => {
     if (!customer_name || !customer_phone) {
       return res.status(400).json({ error: 'Customer name and phone are required' });
     }
+    const phone10 = normalizeTo10Digits(customer_phone);
     const { rows } = await pool.query(
       `INSERT INTO table_sessions (turf_id, name, customer_name, customer_phone, table_number) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [turf_id, name || 'Live Walk-in Table', customer_name, customer_phone, table_number || 1]
+      [turf_id, name || 'Live Walk-in Table', customer_name, phone10, table_number || 1]
     );
 
     // Invalidate caches

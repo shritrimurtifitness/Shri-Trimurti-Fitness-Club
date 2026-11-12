@@ -8,6 +8,7 @@ const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
 const notificationScheduler = require('../services/notificationScheduler');
 const adminBookingService = require('../services/adminBookingService');
+const { normalizeTo10Digits } = require('../utils/phone');
 
 router.post('/', bookingLimiter, async (req, res) => {
   try {
@@ -88,11 +89,12 @@ router.post('/', bookingLimiter, async (req, res) => {
     }
 
 
-    // Create or find user
-    let userResult = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    // Create or find user - standardized 10-digit number
+    const phone10 = normalizeTo10Digits(phone);
+    let userResult = await pool.query('SELECT * FROM users WHERE phone = $1', [phone10]);
     let userId;
     if (userResult.rows.length === 0) {
-      const newUser = await pool.query('INSERT INTO users (name, phone, role) VALUES ($1, $2, $3) RETURNING id', [name, phone, 'user']);
+      const newUser = await pool.query('INSERT INTO users (name, phone, role) VALUES ($1, $2, $3) RETURNING id', [name, phone10, 'user']);
       userId = newUser.rows[0].id;
     } else {
       userId = userResult.rows[0].id;
@@ -275,6 +277,7 @@ router.patch('/:id/pay', authMiddleware, async (req, res) => {
 router.get('/my-bookings/:phone', async (req, res) => {
   try {
     const { phone } = req.params;
+    const phone10 = normalizeTo10Digits(phone);
     const result = await pool.query(`
       SELECT b.id, b.status, b.payment_status, b.paid_amount, b.remaining_amount,
         s.date, s.start_time, s.end_time, s.price as total_amount, s.table_number,
@@ -285,7 +288,7 @@ router.get('/my-bookings/:phone', async (req, res) => {
       JOIN turfs t ON t.id = s.turf_id
       WHERE u.phone = $1
       ORDER BY s.date DESC, s.start_time DESC
-    `, [phone]);
+    `, [phone10]);
 
     const bookings = result.rows;
     const now = new Date();
@@ -608,9 +611,8 @@ router.post('/send-otp', bookingLimiter, async (req, res) => {
 
     // WhatsApp verification
     if (channel === 'whatsapp' || (!email && phone)) {
-      const rawPhone = String(phone || '').replace(/\D/g, '');
-      const cleanPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-      const phone10 = rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
+      const phone10 = normalizeTo10Digits(phone);
+      const cleanPhone = phone10.length === 10 ? '91' + phone10 : phone10;
 
       if (phone10.length !== 10) {
         return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number' });
@@ -680,9 +682,8 @@ router.post('/verify-otp', async (req, res) => {
 
     const cleanOtp = otp.toString().trim();
     const cleanEmail = email ? email.toLowerCase().trim() : null;
-    const rawPhone = phone ? String(phone).replace(/\D/g, '') : null;
-    const cleanPhone = rawPhone && rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-    const phone10 = rawPhone && rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
+    const phone10 = phone ? normalizeTo10Digits(phone) : null;
+    const cleanPhone = phone10 ? '91' + phone10 : null;
 
     // Verify WhatsApp Phone
     if (channel === 'whatsapp' || (cleanPhone && !cleanEmail)) {
@@ -756,9 +757,8 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
     }
 
     const cleanEmail = email ? email.toLowerCase().trim() : '';
-    const rawPhone = phone ? String(phone).replace(/\D/g, '') : '';
-    const cleanPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-    const phone10 = rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
+    const phone10 = phone ? normalizeTo10Digits(phone) : '';
+    const cleanPhone = phone10 ? '91' + phone10 : '';
     const cleanUtr = utr_number.trim();
 
     if (cleanUtr.length < 6) {
@@ -842,10 +842,10 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       }
     }
 
-    // Create or find user
+    // Create or find user - save strictly 10 digits without country code
     let userResult;
     if (phone10) {
-      userResult = await pool.query('SELECT * FROM users WHERE phone = $1 OR phone = $2', [phone10, cleanPhone]);
+      userResult = await pool.query('SELECT * FROM users WHERE phone = $1', [phone10]);
     } else if (cleanEmail) {
       userResult = await pool.query('SELECT * FROM users WHERE email = $1', [cleanEmail]);
     }
@@ -854,7 +854,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
     if (!userResult || userResult.rows.length === 0) {
       const newUser = await pool.query(
         'INSERT INTO users (name, phone, email, role) VALUES ($1, $2, $3, $4) RETURNING id',
-        [name, phone10 || cleanPhone || null, cleanEmail || null, 'user']
+        [name, phone10 || null, cleanEmail || null, 'user']
       );
       userId = newUser.rows[0].id;
     } else {
