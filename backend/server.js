@@ -126,6 +126,11 @@ app.use('/api/staff', staffRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 
+// 1-Tap Admin Quick Verification Short Links
+if (bookingsRoutes.handleQuickVerify) {
+  app.get(['/api/v/:action/:code/:token', '/v/:action/:code/:token'], bookingsRoutes.handleQuickVerify);
+}
+
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('[SERVER ERROR]', err.stack);

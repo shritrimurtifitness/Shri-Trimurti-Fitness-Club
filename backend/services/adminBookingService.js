@@ -22,8 +22,12 @@ function verifyAdminActionToken(bookingId, action, token) {
   if (!bookingId || !action || !token) return false;
   try {
     const expected = generateAdminActionToken(bookingId, action);
-    const expectedBuf = Buffer.from(expected);
-    const tokenBuf = Buffer.from(String(token));
+    const tokenStr = String(token).toLowerCase();
+    if (tokenStr.length < 8) return false;
+    // Compare equal-length prefix or full hash securely
+    const expectedComp = expected.slice(0, tokenStr.length).toLowerCase();
+    const expectedBuf = Buffer.from(expectedComp);
+    const tokenBuf = Buffer.from(tokenStr);
     if (expectedBuf.length !== tokenBuf.length) return false;
     return crypto.timingSafeEqual(expectedBuf, tokenBuf);
   } catch {
@@ -88,12 +92,13 @@ async function notifyAdminNewBooking({ bookingId, io }) {
     const amount = Number(b.paid_amount) || 800;
     const utr = b.utr_number || 'N/A';
 
-    // Generate 1-tap HMAC approval tokens
-    const approveToken = generateAdminActionToken(b.id, 'approve');
-    const rejectToken = generateAdminActionToken(b.id, 'reject');
-    const baseUrl = process.env.FRONTEND_URL || 'https://shritrimurtifitnessclub.in';
-    const approveUrl = `${baseUrl}/api/bookings/quick-verify?id=${b.id}&action=approve&token=${approveToken}`;
-    const rejectUrl = `${baseUrl}/api/bookings/quick-verify?id=${b.id}&action=reject&token=${rejectToken}`;
+    // Generate compact 1-tap HMAC approval tokens (short 8-char signature)
+    const approveToken = generateAdminActionToken(b.id, 'approve').slice(0, 8);
+    const rejectToken = generateAdminActionToken(b.id, 'reject').slice(0, 8);
+    const baseUrl = (process.env.FRONTEND_URL || 'https://shritrimurtifitnessclub.in').replace(/\/$/, '');
+    const code = b.id.substring(0, 8).toLowerCase();
+    const shortApproveUrl = `${baseUrl}/api/v/a/${code}/${approveToken}`;
+    const shortRejectUrl = `${baseUrl}/api/v/r/${code}/${rejectToken}`;
 
     const adminAlertText =
 `🚨 *NEW BOOKING ALERT — PENDING APPROVAL*
@@ -110,9 +115,9 @@ async function notifyAdminNewBooking({ bookingId, io }) {
 👉 *${utr}*
 
 ──────────────────────
-⚡ *1-TAP ACTION LINKS:*
-✅ *Approve:* ${approveUrl}
-❌ *Reject:* ${rejectUrl}`;
+⚡ *1-Tap Quick Links:*
+✅ *Approve:* ${shortApproveUrl}
+❌ *Reject:* ${shortRejectUrl}`;
 
     // Attempt interactive buttons first
     let sendResult = await whatsappService.sendInteractiveButtons({

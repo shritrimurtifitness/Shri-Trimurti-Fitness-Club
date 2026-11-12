@@ -930,18 +930,49 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
   }
 });
 
-// 3.5. 1-Tap Secure Admin Action Link (opens from WhatsApp in mobile browser)
-router.get('/quick-verify', async (req, res) => {
+// 3.5. 1-Tap Secure Admin Action Link (handles both full URL and compact micro short link)
+async function handleQuickVerify(req, res) {
   try {
-    const { id, action, token } = req.query;
-    if (!id || !action || !token) {
+    let action = req.query.action || req.params.action;
+    let id = req.query.id || req.params.code;
+    let token = req.query.token || req.params.token;
+
+    if (!action || !id || !token) {
       return res.status(400).send(adminBookingService.renderAdminResultHtml({
         success: false,
         message: 'Missing verification parameters.',
       }));
     }
 
-    const isValid = adminBookingService.verifyAdminActionToken(id, action, token);
+    const rawAction = String(action).toLowerCase();
+    if (rawAction === 'a' || rawAction === 'approve') {
+      action = 'approve';
+    } else if (rawAction === 'r' || rawAction === 'reject') {
+      action = 'reject';
+    } else {
+      return res.status(400).send(adminBookingService.renderAdminResultHtml({
+        success: false,
+        message: 'Invalid action requested.',
+      }));
+    }
+
+    let bookingId = id;
+    // If id is a short code (e.g. 8 chars), find the full UUID in database
+    if (id.length < 32) {
+      const bRes = await pool.query(
+        `SELECT id FROM bookings WHERE id::text ILIKE $1 LIMIT 1`,
+        [`${id.toLowerCase()}%`]
+      );
+      if (bRes.rows.length === 0) {
+        return res.status(404).send(adminBookingService.renderAdminResultHtml({
+          success: false,
+          message: `Booking #${id.toUpperCase()} not found or already verified.`,
+        }));
+      }
+      bookingId = bRes.rows[0].id;
+    }
+
+    const isValid = adminBookingService.verifyAdminActionToken(bookingId, action, token);
     if (!isValid) {
       return res.status(403).send(adminBookingService.renderAdminResultHtml({
         success: false,
@@ -951,23 +982,18 @@ router.get('/quick-verify', async (req, res) => {
 
     if (action === 'approve') {
       const result = await adminBookingService.approveBookingById({
-        bookingId: id,
+        bookingId,
         io: req.app.get('io'),
         adminIdentifier: '1-tap-whatsapp-link',
       });
       return res.send(adminBookingService.renderAdminResultHtml(result));
     } else if (action === 'reject') {
       const result = await adminBookingService.rejectBookingById({
-        bookingId: id,
+        bookingId,
         io: req.app.get('io'),
         adminIdentifier: '1-tap-whatsapp-link',
       });
       return res.send(adminBookingService.renderAdminResultHtml(result));
-    } else {
-      return res.status(400).send(adminBookingService.renderAdminResultHtml({
-        success: false,
-        message: 'Invalid action requested.',
-      }));
     }
   } catch (err) {
     console.error('[QUICK VERIFY ERROR]', err);
@@ -976,7 +1002,11 @@ router.get('/quick-verify', async (req, res) => {
       message: 'Server error: ' + err.message,
     }));
   }
-});
+}
+
+router.get('/quick-verify', handleQuickVerify);
+router.get('/v/:action/:code/:token', handleQuickVerify);
+router.handleQuickVerify = handleQuickVerify;
 
 // 4. Admin verify UPI payment (Approve or Reject from Dashboard)
 router.post('/:id/verify-upi', authMiddleware, async (req, res) => {
