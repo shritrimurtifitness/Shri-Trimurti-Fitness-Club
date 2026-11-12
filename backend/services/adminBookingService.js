@@ -209,6 +209,7 @@ async function approveBookingById({ bookingId, io, adminIdentifier = 'admin' }) 
       whatsappService.sendBookingConfirmationTicket({
         phone: b.customer_phone,
         bookingId: bookingCode,
+        customerName: b.customer_name,
         turfName,
         date: dateFormatted,
         slots: [slotTime],

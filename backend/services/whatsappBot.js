@@ -778,6 +778,134 @@ Once verified, you will automatically receive your official *Digital Entry Pass*
 }
 
 /**
+ * Generates a forwardable WhatsApp Match & Bill Split card for the squad
+ */
+async function handleSquadSplit({ from, bookingCode = '', selectedCount = 12, userName = '' }) {
+  const cleanPhone = from.replace(/\D/g, '');
+  const phone10 = cleanPhone.slice(-10);
+
+  let booking = null;
+  try {
+    if (bookingCode && bookingCode !== 'BILL') {
+      const bRes = await pool.query(`
+        SELECT b.*, u.name as customer_name, u.phone as customer_phone,
+               s.date, s.start_time, s.end_time, s.price as slot_price,
+               COALESCE(t.name, t.facility_type, 'Sports Turf') as turf_name,
+               t.facility_type
+        FROM bookings b
+        JOIN users u ON b.user_id = u.id
+        JOIN slots s ON b.slot_id = s.id
+        JOIN turfs t ON s.turf_id = t.id
+        WHERE b.id::text ILIKE $1 || '%'
+        ORDER BY b.created_at DESC
+        LIMIT 1
+      `, [bookingCode]);
+      if (bRes.rows.length > 0) booking = bRes.rows[0];
+    }
+
+    if (!booking) {
+      // Find latest confirmed booking for this user
+      const userRes = await pool.query(`
+        SELECT b.*, u.name as customer_name, u.phone as customer_phone,
+               s.date, s.start_time, s.end_time, s.price as slot_price,
+               COALESCE(t.name, t.facility_type, 'Sports Turf') as turf_name,
+               t.facility_type
+        FROM bookings b
+        JOIN users u ON b.user_id = u.id
+        JOIN slots s ON b.slot_id = s.id
+        JOIN turfs t ON s.turf_id = t.id
+        WHERE (u.phone = $1 OR u.phone = $2)
+          AND b.status = 'confirmed'
+        ORDER BY s.date DESC, s.start_time DESC
+        LIMIT 1
+      `, [cleanPhone, phone10]);
+      if (userRes.rows.length > 0) booking = userRes.rows[0];
+    }
+  } catch (err) {
+    console.error('[HANDLE SQUAD SPLIT DB ERROR]', err.message);
+  }
+
+  if (!booking) {
+    return sendInteractiveButtons({
+      to: from,
+      headerText: '📲 Split with Squad',
+      bodyText: `We couldn't find an active confirmed booking for your number.\n\nBook a slot first to generate a squad share card!`,
+      buttons: [
+        { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
+        { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
+      ],
+    });
+  }
+
+  const customerName = booking.customer_name || userName || 'Captain';
+  const totalAmount = Number(booking.paid_amount) || Number(booking.slot_price) || 800;
+  const turfName = booking.turf_name || 'Sports Turf';
+  const isFootball = /football|soccer/i.test(turfName);
+  const sportEmoji = isFootball ? '⚽' : '🏏';
+  const code = booking.id.substring(0, 8).toUpperCase();
+
+  const dateVal = typeof booking.date === 'string'
+    ? booking.date.substring(0, 10)
+    : new Date(booking.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const dateFormatted = formatDisplayDate(dateVal);
+  const timeFormatted = `${formatTime12h(booking.start_time)} – ${formatTime12h(booking.end_time)}`;
+
+  // Share calculations
+  const count = Number(selectedCount) || 12;
+  const perHead = Math.ceil(totalAmount / Math.max(1, count));
+  const share10 = Math.ceil(totalAmount / 10);
+  const share12 = Math.ceil(totalAmount / 12);
+  const share14 = Math.ceil(totalAmount / 14);
+
+  // UPI deep link pre-filled with perHead amount
+  const upiLink = `upi://pay?pa=${phone10}@upi&pn=${encodeURIComponent(customerName)}&am=${perHead}&cu=INR&tn=Turf%20Share`;
+
+  // The Clean Forwardable Match Card requested by the user
+  const forwardableCard =
+`Hey boys! Turf booked at *Shri Trimurti Fitness Club* 🏟️${sportEmoji}
+
+📅 *Date:* ${dateFormatted}
+⏰ *Time:* ${timeFormatted}
+🏟️ *Facility:* ${turfName}
+💰 *Total Turf Fee:* ₹${totalAmount}
+
+👥 *Your share is ₹${perHead}/person* (for ${count} players)
+📊 *Squad Splits:*
+• 10 Players: *₹${share10}* each
+• 12 Players: *₹${share12}* each
+• 14 Players: *₹${share14}* each
+
+💳 *Pay me via UPI:*
+👉 GPay / PhonePe / Paytm: *${phone10}*
+🔗 *1-Tap UPI Link:*
+${upiLink}
+
+📍 *Location:*
+https://maps.app.goo.gl/XCxniFWMMtnfw2MJA
+
+See you at the dugout! 🔥🏆`;
+
+  // 1. Send the clean forwardable text message directly
+  await sendTextMessage({
+    to: from,
+    text: forwardableCard,
+  });
+
+  // 2. Send interactive selector buttons for adjusting squad size
+  return sendInteractiveButtons({
+    to: from,
+    headerText: '📲 Forward Card Ready!',
+    bodyText: `👆 *Forward the message above* directly to your squad WhatsApp group.\n\nWant to recalculate for a different squad size?`,
+    footerText: 'SHRI TRIMURTI FITNESS CLUB',
+    buttons: [
+      { id: `BTN_SPLIT_CNT_${code}_10`, title: `👥 10 Players (₹${share10})` },
+      { id: `BTN_SPLIT_CNT_${code}_12`, title: `👥 12 Players (₹${share12})` },
+      { id: `BTN_SPLIT_CNT_${code}_14`, title: `👥 14 Players (₹${share14})` },
+    ],
+  });
+}
+
+/**
  * Main intent router for incoming WhatsApp messages
  * @param {Object} args
  * @param {string} args.from - Customer WhatsApp phone number
@@ -789,6 +917,30 @@ Once verified, you will automatically receive your official *Digital Entry Pass*
 async function handleIncomingMessage({ from, text = '', buttonPayload = '', userName = '', io = null }) {
   const normalizedText = (text || '').trim().toLowerCase();
   const payload = buttonPayload || '';
+
+  // ----------------------------------------------------
+  // Squad Split Bill Generator
+  // ----------------------------------------------------
+  if (payload.startsWith('BTN_SPLIT_CNT_')) {
+    const parts = payload.split('_');
+    const count = parseInt(parts[parts.length - 1], 10) || 12;
+    const code = parts[parts.length - 2] || '';
+    return handleSquadSplit({ from, bookingCode: code, selectedCount: count, userName });
+  }
+
+  if (
+    payload.startsWith('BTN_SPLIT_') ||
+    normalizedText === 'split' ||
+    normalizedText.includes('split bill') ||
+    normalizedText.includes('split with squad') ||
+    normalizedText.includes('share with squad') ||
+    normalizedText.includes('team share') ||
+    normalizedText.includes('squad share') ||
+    normalizedText.includes('split share')
+  ) {
+    const bookingCode = payload.startsWith('BTN_SPLIT_') ? payload.replace('BTN_SPLIT_', '').trim() : '';
+    return handleSquadSplit({ from, bookingCode, selectedCount: 12, userName });
+  }
 
   // ----------------------------------------------------
   // Post-Match Feedback: 5-Star Rating Click
@@ -1428,5 +1580,6 @@ module.exports = {
   getTodayAvailableSlots,
   initiateSlotBooking,
   handleUtrSubmission,
+  handleSquadSplit,
   handleIncomingMessage,
 };
