@@ -606,23 +606,22 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
       caption: `📲 Scan to Pay ₹${price} for ${turfName}\n⏰ Slot: ${timeStr} (${slotDateStr})`,
     });
 
-    // 2. Send detailed payment instructions & cancel button
+    // 2. Send compact payment instructions with high-visibility UTR action box
     const paymentInstructions =
-`📋 *RESERVATION SUMMARY (HELD FOR 15 MINS)*
-🏟️ *Turf:* ${turfName}
-📅 *Date:* ${slotDateStr}
-⏰ *Time:* ${timeStr}
-💰 *Payable Amount:* *₹${price}*
+`📋 *SLOT RESERVED (HELD FOR 15 MINS)*
+🏟️ *Turf:* ${turfName} | 💰 *Amount:* *₹${price}*
+📅 *Date:* ${slotDateStr} | ⏰ *Time:* ${timeStr}
 
-💳 *HOW TO PAY VIA UPI (0% FEE):*
-1. Scan the QR code image above with Google Pay, PhonePe, or Paytm.
-2. Or transfer directly to UPI ID:
-👉 *${upiId}*
-3. Mobile 1-Tap UPI Link:
-👉 ${upiPayLink}
+📲 *Pay Directly via UPI:*
+👉 *UPI ID:* ${upiId}
+👉 *Mobile 1-Tap Link:* ${upiPayLink}
 
-📝 *NEXT STEP TO CONFIRM:*
-After completing the payment, reply directly with your *12-digit UPI Reference / UTR Number* (e.g. \`431289012345\`) or upload your payment screenshot!
+━━━━━━━━━━━━━━━━━━━━
+⚡ *ACTION REQUIRED TO CONFIRM:*
+After paying, *reply directly here* with your *12-digit UPI Reference / UTR Number*:
+👉 Example: \`431289012345\`
+*(Or upload your payment screenshot)*
+━━━━━━━━━━━━━━━━━━━━
 
 _Tap Cancel below if you change your mind._`;
 
