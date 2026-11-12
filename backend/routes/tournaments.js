@@ -383,7 +383,7 @@ router.post('/:id/register', async (req, res) => {
     }
 
     if (!utr_number || utr_number.trim().length < 6) {
-      return res.status(400).json({ error: 'Please enter a valid 12-digit UPI Transaction Ref / UTR number' });
+      return res.status(400).json({ error: 'Please enter a valid 12-digit UPI Ref ID' });
     }
 
     // Verify slots left
@@ -409,7 +409,7 @@ router.post('/:id/register', async (req, res) => {
       [utr_number.trim()]
     );
     if (dupUtr.rows.length > 0) {
-      return res.status(400).json({ error: 'This UPI UTR / Reference number has already been submitted for a registration' });
+      return res.status(400).json({ error: 'This UPI Ref ID has already been submitted for a registration' });
     }
 
     // Create registration with pending_verification
@@ -440,7 +440,7 @@ router.post('/:id/register', async (req, res) => {
 👥 *Team:* ${team_name.trim()}
 👤 *Captain:* ${captain_name.trim()}
 💰 *Entry Fee:* ₹${tournamentRes.rows[0].entry_fee}
-💳 *UTR Reference:* ${utr_number.trim()}
+💳 *UPI Ref ID:* ${utr_number.trim()}
 
 ⏳ *Status:* *Pending Admin Verification*
 Our club desk is verifying your payment with our bank. You will receive your official tournament match pass once verified!
@@ -459,7 +459,7 @@ Shri Trimurti Fitness Club`;
 👥 *Team:* ${team_name.trim()}
 👤 *Captain:* ${captain_name.trim()} (📞 +91 ${phone10})
 💰 *Entry Fee:* ₹${tournamentRes.rows[0].entry_fee}
-💳 *Submitted UTR:* ${utr_number.trim()}
+💳 *Submitted UPI Ref ID:* ${utr_number.trim()}
 
 Please verify payment in club bank account.`;
     whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
@@ -507,7 +507,7 @@ router.post('/registrations/:id/verify-upi', authMiddleware, async (req, res) =>
                SET payment_status = 'rejected', rejection_reason = $2 
                WHERE id = $1 
                RETURNING *`;
-      params = [id, rejection_reason || 'Payment UTR could not be verified'];
+      params = [id, rejection_reason || 'UPI Ref ID could not be verified'];
     }
 
     const result = await pool.query(query, params);

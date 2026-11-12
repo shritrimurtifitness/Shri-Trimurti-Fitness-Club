@@ -111,7 +111,7 @@ async function notifyAdminNewBooking({ bookingId, io }) {
 📞 *Player Phone:* +${b.customer_phone || 'N/A'}
 💰 *Amount Due:* ₹${amount}
 
-💳 *Submitted UTR Reference:*
+💳 *Submitted UPI Ref ID:*
 👉 *${utr}*
 
 ──────────────────────
@@ -322,7 +322,7 @@ async function rejectBookingById({ bookingId, io, adminIdentifier = 'admin', rea
       const rejectMsg =
 `⚠️ *Shri Trimurti Fitness Club Update*
 
-Hi ${b.customer_name}, we were unable to verify your UPI transfer (UTR: ${b.utr_number || 'N/A'}) for booking *#${bookingCode}* (${turfName}, ${dateFormatted} at ${slotTime}).
+Hi ${b.customer_name}, we were unable to verify your UPI transfer (UPI Ref ID: ${b.utr_number || 'N/A'}) for booking *#${bookingCode}* (${turfName}, ${dateFormatted} at ${slotTime}).
 
 If you have already paid or if this was an error, please call our club desk immediately at 📞 +91 9595153006 to resolve it.`;
 
@@ -414,7 +414,7 @@ function renderAdminResultHtml({ success, alreadyProcessed, bookingCode, custome
       <div class="row"><span class="label">Time:</span><span class="value">${timeStr || ''}</span></div>
       <div class="row"><span class="label">Player:</span><span class="value">${customerName || ''}</span></div>
       ${amount ? `<div class="row"><span class="label">Amount:</span><span class="value">₹${amount}</span></div>` : ''}
-      ${utr ? `<div class="row"><span class="label">UTR:</span><span class="utr-val">${utr}</span></div>` : ''}
+      ${utr ? `<div class="row"><span class="label">UPI Ref ID:</span><span class="utr-val">${utr}</span></div>` : ''}
     </div>` : ''}
 
     <p class="desc">${message || (isApproved ? 'The player has been automatically issued their official Digital Entry Pass with QR code on WhatsApp.' : 'The slot has been released back to availability.')}</p>

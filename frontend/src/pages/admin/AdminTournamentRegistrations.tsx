@@ -109,7 +109,7 @@ export default function AdminTournamentRegistrations({ tournament, onBack }: { t
 
   const handleOpenReject = (reg: Registration) => {
     setRejectingReg(reg);
-    setRejectReason("UTR not matching received bank transaction");
+    setRejectReason("UPI Ref ID not matching received bank transaction");
     setRejectModalOpen(true);
   };
 
@@ -236,7 +236,7 @@ export default function AdminTournamentRegistrations({ tournament, onBack }: { t
                     <th className="px-6 py-4">Team Name</th>
                     <th className="px-6 py-4">Captain</th>
                     <th className="px-6 py-4">Contact</th>
-                    <th className="px-6 py-4">Bank UTR / Ref</th>
+                    <th className="px-6 py-4">UPI Ref ID</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4 text-right">Verification & Actions</th>
                   </tr>
@@ -279,16 +279,16 @@ export default function AdminTournamentRegistrations({ tournament, onBack }: { t
                           )}
                         </td>
                         
-                        {/* UTR / Ref column */}
+                        {/* UPI Ref ID column */}
                         <td className="px-6 py-4">
                           {r.utr_number ? (
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(r.utr_number!);
-                                toast.success(`Copied UTR: ${r.utr_number}`);
+                                toast.success(`Copied UPI Ref ID: ${r.utr_number}`);
                               }}
                               className="inline-flex items-center gap-1.5 font-mono font-bold text-xs bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-lg border border-border transition-colors text-foreground group"
-                              title="Click to copy UTR"
+                              title="Click to copy UPI Ref ID"
                             >
                               <span>{r.utr_number}</span>
                               <Copy className="w-3 h-3 text-muted-foreground group-hover:text-primary" />
@@ -427,11 +427,11 @@ export default function AdminTournamentRegistrations({ tournament, onBack }: { t
                       )}
                       {r.utr_number && (
                         <div className="flex justify-between items-center pt-1 border-t border-border/50">
-                          <span className="text-muted-foreground font-semibold">Bank UTR</span>
+                          <span className="text-muted-foreground font-semibold">UPI Ref ID</span>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(r.utr_number!);
-                              toast.success(`Copied UTR: ${r.utr_number}`);
+                              toast.success(`Copied UPI Ref ID: ${r.utr_number}`);
                             }}
                             className="inline-flex items-center gap-1 font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded text-[11px]"
                           >
@@ -505,7 +505,7 @@ export default function AdminTournamentRegistrations({ tournament, onBack }: { t
             <Input
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="e.g. UTR not found in bank statement"
+              placeholder="e.g. UPI Ref ID not found in bank statement"
               className="bg-background text-sm"
             />
           </div>

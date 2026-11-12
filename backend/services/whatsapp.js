@@ -321,7 +321,7 @@ Hi Player! Your booking has been verified. We look forward to seeing you on the 
 📅 *Date:* ${date}
 ⏰ *Slot(s):* ${formattedSlots}
 💰 *Total Paid:* ₹${totalAmount} (Fully Paid)
-${utrNumber ? `💳 *UTR Reference:* ${utrNumber}\n` : ''}
+${utrNumber ? `💳 *UPI Ref ID:* ${utrNumber}\n` : ''}
 📍 *Location:* Kudire Factory, Sangrul Fata, Koparde, Maharashtra
 🗺️ *Map:* https://maps.google.com/?q=16.6943068,74.120735
 

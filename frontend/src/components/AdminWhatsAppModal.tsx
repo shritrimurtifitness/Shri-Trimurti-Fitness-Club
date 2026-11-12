@@ -171,7 +171,7 @@ export default function AdminWhatsAppModal({ isOpen, onClose, booking }: Props) 
               >
                 <div className="flex items-center gap-1 text-[11px] font-bold">
                   <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                  Request UTR
+                  Request UPI Ref ID
                 </div>
                 <span className="text-[10px] text-muted-foreground line-clamp-1">Pending payment</span>
               </button>

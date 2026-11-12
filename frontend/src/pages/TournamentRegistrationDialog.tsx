@@ -54,7 +54,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
   const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [waLink, setWaLink] = useState("");
 
-  // UPI payment & UTR state
+  // UPI payment & UPI Ref ID state
   const [utrNumber, setUtrNumber] = useState("");
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -222,7 +222,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
     e.preventDefault();
     const cleanUtr = utrNumber.trim();
     if (cleanUtr.length < 6) {
-      return toast.error("Please enter a valid 12-digit UPI Reference / UTR number");
+      return toast.error("Please enter a valid 12-digit UPI Ref ID");
     }
 
     setIsSubmitting(true);
@@ -256,7 +256,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
           </div>
 
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 mx-auto mb-3">
-            <Clock className="w-3.5 h-3.5" /> Awaiting Staff UTR Verification
+            <Clock className="w-3.5 h-3.5" /> Awaiting Staff UPI Ref ID Verification
           </span>
 
           <h2 className="text-2xl font-heading font-black mb-1">Registration Received!</h2>
@@ -288,7 +288,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
               <span className="font-bold text-emerald-400">₹{tournament.entry_fee} (0% Fee)</span>
             </div>
             <div className="flex justify-between items-center pt-0.5">
-              <span className="text-muted-foreground font-medium">Submitted Bank UTR</span>
+              <span className="text-muted-foreground font-medium">Submitted UPI Ref ID</span>
               <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
                 {submittedUtr}
               </span>
@@ -663,11 +663,11 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
               </div>
             </div>
 
-            {/* UTR Reference Input */}
+            {/* UPI Ref ID Reference Input */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  12-Digit Bank UTR / UPI Ref Number
+                  12-Digit UPI Ref ID
                 </Label>
                 <span className="text-[11px] font-mono text-muted-foreground">
                   {utrNumber.trim().length}/12
@@ -697,7 +697,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting & Sending Receipt...
                 </>
               ) : (
-                "Submit Registration & UTR"
+                "Submit Registration & UPI Ref ID"
               )}
             </Button>
           </form>

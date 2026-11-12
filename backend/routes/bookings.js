@@ -747,7 +747,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
     const { name, phone, email, slot_id, slot_ids, utr_number } = req.body;
 
     if (!name || (!phone && !email) || (!slot_id && (!slot_ids || slot_ids.length === 0)) || !utr_number) {
-      return res.status(400).json({ error: 'Name, contact info (mobile number or email), slots, and UPI Reference (UTR) are required' });
+      return res.status(400).json({ error: 'Name, contact info (mobile number or email), slots, and UPI Ref ID are required' });
     }
 
     const cleanEmail = email ? email.toLowerCase().trim() : '';
@@ -757,7 +757,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
     const cleanUtr = utr_number.trim();
 
     if (cleanUtr.length < 6) {
-      return res.status(400).json({ error: 'Please enter a valid 12-digit UPI Reference / UTR Number' });
+      return res.status(400).json({ error: 'Please enter a valid 12-digit UPI Ref ID' });
     }
 
     // Check duplicate UTR
@@ -766,7 +766,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       [cleanUtr]
     );
     if (duplicateUtr.rows.length > 0) {
-      return res.status(400).json({ error: 'This UPI Reference (UTR) has already been submitted for another booking' });
+      return res.status(400).json({ error: 'This UPI Ref ID has already been submitted for another booking' });
     }
 
     // Check OTP verification: Either Email OR WhatsApp Phone must be verified
@@ -901,7 +901,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
     }
 
     if (cleanPhone) {
-      const waReceipt = `📋 *BOOKING SUBMITTED!* 🏏⚽\n\n*Booking ID:* #${createdBookings[0].id.substring(0, 8).toUpperCase()}\n*Turf:* ${turfName}\n*Date:* ${dateFormatted}\n*Slots:* ${slotTimes.join(', ')}\n*Amount Paid:* ₹${grandTotal}\n*UTR:* ${cleanUtr}\n\n⏳ *Status:* Pending Admin Verification\nOur turf manager is verifying the payment in our bank account. Once verified, your official entry pass will be issued!`;
+      const waReceipt = `📋 *BOOKING SUBMITTED!* 🏏⚽\n\n*Booking ID:* #${createdBookings[0].id.substring(0, 8).toUpperCase()}\n*Turf:* ${turfName}\n*Date:* ${dateFormatted}\n*Slots:* ${slotTimes.join(', ')}\n*Amount Paid:* ₹${grandTotal}\n*UPI Ref ID:* ${cleanUtr}\n\n⏳ *Status:* Pending Admin Verification\nOur turf manager is verifying the payment in our bank account. Once verified, your official entry pass will be issued!`;
       whatsappService.sendTextMessage({ to: cleanPhone, text: waReceipt }).catch(() => {});
     }
 

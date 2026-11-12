@@ -523,7 +523,7 @@ export default function AdminSettings() {
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Advance payments go straight to your bank account with zero payment gateway fees. Verified via Brevo Email OTP & 12-digit UTR approval.
+                        Advance payments go straight to your bank account with zero payment gateway fees. Verified via Brevo Email OTP & 12-digit UPI Ref ID approval.
                       </p>
                     </div>
                   </div>
@@ -573,7 +573,7 @@ export default function AdminSettings() {
                       <ul className="text-[11px] text-muted-foreground space-y-1 list-disc pl-4">
                         <li>Customer verifies email via Brevo OTP before checkout.</li>
                         <li>Customer scans your Arena QR code or pays via UPI ID.</li>
-                        <li>Customer submits the 12-digit bank UTR / Reference number.</li>
+                        <li>Customer submits the 12-digit UPI Ref ID.</li>
                         <li>Admin verifies funds in bank app and approves with one click in Bookings.</li>
                       </ul>
                     </div>

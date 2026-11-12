@@ -619,7 +619,7 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
 👉 *1-Tap Pay:* ${upiPayLink}
 
 ⚡ *ACTION REQUIRED TO CONFIRM:*
-Reply here with your *12-digit UTR Number*:
+Reply here with your *12-digit UPI Ref ID*:
 👉 Example: \`431289012345\`
 *(Or upload your payment screenshot)*
 
@@ -653,7 +653,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
     if (cleanUtr.length < 6) {
       return sendTextMessage({
         to: from,
-        text: '⚠️ Please enter a valid 12-digit UPI Reference / UTR Number (found on your payment receipt in GPay, PhonePe, or Paytm).',
+        text: '⚠️ Please enter a valid 12-digit UPI Ref ID (found on your payment receipt in GPay, PhonePe, or Paytm).',
       });
     }
 
@@ -665,8 +665,8 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
     if (dupRes.rows.length > 0) {
       return sendInteractiveButtons({
         to: from,
-        headerText: 'Duplicate UTR Number',
-        bodyText: `⚠️ The UPI Reference (*${cleanUtr}*) has already been submitted for another booking.\n\nPlease check your receipt or contact our desk if this is an error.`,
+        headerText: 'Duplicate UPI Ref ID',
+        bodyText: `⚠️ The UPI Ref ID (*${cleanUtr}*) has already been submitted for another booking.\n\nPlease check your receipt or contact our desk if this is an error.`,
         buttons: [
           { id: 'BTN_STAFF', title: '👤 Call Staff' },
           { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
@@ -688,7 +688,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       return sendInteractiveButtons({
         to: from,
         headerText: 'Slot Conflict',
-        bodyText: `⚠️ Apologies! This slot was booked right before your UTR was received.\n\nPlease contact our arena manager to assign you another slot or issue an immediate refund.`,
+        bodyText: `⚠️ Apologies! This slot was booked right before your UPI Ref ID was received.\n\nPlease contact our arena manager to assign you another slot or issue an immediate refund.`,
         buttons: [
           { id: 'BTN_STAFF', title: '👤 Call Manager' },
           { id: 'BTN_CRICKET_SLOTS', title: '🏏 Other Slots' },
@@ -748,7 +748,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 📅 *Date:* ${session.date}
 ⏰ *Time:* ${session.timeStr}
 💰 *Amount Paid:* ₹${session.price}
-💳 *UTR Reference:* ${cleanUtr}
+💳 *UPI Ref ID:* ${cleanUtr}
 
 ⏳ *Status:* *Pending Admin Verification*
 Our turf manager has received your booking and is verifying the payment in our bank account.
@@ -925,7 +925,7 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
       return sendTextMessage({
         to: from,
-        text: `✅ *Booking #${result.bookingCode} Approved!* 🏏⚽\n\nPlayer *${result.customerName}* has been issued their official Digital Entry Pass with QR code on WhatsApp!\n\n🏟️ *Turf:* ${result.turfName}\n📅 *Date:* ${result.dateStr}\n⏰ *Time:* ${result.timeStr}\n💰 *Amount:* ₹${result.amount}\n💳 *UTR:* ${result.utr || 'N/A'}`,
+        text: `✅ *Booking #${result.bookingCode} Approved!* 🏏⚽\n\nPlayer *${result.customerName}* has been issued their official Digital Entry Pass with QR code on WhatsApp!\n\n🏟️ *Turf:* ${result.turfName}\n📅 *Date:* ${result.dateStr}\n⏰ *Time:* ${result.timeStr}\n💰 *Amount:* ₹${result.amount}\n💳 *UPI Ref ID:* ${result.utr || 'N/A'}`,
       });
     } else {
       const result = await adminBookingService.rejectBookingById({
@@ -1036,7 +1036,7 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
       return sendInteractiveButtons({
         to: from,
         headerText: 'Payment Received',
-        bodyText: `📸 Thank you! We received your payment confirmation.\n\nTo ensure instant verification with our bank, please type and send the *12-digit UPI Reference / UTR Number* from your receipt (e.g. \`431289012345\`).`,
+        bodyText: `📸 Thank you! We received your payment confirmation.\n\nTo ensure instant verification with our bank, please type and send the *12-digit UPI Ref ID* from your receipt (e.g. \`431289012345\`).`,
         buttons: [
           { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
           { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
@@ -1048,7 +1048,7 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     return sendInteractiveButtons({
       to: from,
       headerText: 'Pending Payment',
-      bodyText: `⏳ We are holding your ${activeSession.turfName} slot (${activeSession.timeStr}) for ₹${activeSession.price}.\n\nTo complete your booking, please reply with your *12-digit UPI Reference / UTR Number*.\n\nOr tap below to cancel:`,
+      bodyText: `⏳ We are holding your ${activeSession.turfName} slot (${activeSession.timeStr}) for ₹${activeSession.price}.\n\nTo complete your booking, please reply with your *12-digit UPI Ref ID*.\n\nOr tap below to cancel:`,
       buttons: [
         { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
         { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
@@ -1166,8 +1166,8 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
     return sendInteractiveButtons({
       to: from,
-      headerText: 'UTR Received',
-      bodyText: `We received UPI Reference (*${standaloneUtrMatch[0]}*), but no active slot reservation was found.\n\nPlease pick a slot first to link your payment:`,
+      headerText: 'UPI Ref ID Received',
+      bodyText: `We received UPI Ref ID (*${standaloneUtrMatch[0]}*), but no active slot reservation was found.\n\nPlease pick a slot first to link your payment:`,
       buttons: [
         { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
         { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },

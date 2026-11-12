@@ -375,7 +375,7 @@ export default function BookingPage() {
   const handleConfirmUpiBooking = async () => {
     if (!selectedSlot) return;
     if (!utrNumber || utrNumber.trim().length < 6) {
-      toast.error("Please enter the 12-digit UPI Reference / UTR Number from your payment app");
+      toast.error("Please enter the 12-digit UPI Ref ID from your payment app");
       return;
     }
     setIsSubmitting(true);
@@ -833,10 +833,10 @@ export default function BookingPage() {
                     </a>
                   </div>
 
-                  {/* UTR Input Section */}
+                  {/* UPI Ref ID Input Section */}
                   <div className="border-t border-border pt-4 space-y-2">
                     <label className="text-xs font-bold text-foreground block uppercase tracking-wider">
-                      Enter 12-Digit UPI Reference / UTR Number
+                      Enter 12-Digit UPI Ref ID
                     </label>
                     <div className="relative">
                       <Input
@@ -849,7 +849,7 @@ export default function BookingPage() {
                       />
                     </div>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      💡 Found in your payment app under: <em>UPI Ref ID</em>, <em>UTR</em>, or <em>Transaction ID</em>.
+                      💡 Found in your payment app under: <em>UPI Ref ID</em> or <em>Transaction ID</em>.
                     </p>
                   </div>
                 </div>
@@ -896,7 +896,7 @@ export default function BookingPage() {
                         <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span className="font-bold text-foreground">{name}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Time Slot:</span><span className="font-bold text-foreground">{selectedSlotGroup?.time}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Amount:</span><span className="font-bold text-foreground">₹{selectedSlotGroup?.price}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Submitted UTR:</span><span className="font-mono font-bold text-amber-400">{utrNumber || confirmedBooking?.utr_number}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Submitted UPI Ref ID:</span><span className="font-mono font-bold text-amber-400">{utrNumber || confirmedBooking?.utr_number}</span></div>
                         <div className="flex justify-between pt-1 border-t border-border/50 items-center">
                           <span className="text-muted-foreground">Status:</span>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${

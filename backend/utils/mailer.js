@@ -110,7 +110,7 @@ async function sendBookingReceived({ email, name, bookingId, turfName, date, slo
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Date:</td><td style="padding: 6px 0; font-weight: bold; text-align: right;">${date}</td></tr>
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Slots:</td><td style="padding: 6px 0; font-weight: bold; text-align: right;">${slots.join(', ')}</td></tr>
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Total Amount:</td><td style="padding: 6px 0; font-weight: bold; text-align: right;">₹${totalAmount}</td></tr>
-          <tr><td style="padding: 6px 0; color: #a1a1aa;">Submitted UTR:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #facc15;">${utrNumber}</td></tr>
+          <tr><td style="padding: 6px 0; color: #a1a1aa;">Submitted UPI Ref ID:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #facc15;">${utrNumber}</td></tr>
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Status:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #f59e0b;">Pending Verification</td></tr>
         </table>
       </div>
@@ -187,7 +187,7 @@ async function sendBookingRejected({ email, name, bookingId, turfName, date, rea
       <p style="color: #d4d4d8; font-size: 14px;">Hi <strong>${name}</strong>, your booking request (ID: ${bookingId}) could not be confirmed.</p>
       
       <div style="background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 16px; margin: 20px 0;">
-        <p style="margin: 0; color: #f87171; font-size: 14px;"><strong>Reason:</strong> ${reason || 'UPI payment reference (UTR) could not be verified in the bank records.'}</p>
+        <p style="margin: 0; color: #f87171; font-size: 14px;"><strong>Reason:</strong> ${reason || 'UPI Ref ID could not be verified in the bank records.'}</p>
       </div>
 
       <p style="color: #a1a1aa; font-size: 13px;">If you have already transferred the money, please contact the arena management directly with your payment receipt.</p>
@@ -244,7 +244,7 @@ async function sendTournamentRegistrationReceived({ email, captainName, teamName
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #27272a; border-radius: 16px; background-color: #09090b; color: #f4f4f5;">
       <h2 style="color: #39FF14; margin-top: 0; font-size: 22px;">Tournament Registration Received</h2>
       <p style="color: #d4d4d8; font-size: 14px;">
-        Hi Captain <strong>${captainName}</strong>, team <strong>${teamName}</strong> has been registered for <strong>${tournamentName}</strong>! Our staff is verifying your payment with the submitted bank UTR.
+        Hi Captain <strong>${captainName}</strong>, team <strong>${teamName}</strong> has been registered for <strong>${tournamentName}</strong>! Our staff is verifying your payment with the submitted UPI Ref ID.
       </p>
       
       <div style="background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 16px; margin: 20px 0;">
@@ -254,13 +254,13 @@ async function sendTournamentRegistrationReceived({ email, captainName, teamName
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Team Name:</td><td style="padding: 6px 0; font-weight: bold; text-align: right;">${teamName}</td></tr>
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Captain:</td><td style="padding: 6px 0; font-weight: bold; text-align: right;">${captainName}</td></tr>
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Entry Fee:</td><td style="padding: 6px 0; font-weight: bold; text-align: right;">₹${entryFee} (0% Fee)</td></tr>
-          <tr><td style="padding: 6px 0; color: #a1a1aa;">Submitted UTR:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #facc15;">${utrNumber}</td></tr>
+          <tr><td style="padding: 6px 0; color: #a1a1aa;">Submitted UPI Ref ID:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #facc15;">${utrNumber}</td></tr>
           <tr><td style="padding: 6px 0; color: #a1a1aa;">Status:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #f59e0b;">Pending Verification</td></tr>
         </table>
       </div>
 
       <p style="color: #a1a1aa; font-size: 13px; line-height: 1.5;">
-        You will receive your official tournament pass confirmation once staff validates your UTR number with bank records.
+        You will receive your official tournament pass confirmation once staff validates your UPI Ref ID with bank records.
       </p>
       
       <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
@@ -270,7 +270,7 @@ async function sendTournamentRegistrationReceived({ email, captainName, teamName
     </div>
   `;
 
-  return sendEmail({ to: email, subject, html, text: `Registration for ${teamName} received. Awaiting UTR verification.` });
+  return sendEmail({ to: email, subject, html, text: `Registration for ${teamName} received. Awaiting UPI Ref ID verification.` });
 }
 
 /**
@@ -333,7 +333,7 @@ async function sendTournamentRegistrationRejected({ email, captainName, teamName
       </p>
       
       <div style="background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 16px; margin: 20px 0;">
-        <p style="margin: 0; color: #f87171; font-size: 14px;"><strong>Reason:</strong> ${reason || 'UPI payment UTR reference could not be verified in the bank statement.'}</p>
+        <p style="margin: 0; color: #f87171; font-size: 14px;"><strong>Reason:</strong> ${reason || 'UPI Ref ID could not be verified in the bank statement.'}</p>
       </div>
 
       <p style="color: #a1a1aa; font-size: 13px;">

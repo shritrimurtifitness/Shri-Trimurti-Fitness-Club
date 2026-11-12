@@ -56,7 +56,7 @@ export default function AdminBookings() {
   // Reject Dialog & Verify Status
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<any>(null);
-  const [rejectReason, setRejectReason] = useState("Payment not received in arena UPI account / Invalid UTR");
+  const [rejectReason, setRejectReason] = useState("Payment not received in arena UPI account / Invalid UPI Ref ID");
   const [processingVerify, setProcessingVerify] = useState(false);
 
   useEffect(() => {
@@ -262,7 +262,7 @@ export default function AdminBookings() {
                   {pendingApprovalCount} UPI Payment{pendingApprovalCount > 1 ? 's' : ''} Awaiting Admin Approval
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Customer submitted 12-digit UTR reference. Verify against your bank/UPI app and approve.
+                  Customer submitted 12-digit UPI Ref ID. Verify against your bank/UPI app and approve.
                 </p>
               </div>
             </div>
@@ -279,7 +279,7 @@ export default function AdminBookings() {
         <div className="flex flex-col sm:flex-row justify-between gap-3">
           <div className="relative flex-1 sm:w-64 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, phone, UTR, ID..." className="pl-10 bg-card border-border" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, phone, UPI Ref ID, ID..." className="pl-10 bg-card border-border" />
           </div>
           <Button onClick={() => setShowModal(true)} className="bg-gradient-turf text-primary-foreground shadow-turf shrink-0">
             <Plus className="w-4 h-4 mr-2" /> Book Slot
@@ -518,13 +518,13 @@ export default function AdminBookings() {
                     </div>
                     {b.utrNumber && (
                       <div className="mt-1 flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground w-fit">
-                        <span className="text-[9px] uppercase font-bold text-amber-500">UTR:</span>
+                        <span className="text-[9px] uppercase font-bold text-amber-500">UPI Ref ID:</span>
                         <span className="font-semibold text-foreground select-all">{b.utrNumber}</span>
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.utrNumber); toast.success('UTR copied to clipboard'); }}
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.utrNumber); toast.success('UPI Ref ID copied to clipboard'); }}
                           className="text-amber-500 hover:text-amber-400 ml-0.5"
-                          title="Copy UTR"
+                          title="Copy UPI Ref ID"
                         >
                           <Copy className="w-2.5 h-2.5" />
                         </button>
@@ -539,7 +539,7 @@ export default function AdminBookings() {
                       variant="ghost"
                       className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
                       onClick={() => setWhatsAppBooking(b)}
-                      title="WhatsApp Quick Actions (Confirmation / Reminder / Request UTR)"
+                      title="WhatsApp Quick Actions (Confirmation / Reminder / Request UPI Ref ID)"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                     </Button>
@@ -658,14 +658,14 @@ export default function AdminBookings() {
               {b.utrNumber && (
                 <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 text-xs">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] uppercase font-bold text-amber-500">UTR No:</span>
+                    <span className="text-[10px] uppercase font-bold text-amber-500">UPI Ref ID:</span>
                     <span className="font-mono font-bold text-foreground tracking-wider select-all">{b.utrNumber}</span>
                   </div>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.utrNumber); toast.success('UTR copied'); }}
+                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.utrNumber); toast.success('UPI Ref ID copied'); }}
                     className="text-amber-500 hover:text-amber-400 p-1"
-                    title="Copy UTR"
+                    title="Copy UPI Ref ID"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
@@ -913,7 +913,7 @@ export default function AdminBookings() {
                   <span className="font-semibold">{rejectTarget.customerName} ({rejectTarget.phone})</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Submitted UTR:</span>
+                  <span className="text-muted-foreground">Submitted UPI Ref ID:</span>
                   <span className="font-mono font-bold text-amber-500">{rejectTarget.utrNumber || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
@@ -926,7 +926,7 @@ export default function AdminBookings() {
                 <Input
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="e.g. Payment not credited in bank, invalid UTR"
+                  placeholder="e.g. Payment not credited in bank, invalid UPI Ref ID"
                   className="text-xs bg-background"
                 />
               </div>
