@@ -297,7 +297,7 @@ async function sendBookingConfirmationTicket({ phone, bookingId, turfName, date,
 📅 *Date:* ${date} | ⏰ *Slot:* ${formattedSlots}
 📋 *Booking ID:* #${bookingId ? bookingId.slice(0, 8).toUpperCase() : 'CONFIRMED'}
 
-👉 *Show this QR code at the turf entry gate for staff check-in scan!*`;
+👉 *Show this QR code at the turf entry gate for check-in scan!*`;
 
   // 1. Send the Entry Pass QR Code Image
   try {
