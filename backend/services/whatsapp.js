@@ -284,7 +284,7 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
 
 /**
  * Sends a structured booking confirmation receipt ticket to the customer via WhatsApp,
- * including their official Gate Entry Pass QR code image and 1-tap "Split with Squad" button.
+ * including their official Gate Entry Pass QR code image.
  */
 async function sendBookingConfirmationTicket({ phone, bookingId, customerName, turfName, date, slots, totalAmount, utrNumber, qrToken }) {
   const formattedSlots = Array.isArray(slots) ? slots.join(', ') : slots;
@@ -314,7 +314,7 @@ async function sendBookingConfirmationTicket({ phone, bookingId, customerName, t
     console.error('[WHATSAPP ENTRY PASS QR SEND ERROR]', imgErr.message);
   }
 
-  // 2. Send Detailed Booking Confirmation Receipt with Interactive Action Buttons
+  // 2. Send Detailed Booking Confirmation Receipt with Action Buttons
   const message = 
 `🎉 *BOOKING CONFIRMED — SHRI TRIMURTI FITNESS CLUB*
 
@@ -334,9 +334,7 @@ ${utrNumber ? `💳 *UPI Ref ID:* ${utrNumber}\n` : ''}
 2. Proper sports footwear is required on the turf.
 3. Show the official Entry Pass QR code above at the gate for fast check-in.
 
-📲 *Tap "Split with Squad" below to get your ready-to-forward team share card!*`;
-
-  const btnId = `BTN_SPLIT_${cleanBookingCode}`;
+Play Hard. Compete Better! 🔥`;
 
   try {
     const res = await sendInteractiveButtons({
@@ -345,8 +343,8 @@ ${utrNumber ? `💳 *UPI Ref ID:* ${utrNumber}\n` : ''}
       bodyText: message,
       footerText: 'SHRI TRIMURTI FITNESS CLUB',
       buttons: [
-        { id: btnId, title: '📲 Split with Squad' },
         { id: 'BTN_LOCATION', title: '📍 Directions' },
+        { id: 'BTN_STAFF', title: '📞 Call Arena' },
       ],
     });
     if (res && res.success) return res;

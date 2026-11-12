@@ -56,38 +56,22 @@ export function generateTeamSplitMessage({
   captainUpi,
   mapUrl = ARENA_DEFAULT_MAP_URL
 }: TeamSplitParams): string {
-  const isFootball = /football|soccer/i.test(facilityName);
-  const sportEmoji = isFootball ? '⚽' : '🏏';
-  const count = Math.max(1, playerCount);
-  const perHead = Math.ceil(totalPrice / count);
-  const share12 = Math.ceil(totalPrice / 12);
-  const share14 = Math.ceil(totalPrice / 14);
-  const share16 = Math.ceil(totalPrice / 16);
-  const cleanUpiOrPhone = (captainUpi || "").trim();
+  const perHead = Math.ceil(totalPrice / Math.max(1, playerCount));
 
-  let msg = `Hey boys! Turf booked at *${ARENA_VENUE_NAME}* 🏟️${sportEmoji}\n\n`;
-  msg += `📅 *Date:* ${date}\n`;
-  msg += `⏰ *Time:* ${timeSlot}\n`;
+  let msg = `🏏 *Match Booked at ${ARENA_VENUE_NAME}!* ⚽\n\n`;
+  msg += `👤 *Booked by:* ${customerName}\n`;
   msg += `🏟️ *Facility:* ${facilityName}\n`;
-  msg += `💰 *Total Turf Fee:* ₹${totalPrice}\n\n`;
-  msg += `👥 *Your share is ₹${perHead}/person* (for ${count} players)\n`;
-  msg += `📊 *Squad Splits:*\n`;
-  msg += `• 12 Players: *₹${share12}* each\n`;
-  msg += `• 14 Players: *₹${share14}* each\n`;
-  msg += `• 16 Players: *₹${share16}* each\n`;
+  msg += `📅 *Date:* ${date}\n`;
+  msg += `⏰ *Time Slot:* ${timeSlot}\n`;
+  msg += `📍 *Venue Map:* ${mapUrl}\n\n`;
+  msg += `💰 *Total Turf Fee:* ₹${totalPrice}\n`;
+  msg += `👥 *Team Share (${playerCount} players):* ₹${perHead} each\n`;
 
-  if (cleanUpiOrPhone) {
-    const isVpa = cleanUpiOrPhone.includes('@');
-    const upiVpa = isVpa ? cleanUpiOrPhone : `${cleanUpiOrPhone.replace(/\D/g, '')}@upi`;
-    const upiLink = `upi://pay?pa=${upiVpa}&pn=${encodeURIComponent(customerName)}&am=${perHead}&cu=INR&tn=Turf%20Share`;
-    msg += `\n💳 *Pay me via UPI:*\n`;
-    msg += `👉 GPay / PhonePe / Paytm: *${cleanUpiOrPhone}*\n`;
-    msg += `🔗 *1-Tap UPI Link:*\n${upiLink}\n`;
+  if (captainUpi && captainUpi.trim()) {
+    msg += `📲 *Pay your share via UPI to:* ${captainUpi.trim()}\n`;
   }
 
-  msg += `\n📍 *Location:*\n${mapUrl}\n\n`;
-  msg += `👟 Reach 15 mins early. Proper sports shoes required.\n`;
-  msg += `See you at the dugout! 🔥🏆`;
+  msg += `\n👟 *Important:* Arrive 15 minutes before the match. Proper sports shoes are mandatory on the turf. Let's win this! 🔥`;
   return msg;
 }
 

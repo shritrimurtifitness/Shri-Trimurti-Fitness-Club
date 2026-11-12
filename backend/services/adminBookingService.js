@@ -114,7 +114,6 @@ async function notifyAdminNewBooking({ bookingId, io }) {
 💳 *Submitted UPI Ref ID:*
 👉 *${utr}*
 
-──────────────────────
 ⚡ *1-Tap Quick Links:*
 ✅ *Approve:* ${shortApproveUrl}
 ❌ *Reject:* ${shortRejectUrl}`;

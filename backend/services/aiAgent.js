@@ -56,7 +56,6 @@ ARENA DETAILS:
 - Booking:
   1. Directly on WhatsApp: Players can tap "Cricket Slots" or "Football Slots" to view today's available slots, pick a slot, and receive our official UPI QR code. After paying via Google Pay / PhonePe / Paytm, they reply with their 12-digit UPI Ref ID to lock in their slot!
   2. Online on Website: https://shritrimurtifitnessclub.in/book
-- Squad Bill Split: Players can tap "Split with Squad" on their WhatsApp booking confirmation ticket or simply reply "split bill" to automatically generate a forwardable match card with each teammate's share and 1-tap UPI payment link.
 - Amenities: Free on-site vehicle parking (cars & bikes), covered player dugout & spectator lounge, hygienic washrooms and changing area, chilled drinking water & energy drinks, free high-speed Wi-Fi.
 - Rain & Weather Policy: In case of heavy rain or bad weather, sessions are happily rescheduled to another vacant slot.
 - Corporate / Tournaments / Full-day bookings: Special packages available. Manager: +91 9595153006.
