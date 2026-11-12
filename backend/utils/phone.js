@@ -36,7 +36,21 @@ function toWhatsAppPhone(phone) {
   return p10 ? `91${p10}` : '';
 }
 
+/**
+ * Formats standard 24h time ("19:00:00") into friendly 12h format ("7:00 PM")
+ */
+function formatTime12h(timeStr) {
+  if (!timeStr) return '';
+  const [h, m] = String(timeStr).split(':');
+  let hour = parseInt(h, 10);
+  const meridiem = hour >= 12 ? 'PM' : 'AM';
+  if (hour === 0) hour = 12;
+  else if (hour > 12) hour -= 12;
+  return `${hour}:${m} ${meridiem}`;
+}
+
 module.exports = {
   normalizeTo10Digits,
   toWhatsAppPhone,
+  formatTime12h,
 };

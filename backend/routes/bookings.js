@@ -8,7 +8,7 @@ const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
 const notificationScheduler = require('../services/notificationScheduler');
 const adminBookingService = require('../services/adminBookingService');
-const { normalizeTo10Digits } = require('../utils/phone');
+const { normalizeTo10Digits, formatTime12h } = require('../utils/phone');
 
 router.post('/', bookingLimiter, async (req, res) => {
   try {
@@ -127,15 +127,46 @@ router.post('/', bookingLimiter, async (req, res) => {
     await cache.del('analytics:dashboard');
 
     if (bookingStatus === 'confirmed') {
+      // 1. Schedule Automated 2-Hour Reminder & Post-Match Feedback Survey
       notificationScheduler.scheduleBookingNotifications({
         id: booking.rows[0].id,
-        customer_phone: phone,
+        customer_phone: phone10,
         customer_name: name,
         turf_name: slot.turf_name || 'Arena Turf',
         date: slot.date,
         start_time: slot.start_time,
         end_time: slot.end_time,
       });
+
+      // 2. Dispatch Official WhatsApp Confirmation Ticket with Gate Entry Pass QR Code
+      const slotTimeLabel = `${formatTime12h(slot.start_time)} – ${formatTime12h(slot.end_time)}`;
+      whatsappService.sendBookingConfirmationTicket({
+        phone: phone10,
+        bookingId: booking.rows[0].id,
+        customerName: name,
+        turfName: slot.turf_name || 'Arena Turf',
+        date: slotDateStr,
+        slots: [slotTimeLabel],
+        totalAmount: totalAmount,
+        paidAmount: Number(paid_amount) || 0,
+        remainingAmount: remainingAmount,
+        paymentMethod: payment_method || (paid_amount > 0 ? 'cash' : 'pay_at_desk'),
+        qrToken: booking.rows[0].qr_token,
+      }).catch(err => console.error('[MANUAL BOOKING WHATSAPP CONFIRM ERROR]', err.message));
+
+      // 3. Send Email Confirmation if customer email was provided
+      if (req.body.email && req.body.email.includes('@')) {
+        mailer.sendBookingConfirmed({
+          email: req.body.email.trim(),
+          name: name,
+          bookingId: booking.rows[0].id.substring(0, 8).toUpperCase(),
+          turfName: slot.turf_name || 'Arena Turf',
+          date: slotDateStr,
+          slots: [slotTimeLabel],
+          totalAmount: totalAmount,
+          qrToken: booking.rows[0].qr_token,
+        }).catch(err => console.error('[MANUAL BOOKING MAILER ERROR]', err.message));
+      }
     }
 
     req.app.get('io').emit('booking_updated');

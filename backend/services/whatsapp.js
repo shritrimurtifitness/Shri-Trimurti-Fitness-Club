@@ -282,7 +282,20 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
  * Sends a structured booking confirmation receipt ticket to the customer via WhatsApp,
  * including their official Gate Entry Pass QR code image.
  */
-async function sendBookingConfirmationTicket({ phone, bookingId, customerName, turfName, date, slots, totalAmount, utrNumber, qrToken }) {
+async function sendBookingConfirmationTicket({ 
+  phone, 
+  bookingId, 
+  customerName, 
+  turfName, 
+  date, 
+  slots, 
+  totalAmount, 
+  utrNumber, 
+  qrToken,
+  paidAmount,
+  remainingAmount,
+  paymentMethod,
+}) {
   const formattedSlots = Array.isArray(slots) ? slots.join(', ') : slots;
   const tokenToEncode = qrToken || bookingId;
   const qrImageUrl = `https://quickchart.io/qr?text=${encodeURIComponent(tokenToEncode)}&size=600&ecLevel=H&margin=2`;
@@ -310,19 +323,41 @@ async function sendBookingConfirmationTicket({ phone, bookingId, customerName, t
     console.error('[WHATSAPP ENTRY PASS QR SEND ERROR]', imgErr.message);
   }
 
-  // 2. Send Detailed Booking Confirmation Receipt with Action Buttons
+  // 2. Format Payment Summary Line
+  let paymentText = '';
+  if (remainingAmount !== undefined && Number(remainingAmount) > 0) {
+    paymentText = 
+`💰 *Total Fee:* ₹${totalAmount}
+💵 *Amount Paid:* ₹${paidAmount || 0}
+⚠️ *Remaining Balance:* ₹${remainingAmount} (Due at arena desk)`;
+  } else {
+    paymentText = `💰 *Total Paid:* ₹${totalAmount} (Fully Paid ✅)`;
+  }
+
+  // Format payment method / reference line
+  let paymentModeText = '';
+  if (utrNumber) {
+    paymentModeText = `💳 *UPI Ref ID:* ${utrNumber}\n`;
+  } else if (paymentMethod) {
+    const methodLabel = paymentMethod === 'cash' ? 'Cash at Counter'
+      : paymentMethod === 'upi_qr' ? 'UPI QR'
+      : paymentMethod === 'pay_at_desk' ? 'Pay at Desk'
+      : paymentMethod.toUpperCase();
+    paymentModeText = `💳 *Payment Mode:* ${methodLabel}\n`;
+  }
+
+  // 3. Send Detailed Booking Confirmation Receipt with Action Buttons
   const message = 
 `🎉 *BOOKING CONFIRMED — SHRI TRIMURTI FITNESS CLUB*
 
-Hi *${customerName || 'Player'}*! Your booking has been verified. We look forward to seeing you on the pitch! ${sportEmoji}
+Hi *${customerName || 'Player'}*! Your booking is confirmed. We look forward to seeing you on the pitch! ${sportEmoji}
 
 📋 *Booking ID:* #${cleanBookingCode}
 🏟️ *Facility:* ${turfName || 'Sports Turf'}
 📅 *Date:* ${date}
 ⏰ *Slot(s):* ${formattedSlots}
-💰 *Total Paid:* ₹${totalAmount} (Fully Paid)
-${utrNumber ? `💳 *UPI Ref ID:* ${utrNumber}\n` : ''}
-📍 *Location:* Kudire Factory, Sangrul Fata, Koparde, Maharashtra
+${paymentText}
+${paymentModeText}📍 *Location:* Kudire Factory, Sangrul Fata, Koparde, Maharashtra
 🗺️ *Map:* https://maps.app.goo.gl/XCxniFWMMtnfw2MJA
 
 ⚠️ *Player Instructions:*
