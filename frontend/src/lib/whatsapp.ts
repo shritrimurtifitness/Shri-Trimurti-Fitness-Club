@@ -60,6 +60,9 @@ export function generateTeamSplitMessage({
   const sportEmoji = isFootball ? '⚽' : '🏏';
   const count = Math.max(1, playerCount);
   const perHead = Math.ceil(totalPrice / count);
+  const share12 = Math.ceil(totalPrice / 12);
+  const share14 = Math.ceil(totalPrice / 14);
+  const share16 = Math.ceil(totalPrice / 16);
   const cleanUpiOrPhone = (captainUpi || "").trim();
 
   let msg = `Hey boys! Turf booked at *${ARENA_VENUE_NAME}* 🏟️${sportEmoji}\n\n`;
@@ -68,6 +71,10 @@ export function generateTeamSplitMessage({
   msg += `🏟️ *Facility:* ${facilityName}\n`;
   msg += `💰 *Total Turf Fee:* ₹${totalPrice}\n\n`;
   msg += `👥 *Your share is ₹${perHead}/person* (for ${count} players)\n`;
+  msg += `📊 *Squad Splits:*\n`;
+  msg += `• 12 Players: *₹${share12}* each\n`;
+  msg += `• 14 Players: *₹${share14}* each\n`;
+  msg += `• 16 Players: *₹${share16}* each\n`;
 
   if (cleanUpiOrPhone) {
     const isVpa = cleanUpiOrPhone.includes('@');

@@ -777,16 +777,27 @@ Once verified, you will automatically receive your official *Digital Entry Pass*
   }
 }
 
+// Active Squad Split sessions to remember bookingCode, custom count, and custom UPI
+// Map<phone, { bookingCode, selectedCount, customUpi, totalAmount, timestamp }>
+const splitSessions = new Map();
+
 /**
- * Generates a forwardable WhatsApp Match & Bill Split card for the squad
+ * Generates a forwardable WhatsApp Match & Bill Split card for the squad.
+ * Supports presets (12, 14, 16) and custom manual entry (any player count or custom UPI ID).
  */
-async function handleSquadSplit({ from, bookingCode = '', selectedCount = 12, userName = '' }) {
+async function handleSquadSplit({ from, bookingCode = '', selectedCount = null, customUpi = null, userName = '' }) {
   const cleanPhone = from.replace(/\D/g, '');
   const phone10 = cleanPhone.slice(-10);
 
+  // Retrieve prior session context if available
+  const priorSession = splitSessions.get(cleanPhone) || {};
+  const activeCode = bookingCode || priorSession.bookingCode || '';
+  const activeUpi = customUpi || priorSession.customUpi || `${phone10}@upi`;
+  const count = Number(selectedCount) || priorSession.selectedCount || 12;
+
   let booking = null;
   try {
-    if (bookingCode && bookingCode !== 'BILL') {
+    if (activeCode && activeCode !== 'BILL') {
       const bRes = await pool.query(`
         SELECT b.*, u.name as customer_name, u.phone as customer_phone,
                s.date, s.start_time, s.end_time, s.price as slot_price,
@@ -799,7 +810,7 @@ async function handleSquadSplit({ from, bookingCode = '', selectedCount = 12, us
         WHERE b.id::text ILIKE $1 || '%'
         ORDER BY b.created_at DESC
         LIMIT 1
-      `, [bookingCode]);
+      `, [activeCode]);
       if (bRes.rows.length > 0) booking = bRes.rows[0];
     }
 
@@ -850,15 +861,23 @@ async function handleSquadSplit({ from, bookingCode = '', selectedCount = 12, us
   const dateFormatted = formatDisplayDate(dateVal);
   const timeFormatted = `${formatTime12h(booking.start_time)} – ${formatTime12h(booking.end_time)}`;
 
-  // Share calculations
-  const count = Number(selectedCount) || 12;
+  // Share calculations: presets for 12, 14, 16 players
   const perHead = Math.ceil(totalAmount / Math.max(1, count));
-  const share10 = Math.ceil(totalAmount / 10);
   const share12 = Math.ceil(totalAmount / 12);
   const share14 = Math.ceil(totalAmount / 14);
+  const share16 = Math.ceil(totalAmount / 16);
+
+  // Store/update session state for seamless manual replies
+  splitSessions.set(cleanPhone, {
+    bookingCode: code,
+    selectedCount: count,
+    customUpi: activeUpi,
+    totalAmount,
+    timestamp: Date.now(),
+  });
 
   // UPI deep link pre-filled with perHead amount
-  const upiLink = `upi://pay?pa=${phone10}@upi&pn=${encodeURIComponent(customerName)}&am=${perHead}&cu=INR&tn=Turf%20Share`;
+  const upiLink = `upi://pay?pa=${encodeURIComponent(activeUpi)}&pn=${encodeURIComponent(customerName)}&am=${perHead}&cu=INR&tn=Turf%20Share`;
 
   // The Clean Forwardable Match Card requested by the user
   const forwardableCard =
@@ -871,12 +890,12 @@ async function handleSquadSplit({ from, bookingCode = '', selectedCount = 12, us
 
 👥 *Your share is ₹${perHead}/person* (for ${count} players)
 📊 *Squad Splits:*
-• 10 Players: *₹${share10}* each
 • 12 Players: *₹${share12}* each
 • 14 Players: *₹${share14}* each
+• 16 Players: *₹${share16}* each
 
 💳 *Pay me via UPI:*
-👉 GPay / PhonePe / Paytm: *${phone10}*
+👉 GPay / PhonePe / Paytm: *${activeUpi}*
 🔗 *1-Tap UPI Link:*
 ${upiLink}
 
@@ -891,16 +910,16 @@ See you at the dugout! 🔥🏆`;
     text: forwardableCard,
   });
 
-  // 2. Send interactive selector buttons for adjusting squad size
+  // 2. Send interactive selector buttons for 12, 14, 16 players + manual entry prompt
   return sendInteractiveButtons({
     to: from,
     headerText: '📲 Forward Card Ready!',
-    bodyText: `👆 *Forward the message above* directly to your squad WhatsApp group.\n\nWant to recalculate for a different squad size?`,
+    bodyText: `👆 *Forward the message above* to your squad WhatsApp group.\n\n⚙️ *Quick Presets & Manual Entry:*\n• Tap below for *12, 14, or 16* players.\n• Or *reply with any number* (e.g. *15* or *11 players*) for custom squad size!\n• Or *reply with your UPI ID* (e.g. *name@okhdfcbank*) to customize payment address.`,
     footerText: 'SHRI TRIMURTI FITNESS CLUB',
     buttons: [
-      { id: `BTN_SPLIT_CNT_${code}_10`, title: `👥 10 Players (₹${share10})` },
       { id: `BTN_SPLIT_CNT_${code}_12`, title: `👥 12 Players (₹${share12})` },
       { id: `BTN_SPLIT_CNT_${code}_14`, title: `👥 14 Players (₹${share14})` },
+      { id: `BTN_SPLIT_CNT_${code}_16`, title: `👥 16 Players (₹${share16})` },
     ],
   });
 }
@@ -919,7 +938,7 @@ async function handleIncomingMessage({ from, text = '', buttonPayload = '', user
   const payload = buttonPayload || '';
 
   // ----------------------------------------------------
-  // Squad Split Bill Generator
+  // Squad Split Bill Generator (Presets & Manual Entry)
   // ----------------------------------------------------
   if (payload.startsWith('BTN_SPLIT_CNT_')) {
     const parts = payload.split('_');
@@ -940,6 +959,41 @@ async function handleIncomingMessage({ from, text = '', buttonPayload = '', user
   ) {
     const bookingCode = payload.startsWith('BTN_SPLIT_') ? payload.replace('BTN_SPLIT_', '').trim() : '';
     return handleSquadSplit({ from, bookingCode, selectedCount: 12, userName });
+  }
+
+  // A. Manual UPI VPA entry (e.g. "rahul@oksbi", "my upi is harsh@ybl", "upi: 9876543210@paytm")
+  const cleanSenderPhone = from.replace(/\D/g, '');
+  const hasSplitSession = splitSessions.has(cleanSenderPhone);
+  const upiMatch = text.match(/\b[a-zA-Z0-9.\-_]{2,64}@[a-zA-Z]{2,64}\b/);
+
+  if (upiMatch && (hasSplitSession || normalizedText.includes('upi'))) {
+    const customUpi = upiMatch[0].trim();
+    const session = splitSessions.get(cleanSenderPhone) || {};
+    return handleSquadSplit({
+      from,
+      bookingCode: session.bookingCode || '',
+      selectedCount: session.selectedCount || 12,
+      customUpi,
+      userName,
+    });
+  }
+
+  // B. Manual squad player count (e.g. "15", "15 players", "11 people", "split 18")
+  const manualCountMatch = normalizedText.match(/^(?:split\s*(?:for\s*)?)?(\d{1,2})(?:\s*(?:players?|log|people|members?))?$/i) 
+    || (normalizedText.startsWith('split') ? normalizedText.match(/(\d{1,2})/i) : null);
+
+  if (manualCountMatch && (hasSplitSession || normalizedText.includes('player') || normalizedText.includes('log') || normalizedText.includes('people') || normalizedText.includes('split'))) {
+    const enteredCount = parseInt(manualCountMatch[1], 10);
+    if (enteredCount >= 2 && enteredCount <= 50) {
+      const session = splitSessions.get(cleanSenderPhone) || {};
+      return handleSquadSplit({
+        from,
+        bookingCode: session.bookingCode || '',
+        selectedCount: enteredCount,
+        customUpi: session.customUpi || null,
+        userName,
+      });
+    }
   }
 
   // ----------------------------------------------------
