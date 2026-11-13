@@ -819,7 +819,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       }
     }
 
-    if (!isVerified && rawPhone) {
+    if (!isVerified && phone10) {
       const phoneRecord = await pool.query(
         "SELECT id FROM otp_verifications WHERE (phone = $1 OR phone = $2) AND verified = true AND created_at > NOW() - INTERVAL '30 minutes'",
         [cleanPhone, phone10]
