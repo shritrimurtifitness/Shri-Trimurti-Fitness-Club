@@ -42,9 +42,22 @@ import { CursorGlow } from "./components/CursorGlow";
 
 const queryClient = new QueryClient();
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (!payload.exp) return false;
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("adminToken");
-  if (!token) return <Navigate to="/admin/login" replace />;
+  if (!token || isTokenExpired(token)) {
+    if (token) localStorage.removeItem("adminToken");
+    return <Navigate to="/admin/login?expired=true" replace />;
+  }
   return <>{children}</>;
 }
 

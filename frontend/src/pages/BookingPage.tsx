@@ -239,7 +239,10 @@ export default function BookingPage() {
     const phoneMatched =
       data.channel === 'whatsapp' &&
       cleanPhone &&
-      (data.phone === cleanPhone || data.phone === '91' + cleanPhone || data.phone10 === cleanPhone);
+      (data.phone === cleanPhone ||
+       data.phone === '91' + cleanPhone ||
+       data.phone10 === cleanPhone ||
+       data.phoneNo91 === cleanPhone);
     const emailMatched =
       data.channel === 'email' && cleanEmail && data.email === cleanEmail;
 
@@ -314,6 +317,10 @@ export default function BookingPage() {
       setVerificationChannel(channelToUse);
       if (res.data.verificationLink) {
         setWaLink(res.data.verificationLink);
+        // Automatically open WhatsApp in a new tab for 1-tap verification
+        try {
+          window.open(res.data.verificationLink, '_blank', 'noopener,noreferrer');
+        } catch {}
       }
       toast.success(res.data.message || "OTP verification initiated!");
     } catch (err: any) {
@@ -726,7 +733,7 @@ export default function BookingPage() {
                           }
                         }}
                         placeholder="10-digit mobile number"
-                        className={cn("pl-10 bg-card border-border", verificationChannel === 'whatsapp' && !isOtpVerified ? "pr-28" : "")}
+                        className={cn("pl-10 bg-card border-border", verificationChannel === 'whatsapp' && !isOtpVerified ? "pr-36" : "")}
                         type="tel"
                       />
                       {verificationChannel === 'whatsapp' && !isOtpVerified && (
@@ -736,7 +743,7 @@ export default function BookingPage() {
                           disabled={otpSending || phone.length !== 10}
                           className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold transition-all disabled:opacity-40"
                         >
-                          {otpSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : otpSent ? "Resend" : "Send OTP"}
+                          {otpSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : otpSent ? "Resend" : "Verify WhatsApp"}
                         </button>
                       )}
                     </div>
@@ -788,19 +795,23 @@ export default function BookingPage() {
                     <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="p-3.5 bg-secondary/20 rounded-xl border border-primary/30 space-y-3">
                       {verificationChannel === 'whatsapp' ? (
                         <>
-                          <div className="text-xs text-muted-foreground">
-                            A verification code has been generated for <span className="font-semibold text-foreground">+91 {phone}</span>.
+                          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            WhatsApp verification ready for <strong className="text-foreground">+91 {phone}</strong>
                           </div>
                           {waLink && (
                             <a
                               href={waLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#25D366] hover:bg-[#20ba5a] text-slate-950 font-bold text-xs shadow-md transition-all"
+                              className="w-full flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-slate-950 font-extrabold text-xs shadow-lg transition-all"
                             >
-                              <MessageCircle className="w-4 h-4 text-slate-950 fill-current" /> Tap to Verify on WhatsApp (Instant 1-Tap)
+                              <MessageCircle className="w-4 h-4 text-slate-950 fill-current" /> Tap to Open WhatsApp &amp; Send "VERIFY" (1-Tap)
                             </a>
                           )}
+                          <p className="text-[11px] text-muted-foreground text-center">
+                            💡 Simply tap the green button above to open WhatsApp. Hit send, and this page will automatically confirm your mobile number!
+                          </p>
                           <div className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-bold">
                             — OR ENTER 4-DIGIT CODE MANUALLY —
                           </div>

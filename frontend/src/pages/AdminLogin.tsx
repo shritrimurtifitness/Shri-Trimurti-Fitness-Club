@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Mail, KeyRound, ArrowRightLeft, Loader2 } from "lucide-react";
@@ -14,6 +14,12 @@ export default function AdminLogin() {
   const [loginMode, setLoginMode] = useState<"password" | "pin">("password");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('expired') === 'true') {
+      toast.error("Your session has expired. Please log in to continue.");
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

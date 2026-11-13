@@ -29,10 +29,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token on unauthorized access if needed
-      // localStorage.removeItem('adminToken');
-      // Uncomment the line below to auto-redirect
-      // window.location.href = '/admin/login';
+      if (
+        typeof window !== 'undefined' &&
+        window.location.pathname.startsWith('/admin') &&
+        !window.location.pathname.includes('/login')
+      ) {
+        localStorage.removeItem('adminToken');
+        window.location.href = '/admin/login?expired=true';
+      }
     }
     return Promise.reject(error);
   }

@@ -50,12 +50,13 @@ router.post('/webhook', async (req, res) => {
 
     if (!value) return;
 
-    // 1. Handle delivery status pulses (sent, delivered, read)
+    // 1. Handle delivery status pulses (sent, delivered, read, failed)
     if (value.statuses && value.statuses.length > 0) {
       const statusObj = value.statuses[0];
       const wamid = statusObj.id;
       const status = statusObj.status;
-      console.log(`[WHATSAPP STATUS] Message ${wamid} changed to: ${status}`);
+      const errorDetails = statusObj.errors ? ` | Error: ${JSON.stringify(statusObj.errors)}` : '';
+      console.log(`[WHATSAPP STATUS] Message ${wamid} changed to: ${status}${errorDetails}`);
       return;
     }
 

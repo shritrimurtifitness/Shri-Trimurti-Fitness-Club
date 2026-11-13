@@ -25,7 +25,10 @@ async function authMiddleware(req, res, next) {
     req.user = decoded;
     next();
   } catch (err) {
-    res.status(401).json({ error: 'Invalid token' });
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Session expired. Please login again.' });
+    }
+    res.status(401).json({ error: 'Invalid or expired token. Please login again.' });
   }
 }
 
