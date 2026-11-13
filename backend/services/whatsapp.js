@@ -386,6 +386,64 @@ Play Hard. Compete Better! 🔥`;
   return sendTextMessage({ to: phone, text: message });
 }
 
+/**
+ * Sends an approved Meta Authentication OTP Template message.
+ * Delivered by Meta even when the customer's 24-hour window is CLOSED.
+ */
+async function sendAuthOtpMessage({ to, otp }) {
+  const phone = normalizePhone(to);
+  if (!process.env.WHATSAPP_TOKEN || !process.env.PHONE_NUMBER_ID) {
+    console.log(`[WHATSAPP MOCK AUTH OTP] To: ${phone}, OTP: ${otp}`);
+    return { success: true, mock: true };
+  }
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: phone,
+    type: 'template',
+    template: {
+      name: 'booking_auth_code',
+      language: { code: 'en_US' },
+      components: [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: String(otp) }
+          ]
+        },
+        {
+          type: 'button',
+          sub_type: 'url',
+          index: '0',
+          parameters: [
+            { type: 'text', text: String(otp) }
+          ]
+        }
+      ]
+    }
+  };
+
+  try {
+    const res = await axios.post(
+      `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    console.log(`[WHATSAPP AUTH OTP SENT] To: ${phone}, wamid: ${res.data.messages?.[0]?.id}`);
+    return { success: true, data: res.data };
+  } catch (err) {
+    const errorData = err.response ? err.response.data : { message: err.message };
+    console.error(`[WHATSAPP AUTH OTP ERROR] To ${phone}:`, JSON.stringify(errorData));
+    return { success: false, error: errorData };
+  }
+}
+
 module.exports = {
   normalizePhone,
   sendTextMessage,
@@ -394,4 +452,5 @@ module.exports = {
   sendInteractiveList,
   sendWhatsAppMessage,
   sendBookingConfirmationTicket,
+  sendAuthOtpMessage,
 };

@@ -661,14 +661,19 @@ router.post('/send-otp', bookingLimiter, async (req, res) => {
       await cache.set(`otp:whatsapp:${cleanPhone}`, otp, 300);
       await cache.set(`otp:whatsapp:${phone10}`, otp, 300);
 
-      // Attempt to send WhatsApp notification
-      const waText = `🏏 *Shri Trimurti Fitness Club*\n\nYour slot verification code is: *${otp}*\n\nValid for 5 minutes. Enter this code on our website or reply with *VERIFY ${otp}* to confirm your booking!`;
-      await whatsappService.sendTextMessage({ to: cleanPhone, text: waText }).catch(() => {});
+      // Send approved WhatsApp Authentication OTP template (works even when 24h window is closed)
+      const templateRes = await whatsappService.sendAuthOtpMessage({ to: cleanPhone, otp });
+
+      // Fallback: Also attempt text message in case window is already open
+      if (!templateRes || !templateRes.success) {
+        const waText = `🏏 *Shri Trimurti Fitness Club*\n\nYour slot verification code is: *${otp}*\n\nValid for 5 minutes. Enter this code on our website or reply with *VERIFY ${otp}* to confirm your booking!`;
+        whatsappService.sendTextMessage({ to: cleanPhone, text: waText }).catch(() => {});
+      }
 
       return res.json({
         success: true,
         channel: 'whatsapp',
-        message: 'Verification code generated! Tap the WhatsApp button to verify in 1 tap, or enter the 4-digit code.',
+        message: 'Verification code sent to your WhatsApp! Enter the 4-digit code, or tap the WhatsApp button to verify in 1 tap.',
         phone: phone10,
         verificationLink: `https://wa.me/919595153006?text=${encodeURIComponent(`VERIFY ${otp}`)}`,
       });
