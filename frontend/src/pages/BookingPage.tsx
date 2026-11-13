@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format, addDays, startOfDay, parse, isAfter } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Clock, User, Phone, ArrowRight, CheckCircle2, ArrowLeft, Loader2, Trophy, ShieldCheck, Lock, Mail, QrCode, Copy, Check, AlertCircle, ExternalLink, MessageCircle } from "lucide-react";
+import { CalendarDays, Clock, User, Phone, ArrowRight, CheckCircle2, ArrowLeft, Loader2, Trophy, ShieldCheck, Lock, Mail, QrCode, Copy, Check, AlertCircle, ExternalLink, MessageCircle, Tag, Sparkles, Gift, X } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,12 @@ export default function BookingPage() {
   const [isArenaClosed, setIsArenaClosed] = useState(false);
   const [closureReason, setClosureReason] = useState("");
   const [showTeamSplit, setShowTeamSplit] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState<number>(0);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [firstTimeOffer, setFirstTimeOffer] = useState<any | null>(null);
+  const [checkingFirstTime, setCheckingFirstTime] = useState(false);
 
   const loadUpiAndFeeSettings = () => {
     api.get('/settings/contact').then(res => {
@@ -369,7 +375,73 @@ export default function BookingPage() {
       );
       return;
     }
+    if (cleanPhone) {
+      checkFirstTimeEligibility(cleanPhone);
+    }
     setStep("confirm");
+  };
+
+  const checkFirstTimeEligibility = async (phoneNumber: string) => {
+    const clean = phoneNumber.replace(/\D/g, '').slice(-10);
+    if (clean.length !== 10) return;
+    try {
+      setCheckingFirstTime(true);
+      const res = await api.get(`/coupons/check-first-time?phone=${clean}`);
+      if (res.data?.eligible && res.data?.coupon) {
+        setFirstTimeOffer(res.data.coupon);
+      } else {
+        setFirstTimeOffer(null);
+      }
+    } catch (err) {
+      console.error("Failed to check first-time offer", err);
+    } finally {
+      setCheckingFirstTime(false);
+    }
+  };
+
+  const applyCoupon = async (codeToApply?: string) => {
+    const code = (codeToApply || couponCode).trim().toUpperCase();
+    if (!code) {
+      toast.error("Please enter a promo code");
+      return;
+    }
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      toast.error("Valid 10-digit mobile number required to apply promo");
+      return;
+    }
+    const basePrice = selectedSlotGroup?.price || 0;
+    if (basePrice <= 0) return;
+
+    setIsApplyingCoupon(true);
+    try {
+      const res = await api.post('/coupons/validate', {
+        code,
+        phone: cleanPhone,
+        amount: basePrice,
+      });
+
+      if (res.data?.valid) {
+        setAppliedCoupon(res.data.coupon);
+        setCouponDiscount(res.data.discount_amount);
+        setCouponCode(res.data.coupon.code);
+        toast.success(`🎉 Offer ${res.data.coupon.code} applied! Saved ₹${res.data.discount_amount}`);
+      }
+    } catch (err: any) {
+      const errMsg = err.response?.data?.error || "Invalid coupon code";
+      toast.error(errMsg);
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponCode("");
+    toast.info("Coupon removed");
   };
 
   const handleConfirmUpiBooking = async () => {
@@ -387,6 +459,7 @@ export default function BookingPage() {
         email,
         slot_id: selectedSlot.id,
         utr_number: utrNumber.trim(),
+        coupon_code: appliedCoupon ? appliedCoupon.code : undefined,
       });
 
       if (res.data.success) {
@@ -417,6 +490,10 @@ export default function BookingPage() {
     setTableStatus([]);
     setName("");
     setPhone("");
+    setCouponCode("");
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setFirstTimeOffer(null);
   };
 
   const stepIndex = ["facility", "date", "slot", "details", "confirm"].indexOf(step);
@@ -766,106 +843,199 @@ export default function BookingPage() {
             )}
 
             {/* Step 5: Direct UPI QR Payment (0% Gateway Fees) */}
-            {step === "confirm" && selectedSlot && selectedDate && (
-              <motion.div key="confirm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="max-w-md mx-auto">
-                <div className="text-center mb-6">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/30 mb-2">
-                    ⚡ 0% Gateway Fee &bull; Direct UPI Payment
-                  </span>
-                  <h1 className="font-heading text-3xl font-bold mb-1">Scan & <span className="text-gradient-turf">Pay</span></h1>
-                  <p className="text-xs text-muted-foreground">Scan with any UPI app on iPhone or Android</p>
-                </div>
+            {step === "confirm" && selectedSlot && selectedDate && (() => {
+              const basePrice = selectedSlotGroup?.price || 0;
+              const finalPayable = Math.max(300, basePrice - couponDiscount);
+              const upiPayUrl = `upi://pay?pa=${encodeURIComponent(upiSettings.upi_id)}&pn=${encodeURIComponent("SHRI TRIMURTI FITNESS CLUB")}&am=${finalPayable}&cu=INR`;
+              const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(upiPayUrl)}`;
 
-                <div className="rounded-2xl bg-card border border-border p-5 space-y-4 mb-6 shadow-xl">
-                  {/* Booking Mini Summary */}
-                  <div className="bg-secondary/30 rounded-xl p-3 text-xs space-y-1.5">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Sport:</span><span className="font-bold text-foreground">{facilityName}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Date & Time:</span><span className="font-bold text-foreground">{format(selectedDate, "EEE, dd MMM")} &bull; {selectedSlotGroup?.time}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Player:</span><span className="font-bold text-foreground">{name} ({phone})</span></div>
-                    <div className="flex justify-between pt-1 border-t border-border/50 font-bold text-sm">
-                      <span className="text-muted-foreground">Total Payable:</span>
-                      <span className="text-[#39FF14] text-base">₹{selectedSlotGroup?.price}</span>
+              return (
+                <motion.div key="confirm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="max-w-md mx-auto">
+                  <div className="text-center mb-6">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/30 mb-2">
+                      ⚡ 0% Gateway Fee &bull; Direct UPI Payment
+                    </span>
+                    <h1 className="font-heading text-3xl font-bold mb-1">Scan & <span className="text-gradient-turf">Pay</span></h1>
+                    <p className="text-xs text-muted-foreground">Scan with any UPI app on iPhone or Android</p>
+                  </div>
+
+                  <div className="rounded-2xl bg-card border border-border p-5 space-y-4 mb-6 shadow-xl">
+                    {/* First Time Welcome Offer Auto-Detection Banner */}
+                    {firstTimeOffer && !appliedCoupon && (
+                      <div className="bg-gradient-to-r from-emerald-500/15 via-[#39FF14]/15 to-emerald-500/15 border border-[#39FF14]/40 rounded-xl p-3 flex items-center justify-between gap-2 shadow-sm animate-pulse-slow">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-[#39FF14]/20 flex items-center justify-center text-[#39FF14] shrink-0">
+                            <Gift className="w-4 h-4" />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                              Welcome Offer! <span className="text-[10px] bg-[#39FF14] text-black font-extrabold px-1.5 py-0.2 rounded">FLAT ₹{firstTimeOffer.discount_value} OFF</span>
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">{firstTimeOffer.description || "Special welcome discount on your first match!"}</p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => applyCoupon(firstTimeOffer.code)}
+                          disabled={isApplyingCoupon}
+                          className="h-7 px-3 text-xs font-bold bg-[#39FF14] text-black hover:bg-[#39FF14]/80 shrink-0 shadow-sm"
+                        >
+                          {isApplyingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Promo Code Input & Management */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-primary" /> Promo Code / Voucher
+                        </label>
+                        {appliedCoupon && (
+                          <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" /> Offer Applied
+                          </span>
+                        )}
+                      </div>
+
+                      {appliedCoupon ? (
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">
+                              {appliedCoupon.code}
+                            </span>
+                            <span className="text-xs font-medium text-emerald-300">
+                              -₹{couponDiscount} saved
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={removeCoupon}
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-red-400 hover:bg-red-500/10 gap-1"
+                          >
+                            <X className="w-3.5 h-3.5" /> Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input
+                            type="text"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                            placeholder="e.g. WELCOME100"
+                            maxLength={20}
+                            className="h-9 bg-background border-border font-mono uppercase text-xs font-bold tracking-wider"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => applyCoupon()}
+                            disabled={isApplyingCoupon || !couponCode.trim()}
+                            className="h-9 px-4 text-xs font-bold bg-secondary hover:bg-secondary/80 text-foreground border border-border"
+                          >
+                            {isApplyingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Booking Mini Summary */}
+                    <div className="bg-secondary/30 rounded-xl p-3 text-xs space-y-1.5">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Sport:</span><span className="font-bold text-foreground">{facilityName}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Date & Time:</span><span className="font-bold text-foreground">{format(selectedDate, "EEE, dd MMM")} &bull; {selectedSlotGroup?.time}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Player:</span><span className="font-bold text-foreground">{name} ({phone})</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Slot Base Price:</span><span className="font-medium text-foreground">₹{basePrice}</span></div>
+                      {couponDiscount > 0 && (
+                        <div className="flex justify-between text-emerald-400 font-bold">
+                          <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> Offer Discount ({appliedCoupon?.code}):</span>
+                          <span>-₹{couponDiscount}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-1 border-t border-border/50 font-bold text-sm">
+                        <span className="text-muted-foreground">Total Payable:</span>
+                        <span className="text-[#39FF14] text-base">₹{finalPayable}</span>
+                      </div>
+                    </div>
+
+                    {/* High Quality Official QR Code */}
+                    <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner border border-zinc-200">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-600 mb-2">Scan with GPay / PhonePe / Paytm / BHIM</p>
+                      <div className="w-56 h-56 rounded-xl overflow-hidden flex items-center justify-center bg-white p-2">
+                        <img
+                          src={couponDiscount > 0 ? qrCodeUrl : upiSettings.upi_qr_url}
+                          alt="Arena UPI QR"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <p className="text-[10px] text-zinc-500 font-medium mt-1">Exact Payable: <strong className="text-black font-extrabold text-sm">₹{finalPayable}</strong></p>
+                    </div>
+
+                    {/* UPI ID with Copy Option */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border">
+                      <div className="text-left">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Arena UPI ID (VPA)</p>
+                        <p className="font-mono font-bold text-sm text-foreground">{upiSettings.upi_id}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(upiSettings.upi_id);
+                          setCopiedUpi(true);
+                          toast.success("UPI ID copied to clipboard!");
+                          setTimeout(() => setCopiedUpi(false), 2000);
+                        }}
+                        className="h-8 px-3 text-xs font-bold gap-1 border-primary/30 text-primary"
+                      >
+                        {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedUpi ? "Copied" : "Copy"}
+                      </Button>
+                    </div>
+
+                    {/* Mobile Direct App Intent Link */}
+                    <div className="block sm:hidden">
+                      <a
+                        href={upiPayUrl}
+                        className="w-full py-2.5 px-4 rounded-xl bg-secondary/50 hover:bg-secondary text-xs font-bold text-foreground flex items-center justify-center gap-1.5 border border-border transition-all"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-primary" /> Pay ₹{finalPayable} Directly in UPI App
+                      </a>
+                    </div>
+
+                    {/* UPI Ref ID Input Section */}
+                    <div className="border-t border-border pt-4 space-y-2">
+                      <label className="text-xs font-bold text-foreground block uppercase tracking-wider">
+                        Enter 12-Digit UPI Ref ID
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type="text"
+                          value={utrNumber}
+                          onChange={(e) => setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
+                          placeholder="e.g. 412345678901"
+                          maxLength={22}
+                          className="bg-background border-border font-mono text-base font-bold tracking-wider"
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        💡 Found in your payment app under: <em>UPI Ref ID</em> or <em>Transaction ID</em>.
+                      </p>
                     </div>
                   </div>
 
-                  {/* High Quality Official QR Code */}
-                  <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner border border-zinc-200">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-600 mb-2">Scan with GPay / PhonePe / Paytm / BHIM</p>
-                    <div className="w-56 h-56 rounded-xl overflow-hidden flex items-center justify-center bg-white p-2">
-                      <img
-                        src={upiSettings.upi_qr_url}
-                        alt="Arena UPI QR"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <p className="text-[10px] text-zinc-500 font-medium mt-1">Exact Payable: <strong className="text-black font-extrabold text-sm">₹{selectedSlotGroup?.price}</strong></p>
-                  </div>
-
-                  {/* UPI ID with Copy Option */}
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border">
-                    <div className="text-left">
-                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Arena UPI ID (VPA)</p>
-                      <p className="font-mono font-bold text-sm text-foreground">{upiSettings.upi_id}</p>
-                    </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setStep("details")} className="flex-1">Back</Button>
                     <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        navigator.clipboard.writeText(upiSettings.upi_id);
-                        setCopiedUpi(true);
-                        toast.success("UPI ID copied to clipboard!");
-                        setTimeout(() => setCopiedUpi(false), 2000);
-                      }}
-                      className="h-8 px-3 text-xs font-bold gap-1 border-primary/30 text-primary"
+                      disabled={isSubmitting || !utrNumber || utrNumber.trim().length < 6}
+                      onClick={handleConfirmUpiBooking}
+                      className="flex-1 bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-90 disabled:opacity-50"
                     >
-                      {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedUpi ? "Copied" : "Copy"}
+                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Submit & Reserve"}
                     </Button>
                   </div>
-
-                  {/* Mobile Direct App Intent Link */}
-                  <div className="block sm:hidden">
-                    <a
-                      href={`upi://pay?pa=${encodeURIComponent(upiSettings.upi_id)}&pn=${encodeURIComponent("SHRI TRIMURTI FITNESS CLUB")}&am=${selectedSlotGroup?.price}&cu=INR`}
-                      className="w-full py-2.5 px-4 rounded-xl bg-secondary/50 hover:bg-secondary text-xs font-bold text-foreground flex items-center justify-center gap-1.5 border border-border transition-all"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 text-primary" /> Open Directly in Installed UPI App
-                    </a>
-                  </div>
-
-                  {/* UPI Ref ID Input Section */}
-                  <div className="border-t border-border pt-4 space-y-2">
-                    <label className="text-xs font-bold text-foreground block uppercase tracking-wider">
-                      Enter 12-Digit UPI Ref ID
-                    </label>
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        value={utrNumber}
-                        onChange={(e) => setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
-                        placeholder="e.g. 412345678901"
-                        maxLength={22}
-                        className="bg-background border-border font-mono text-base font-bold tracking-wider"
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      💡 Found in your payment app under: <em>UPI Ref ID</em> or <em>Transaction ID</em>.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setStep("details")} className="flex-1">Back</Button>
-                  <Button
-                    disabled={isSubmitting || !utrNumber || utrNumber.trim().length < 6}
-                    onClick={handleConfirmUpiBooking}
-                    className="flex-1 bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-90 disabled:opacity-50"
-                  >
-                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Submit & Reserve"}
-                  </Button>
-                </div>
-              </motion.div>
-            )}
+                </motion.div>
+              );
+            })()}
 
             {/* Step: Pending Verification Receipt Screen */}
             {(step === "pending_approval" || step === "success") && (

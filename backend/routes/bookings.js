@@ -781,7 +781,7 @@ router.post('/verify-otp', async (req, res) => {
 // 3. Submit Booking with UPI UTR (0% Gateway Fee)
 router.post('/submit-upi', bookingLimiter, async (req, res) => {
   try {
-    const { name, phone, email, slot_id, slot_ids, utr_number } = req.body;
+    const { name, phone, email, slot_id, slot_ids, utr_number, coupon_code } = req.body;
 
     if (!name || (!phone && !email) || (!slot_id && (!slot_ids || slot_ids.length === 0)) || !utr_number) {
       return res.status(400).json({ error: 'Name, contact info (mobile number or email), slots, and UPI Ref ID are required' });
@@ -907,16 +907,98 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       const price = Number(slot.price) || 800;
       grandTotal += price;
       slotTimes.push(`${slot.start_time.substring(0, 5)} - ${slot.end_time.substring(0, 5)}`);
+    }
+
+    // Process coupon validation & discount calculation
+    let appliedCoupon = null;
+    let totalDiscount = 0;
+
+    if (coupon_code && typeof coupon_code === 'string' && coupon_code.trim()) {
+      const cleanCode = coupon_code.trim().toUpperCase();
+      const cRes = await pool.query('SELECT * FROM coupons WHERE UPPER(code) = $1', [cleanCode]);
+
+      if (cRes.rows.length > 0) {
+        const c = cRes.rows[0];
+        const now = new Date();
+        const isValidDate = (!c.valid_from || new Date(c.valid_from) <= now) && (!c.valid_until || new Date(c.valid_until) >= now);
+        const hasUsageLeft = !c.total_usage_limit || c.used_count < c.total_usage_limit;
+
+        if (c.is_active && isValidDate && hasUsageLeft) {
+          let eligible = true;
+          // Check first-time restriction
+          if (c.is_first_booking_only && phone10) {
+            const pb = await pool.query(
+              "SELECT b.id FROM bookings b JOIN users u ON u.id = b.user_id WHERE u.phone = $1 AND b.status NOT IN ('cancelled', 'rejected') LIMIT 1",
+              [phone10]
+            );
+            if (pb.rows.length > 0) eligible = false;
+          }
+
+          // Check per-user limit
+          if (eligible && phone10) {
+            const ur = await pool.query(
+              'SELECT COUNT(*) FROM coupon_redemptions WHERE coupon_id = $1 AND customer_phone = $2',
+              [c.id, phone10]
+            );
+            if (parseInt(ur.rows[0].count, 10) >= (c.per_user_limit || 1)) {
+              eligible = false;
+            }
+          }
+
+          // Check minimum booking amount
+          if (eligible && grandTotal >= Number(c.min_booking_amount || 0)) {
+            let disc = 0;
+            if (c.discount_type === 'flat') {
+              disc = Number(c.discount_value);
+            } else if (c.discount_type === 'percent') {
+              disc = (grandTotal * Number(c.discount_value)) / 100;
+              if (c.max_discount && disc > Number(c.max_discount)) {
+                disc = Number(c.max_discount);
+              }
+            }
+
+            // Floor rule: protect arena from going below ₹300 minimum
+            const maxAllowedDiscount = Math.max(0, grandTotal - 300);
+            disc = Math.min(disc, maxAllowedDiscount);
+            disc = Math.round(disc);
+
+            if (disc > 0) {
+              appliedCoupon = c;
+              totalDiscount = disc;
+            }
+          }
+        }
+      }
+    }
+
+    const finalPayable = Math.max(300, grandTotal - totalDiscount);
+
+    for (let i = 0; i < slotsQuery.rows.length; i++) {
+      const slot = slotsQuery.rows[i];
+      const price = Number(slot.price) || 800;
+      // Allocate discount to the first slot
+      const slotDiscount = i === 0 ? totalDiscount : 0;
+      const slotPaid = Math.max(0, price - slotDiscount);
 
       const bookingRes = await pool.query(`
         INSERT INTO bookings (
           user_id, slot_id, status, payment_status, paid_amount, remaining_amount, 
-          is_manual, payment_mode, utr_number
-        ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, 'upi_qr', $4)
+          is_manual, payment_mode, utr_number, coupon_code, discount_amount
+        ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, 'upi_qr', $4, $5, $6)
         RETURNING *
-      `, [userId, slot.id, price, cleanUtr]);
+      `, [userId, slot.id, slotPaid, cleanUtr, appliedCoupon ? appliedCoupon.code : null, slotDiscount]);
 
       createdBookings.push(bookingRes.rows[0]);
+    }
+
+    // Record coupon redemption if applied
+    if (appliedCoupon && createdBookings.length > 0 && phone10) {
+      await pool.query(`
+        INSERT INTO coupon_redemptions (coupon_id, booking_id, customer_phone, discount_amount, final_paid_amount)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [appliedCoupon.id, createdBookings[0].id, phone10, totalDiscount, finalPayable]);
+
+      await pool.query('UPDATE coupons SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1', [appliedCoupon.id]);
     }
 
     // Send email alert to customer
@@ -931,13 +1013,14 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
         turfName,
         date: dateFormatted,
         slots: slotTimes,
-        totalAmount: grandTotal,
+        totalAmount: finalPayable,
         utrNumber: cleanUtr,
       }).catch(err => console.error('[MAILER ERROR on booking received]', err));
     }
 
     if (cleanPhone) {
-      const waReceipt = `📋 *BOOKING SUBMITTED!* 🏏⚽\n\n*Booking ID:* #${createdBookings[0].id.substring(0, 8).toUpperCase()}\n*Turf:* ${turfName}\n*Date:* ${dateFormatted}\n*Slots:* ${slotTimes.join(', ')}\n*Amount Paid:* ₹${grandTotal}\n*UPI Ref ID:* ${cleanUtr}\n\n⏳ *Status:* Pending Admin Verification\nOur turf manager is verifying the payment in our bank account. Once verified, your official entry pass will be issued!`;
+      const offerNote = totalDiscount > 0 ? `\n🏷️ *Offer Applied (${appliedCoupon.code}):* -₹${totalDiscount} (Original: ₹${grandTotal})` : '';
+      const waReceipt = `📋 *BOOKING SUBMITTED!* 🏏⚽\n\n*Booking ID:* #${createdBookings[0].id.substring(0, 8).toUpperCase()}\n*Turf:* ${turfName}\n*Date:* ${dateFormatted}\n*Slots:* ${slotTimes.join(', ')}${offerNote}\n*Amount Paid:* ₹${finalPayable}\n*UPI Ref ID:* ${cleanUtr}\n\n⏳ *Status:* Pending Admin Verification\nOur turf manager is verifying the payment in our bank account. Once verified, your official entry pass will be issued!`;
       whatsappService.sendTextMessage({ to: cleanPhone, text: waReceipt }).catch(() => {});
     }
 
@@ -958,6 +1041,9 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       message: 'Booking submitted successfully! Awaiting arena payment verification.',
       bookings: createdBookings,
       totalAmount: grandTotal,
+      finalPayable: finalPayable,
+      discountAmount: totalDiscount,
+      couponCode: appliedCoupon ? appliedCoupon.code : null,
       bookingId: createdBookings[0].id.substring(0, 8).toUpperCase(),
     });
   } catch (err) {

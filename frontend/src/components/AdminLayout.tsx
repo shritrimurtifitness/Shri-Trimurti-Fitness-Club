@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, Link, Outlet, useLocation } from "react-router-dom";
 import logoImage from "@/assets/logo.png";
-import { LayoutDashboard, Calendar, CalendarDays, Settings, LogOut, BarChart3, Menu, X, Layers, Clock, Timer, DollarSign, Image as LucideImage, MessageSquare, Sun, Moon, Trophy, Megaphone, Shield, Users, QrCode, Activity, Lock } from "lucide-react";
+import { LayoutDashboard, Calendar, CalendarDays, Settings, LogOut, BarChart3, Menu, X, Layers, Clock, Timer, DollarSign, Image as LucideImage, MessageSquare, Sun, Moon, Trophy, Megaphone, Shield, Users, QrCode, Activity, Lock, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
 import SportsThemeToggle from "@/components/SportsThemeToggle";
@@ -34,6 +34,7 @@ const sidebarGroups: SidebarGroup[] = [
     links: [
       { name: "Analytics", path: "/admin/analytics", icon: BarChart3 },
       { name: "Finance", path: "/admin/finance", icon: DollarSign },
+      { name: "Coupons & Offers", path: "/admin/coupons", icon: Tag },
     ]
   },
   {
