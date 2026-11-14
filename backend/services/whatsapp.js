@@ -417,7 +417,7 @@ async function sendBookingConfirmationTicket({
 📅 *Date:* ${date} | ⏰ *Slot:* ${formattedSlots}
 📋 *Booking ID:* #${cleanBookingCode}
 
-👉 *Show this QR code at the turf entry gate for check-in scan!*`;
+👉 *Scan your booking pass at turf gate for check-in.*`;
 
   // 1. Send the Entry Pass QR Code Image
   try {
@@ -470,7 +470,7 @@ ${paymentModeText}📍 *Location:* Kudire Factory, Sangrul Fata, Koparde, Mahara
 ⚠️ *Player Instructions:*
 1. Arrive 10–15 minutes before your scheduled slot.
 2. Proper sports footwear is required on the turf.
-3. Show the official Entry Pass QR code above at the gate for fast check-in.
+3. Scan your booking pass at turf gate for check-in.
 
 Play Hard. Compete Better! 🔥`;
 
@@ -494,10 +494,11 @@ Play Hard. Compete Better! 🔥`;
   if (textRes && textRes.success) return textRes;
 
   // Fallback: If free-form message failed (outside 24h customer window), send approved Meta Utility template
-  console.log(`[WHATSAPP CONFIRMATION FALLBACK] Sending booking_confirmed_ticket template to ${phone}`);
-  return sendWhatsAppMessage({
+  const confirmationTemplate = process.env.WHATSAPP_BOOKING_TEMPLATE || 'turf_booking_confirmed';
+  console.log(`[WHATSAPP CONFIRMATION FALLBACK] Sending ${confirmationTemplate} template to ${phone}`);
+  let sendResult = await sendWhatsAppMessage({
     phone,
-    template_name: 'booking_confirmed_ticket',
+    template_name: confirmationTemplate,
     params: [
       customerName || 'Player',
       turfName || 'Sports Turf',
@@ -506,6 +507,20 @@ Play Hard. Compete Better! 🔥`;
       cleanBookingCode,
     ],
   });
+  if (!sendResult.success && confirmationTemplate !== 'booking_confirmed_ticket') {
+    sendResult = await sendWhatsAppMessage({
+      phone,
+      template_name: 'booking_confirmed_ticket',
+      params: [
+        customerName || 'Player',
+        turfName || 'Sports Turf',
+        date,
+        formattedSlots,
+        cleanBookingCode,
+      ],
+    });
+  }
+  return sendResult;
 }
 
 /**
