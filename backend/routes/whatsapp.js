@@ -162,12 +162,14 @@ router.post('/missed-call', async (req, res) => {
       req.query.secret ||
       req.body.secret;
 
-    const expectedSecret =
-      (process.env.MISSED_CALL_SECRET || '').trim() ||
-      (process.env.WHATSAPP_VERIFY_TOKEN || '').trim() ||
-      'trimurti_missed_call_2026';
+    const validSecrets = [
+      (process.env.MISSED_CALL_SECRET || '').trim(),
+      (process.env.WHATSAPP_VERIFY_TOKEN || '').trim(),
+      'trimurti_missed_call_2026',
+      'trimurti_arena_secret_2026',
+    ].filter(Boolean);
 
-    if (!providedSecret || providedSecret.trim() !== expectedSecret) {
+    if (!providedSecret || !validSecrets.includes(providedSecret.trim())) {
       console.warn('[MISSED CALL] Unauthorized attempt. Received secret:', providedSecret);
       return res.status(401).json({ error: 'Unauthorized: Invalid secret token' });
     }
@@ -216,15 +218,17 @@ router.get('/missed-calls', async (req, res) => {
       req.headers['x-webhook-secret'] ||
       req.query.secret;
 
-    const expectedSecret =
-      (process.env.MISSED_CALL_SECRET || '').trim() ||
-      (process.env.WHATSAPP_VERIFY_TOKEN || '').trim() ||
-      'trimurti_missed_call_2026';
+    const validSecrets = [
+      (process.env.MISSED_CALL_SECRET || '').trim(),
+      (process.env.WHATSAPP_VERIFY_TOKEN || '').trim(),
+      'trimurti_missed_call_2026',
+      'trimurti_arena_secret_2026',
+    ].filter(Boolean);
 
     const authHeader = req.headers['authorization'];
 
     // Require either secret token or admin bearer token
-    if (!authHeader && (!providedSecret || providedSecret.trim() !== expectedSecret)) {
+    if (!authHeader && (!providedSecret || !validSecrets.includes(providedSecret.trim()))) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
