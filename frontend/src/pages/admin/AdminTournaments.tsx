@@ -27,6 +27,9 @@ export interface Tournament {
   display_start_date: string;
   display_end_date: string;
   is_active: boolean;
+  is_full_day?: boolean;
+  daily_start_time?: string;
+  daily_end_time?: string;
 }
 
 export default function AdminTournaments() {
@@ -145,6 +148,15 @@ export default function AdminTournaments() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-foreground">{format(new Date(t.start_date), "MMM d, yyyy")}</div>
                         <div className="text-muted-foreground text-xs">to {format(new Date(t.end_date), "MMM d, yyyy")}</div>
+                        <div className="mt-1">
+                          {t.is_full_day ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">Full Day</span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                              {t.daily_start_time || "18:00"} – {t.daily_end_time || "23:00"}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="font-bold text-emerald-500">₹{t.entry_fee}</div>
@@ -198,6 +210,9 @@ export default function AdminTournaments() {
                       <div className="text-xs font-medium text-emerald-500">₹{t.entry_fee} <span className="text-muted-foreground font-normal">• {t.max_teams} Teams Max</span></div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {format(new Date(t.start_date), "MMM d")} - {format(new Date(t.end_date), "MMM d")}
+                        <span className="ml-1 text-[11px] font-semibold text-primary">
+                          ({t.is_full_day ? "Full Day" : `${t.daily_start_time || "18:00"} – ${t.daily_end_time || "23:00"}`})
+                        </span>
                       </div>
                     </div>
                   </div>

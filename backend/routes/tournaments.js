@@ -32,12 +32,12 @@ router.post('/upload', authMiddleware, upload.single('image'), async (req, res) 
 
 // Admin: Create Tournament
 router.post('/', authMiddleware, async (req, res) => {
-  const { name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active } = req.body;
+  const { name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active, is_full_day, daily_start_time, daily_end_time } = req.body;
   try {
     const result = await pool.query(
-      `INSERT INTO tournaments (name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
-      [name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active]
+      `INSERT INTO tournaments (name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active, is_full_day, daily_start_time, daily_end_time)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING *`,
+      [name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active, is_full_day ?? false, daily_start_time || '18:00', daily_end_time || '23:00']
     );
     await cache.delPattern('tournaments:*');
     
@@ -66,12 +66,12 @@ router.get('/admin', authMiddleware, async (req, res) => {
 // Admin: Update Tournament
 router.put('/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active } = req.body;
+  const { name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active, is_full_day, daily_start_time, daily_end_time } = req.body;
   try {
     const result = await pool.query(
-      `UPDATE tournaments SET name=$1, sport_type=$2, description=$3, rules=$4, entry_fee=$5, prize=$6, start_date=$7, end_date=$8, max_teams=$9, banner_image=$10, is_featured=$11, show_on_homepage=$12, display_priority=$13, display_start_date=$14, display_end_date=$15, is_active=$16 
-       WHERE id=$17 RETURNING *`,
-      [name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active, id]
+      `UPDATE tournaments SET name=$1, sport_type=$2, description=$3, rules=$4, entry_fee=$5, prize=$6, start_date=$7, end_date=$8, max_teams=$9, banner_image=$10, is_featured=$11, show_on_homepage=$12, display_priority=$13, display_start_date=$14, display_end_date=$15, is_active=$16, is_full_day=$17, daily_start_time=$18, daily_end_time=$19 
+       WHERE id=$20 RETURNING *`,
+      [name, sport_type, description, rules, entry_fee, prize, start_date, end_date, max_teams, banner_image, is_featured, show_on_homepage, display_priority, display_start_date, display_end_date, is_active, is_full_day ?? false, daily_start_time || '18:00', daily_end_time || '23:00', id]
     );
     
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });

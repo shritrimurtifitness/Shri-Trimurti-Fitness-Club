@@ -509,6 +509,9 @@ CREATE TABLE public.tournaments (
     display_start_date timestamp without time zone,
     display_end_date timestamp without time zone,
     is_active boolean DEFAULT true,
+    is_full_day boolean DEFAULT false,
+    daily_start_time character varying(10) DEFAULT '18:00'::character varying,
+    daily_end_time character varying(10) DEFAULT '23:00'::character varying,
     created_at timestamp without time zone DEFAULT now()
 );
 

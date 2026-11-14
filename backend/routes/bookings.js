@@ -42,6 +42,49 @@ router.post('/', bookingLimiter, async (req, res) => {
     `, [slot_id]);
     if (activeBookingResult.rows.length > 0) return res.status(400).json({ error: 'This time slot is already booked on this physical turf' });
 
+    // Ensure slot is not blocked by an active tournament (unless admin manual booking)
+    if (!is_manual) {
+      const tournamentCheck = await pool.query(`
+        SELECT t.name, t.is_full_day, t.daily_start_time, t.daily_end_time 
+        FROM tournaments t
+        JOIN turfs orig_turf ON orig_turf.id = (SELECT turf_id FROM slots WHERE id = $1)
+        WHERE t.is_active = true
+          AND (
+            LOWER(t.sport_type) = LOWER(orig_turf.facility_type)
+            OR (orig_turf.physical_resource_id IS NOT NULL AND EXISTS (
+              SELECT 1 FROM turfs shared_t 
+              WHERE shared_t.physical_resource_id = orig_turf.physical_resource_id 
+              AND LOWER(shared_t.facility_type) = LOWER(t.sport_type)
+            ))
+          )
+          AND (SELECT date FROM slots WHERE id = $1) >= t.start_date::date
+          AND (SELECT date FROM slots WHERE id = $1) <= t.end_date::date
+      `, [slot_id]);
+
+      if (tournamentCheck.rows.length > 0) {
+        const tMatch = tournamentCheck.rows[0];
+        const slotRow = slotResult.rows[0];
+        const isFullDay = tMatch.is_full_day;
+        const dStart = (tMatch.daily_start_time || '18:00').slice(0, 5);
+        const dEnd = (tMatch.daily_end_time || '23:00').slice(0, 5);
+        const sStart = slotRow.start_time.slice(0, 5);
+        const sEnd = slotRow.end_time.slice(0, 5);
+
+        let isBlocked = false;
+        if (isFullDay) {
+          isBlocked = true;
+        } else if (dStart <= dEnd) {
+          isBlocked = sStart < dEnd && sEnd > dStart;
+        } else {
+          isBlocked = sStart >= dStart || sEnd <= dEnd;
+        }
+
+        if (isBlocked) {
+          return res.status(400).json({ error: `This slot is reserved for ${tMatch.name}` });
+        }
+      }
+    }
+
     const slot = slotResult.rows[0];
 
     // Ensure slot is not in the past

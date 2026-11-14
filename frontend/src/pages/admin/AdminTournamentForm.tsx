@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, UploadCloud } from "lucide-react";
+import { Loader2, UploadCloud, Clock } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { format } from "date-fns";
@@ -46,6 +46,9 @@ export default function AdminTournamentForm({ initialData, onSuccess }: Props) {
     display_start_date: formatDateForInput(initialData?.display_start_date),
     display_end_date: formatDateForInput(initialData?.display_end_date),
     is_active: initialData?.is_active ?? true,
+    is_full_day: initialData?.is_full_day ?? false,
+    daily_start_time: initialData?.daily_start_time || "18:00",
+    daily_end_time: initialData?.daily_end_time || "23:00",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -167,6 +170,115 @@ export default function AdminTournamentForm({ initialData, onSuccess }: Props) {
           <Label>Max Teams Allowed</Label>
           <Input type="number" name="max_teams" value={formData.max_teams} onChange={handleChange} required min={2} />
         </div>
+      </div>
+
+      {/* Turf Slot Booking & Daily Schedule */}
+      <div className="bg-muted/40 p-4 sm:p-5 rounded-xl border border-border space-y-4">
+        <div>
+          <Label className="text-sm font-bold flex items-center gap-2 text-foreground">
+            <Clock className="w-4 h-4 text-primary" /> Turf Slot Booking & Daily Schedule
+          </Label>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Decide whether this tournament closes the turf completely all day, or only reserves specific hours (e.g. evening).
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div
+            onClick={() => setFormData(prev => ({ ...prev, is_full_day: false }))}
+            className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+              !formData.is_full_day
+                ? "bg-primary/10 border-primary shadow-sm"
+                : "bg-background border-border hover:border-border/80 opacity-70"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-foreground">Specific Daily Hours</span>
+              <span className={`w-3 h-3 rounded-full flex items-center justify-center ${!formData.is_full_day ? "bg-primary" : "border border-muted-foreground"}`} />
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Reserves only matching hours (e.g. 6 PM – 11 PM). Other morning/afternoon slots stay open for public bookings!
+            </p>
+          </div>
+
+          <div
+            onClick={() => setFormData(prev => ({ ...prev, is_full_day: true }))}
+            className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+              formData.is_full_day
+                ? "bg-primary/10 border-primary shadow-sm"
+                : "bg-background border-border hover:border-border/80 opacity-70"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-foreground">Full Day Lockdown</span>
+              <span className={`w-3 h-3 rounded-full flex items-center justify-center ${formData.is_full_day ? "bg-primary" : "border border-muted-foreground"}`} />
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Entire turf is locked down 24 hours every day of the tournament. No public bookings allowed.
+            </p>
+          </div>
+        </div>
+
+        {!formData.is_full_day && (
+          <div className="space-y-3 pt-3 border-t border-border/50">
+            {/* Quick Presets */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="text-[11px] font-semibold text-muted-foreground mr-1">Quick Presets:</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ ...prev, daily_start_time: "18:00", daily_end_time: "23:00" }))}
+                className="h-7 text-xs px-2.5 font-medium"
+              >
+                Night (6 PM – 11 PM)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ ...prev, daily_start_time: "06:00", daily_end_time: "12:00" }))}
+                className="h-7 text-xs px-2.5 font-medium"
+              >
+                Morning (6 AM – 12 PM)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ ...prev, daily_start_time: "16:00", daily_end_time: "22:00" }))}
+                className="h-7 text-xs px-2.5 font-medium"
+              >
+                Evening (4 PM – 10 PM)
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Daily Start Time</Label>
+                <Input
+                  type="time"
+                  name="daily_start_time"
+                  value={formData.daily_start_time}
+                  onChange={handleChange}
+                  required={!formData.is_full_day}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Daily End Time</Label>
+                <Input
+                  type="time"
+                  name="daily_end_time"
+                  value={formData.daily_end_time}
+                  onChange={handleChange}
+                  required={!formData.is_full_day}
+                  className="h-9"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

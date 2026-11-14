@@ -43,7 +43,7 @@ export default function BookingPage() {
   const [step, setStep] = useState<string>(preselected ? "date" : "facility");
   const [facility, setFacility] = useState<FacilityType>(preselected || "");
   const [selectedDate, setSelectedDate] = useState<Date>();
-  const [groupedSlots, setGroupedSlots] = useState<{ time: string, price: number, slots: any[], availableSlots: any[], isAvailable: boolean }[]>([]);
+  const [groupedSlots, setGroupedSlots] = useState<{ time: string, price: number, slots: any[], availableSlots: any[], isAvailable: boolean, isTournamentBlocked?: boolean }[]>([]);
   const [selectedSlotGroup, setSelectedSlotGroup] = useState<any | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
   const [name, setName] = useState("");
@@ -143,6 +143,7 @@ export default function BookingPage() {
       const currentTurf = allFacilities.find(f => f.facility_type === facility);
 
       const activeTournament = tournaments.find(t => {
+        if (!t.is_active) return false;
         const tStart = format(new Date(t.start_date), "yyyy-MM-dd");
         const tEnd = format(new Date(t.end_date), "yyyy-MM-dd");
         
@@ -160,7 +161,8 @@ export default function BookingPage() {
         return (isDirectMatch || isSharedMatch) && formattedDate >= tStart && formattedDate <= tEnd;
       });
 
-      if (activeTournament) {
+      // If activeTournament is a Full Day lockdown, block everything
+      if (activeTournament && activeTournament.is_full_day) {
         setBlockingTournament(activeTournament);
         setGroupedSlots([]);
         setSelectedSlotGroup(null);
@@ -168,7 +170,9 @@ export default function BookingPage() {
         setStep("slot");
         return;
       }
-      setBlockingTournament(null);
+
+      // If tournament exists with specific daily hours, track it so we render the banner and block only its hours
+      setBlockingTournament(activeTournament || null);
 
       const response = await api.get(`/slots?date=${formattedDate}&facility_type=${facility}`);
 
@@ -197,7 +201,22 @@ export default function BookingPage() {
       });
 
       const mappedGroups = Object.entries(groups).map(([time, arr]) => {
-        let availableSlots = arr.filter(s => s.is_available);
+        // Check if slot falls in tournament hours
+        let isTournamentBlocked = false;
+        if (activeTournament && !activeTournament.is_full_day) {
+          const tStart = (activeTournament.daily_start_time || "18:00").slice(0, 5);
+          const tEnd = (activeTournament.daily_end_time || "23:00").slice(0, 5);
+          const slotStart = arr[0].start_time.slice(0, 5);
+          const slotEnd = arr[0].end_time.slice(0, 5);
+
+          if (tStart <= tEnd) {
+            isTournamentBlocked = slotStart < tEnd && slotEnd > tStart;
+          } else {
+            isTournamentBlocked = slotStart >= tStart || slotEnd <= tEnd;
+          }
+        }
+
+        let availableSlots = arr.filter(s => s.is_available && !isTournamentBlocked);
 
         const now = new Date();
         availableSlots = availableSlots.filter(s => {
@@ -210,7 +229,8 @@ export default function BookingPage() {
           price: Number(arr[0].price),
           slots: arr,
           availableSlots,
-          isAvailable: availableSlots.length > 0
+          isAvailable: availableSlots.length > 0,
+          isTournamentBlocked,
         };
       });
 
@@ -584,22 +604,54 @@ export default function BookingPage() {
                   </p>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {/* Tournament Informational Banner (when slots are partially open) */}
+                  {blockingTournament && !blockingTournament.is_full_day && (
+                    <div className="col-span-full p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-zinc-900/90 to-amber-500/5 flex items-start gap-3.5 text-left shadow-lg mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                        <Trophy className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm sm:text-base font-bold text-foreground">
+                            {blockingTournament.name}
+                          </h4>
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            Tournament Active Today
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                          Tournament matches run from <strong className="text-amber-300 font-semibold">{formatTime12Hour(blockingTournament.daily_start_time || "18:00")} to {formatTime12Hour(blockingTournament.daily_end_time || "23:00")}</strong>.
+                          All other morning and afternoon slots are open for regular bookings!
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {groupedSlots.map((group) => (
                     <button key={group.time} onClick={() => group.isAvailable && handleGroupSelect(group)}
                       disabled={!group.isAvailable}
-                      className={`p-4 rounded-xl border text-left transition-all duration-200 ${!group.isAvailable ? "bg-muted/30 border-border/50 opacity-50 cursor-not-allowed"
-                        : selectedSlotGroup?.time === group.time ? "bg-primary/10 border-primary shadow-turf"
-                          : "bg-card border-border hover:border-primary/40 hover:shadow-turf cursor-pointer"
+                      className={`p-4 rounded-xl border text-left transition-all duration-200 ${
+                        group.isTournamentBlocked
+                          ? "bg-amber-500/5 border-amber-500/30 opacity-75 cursor-not-allowed"
+                          : !group.isAvailable
+                            ? "bg-muted/30 border-border/50 opacity-50 cursor-not-allowed"
+                            : selectedSlotGroup?.time === group.time
+                              ? "bg-primary/10 border-primary shadow-turf"
+                              : "bg-card border-border hover:border-primary/40 hover:shadow-turf cursor-pointer"
                         }`}>
                       <div className="flex items-center gap-1 mb-1">
-                        <Clock className={`w-3.5 h-3.5 ${group.isAvailable ? "text-primary" : "text-muted-foreground"}`} />
-                        <span className={`text-sm font-semibold ${group.isAvailable ? "text-foreground" : "text-muted-foreground"}`}>{group.time.split(' – ')[0]}</span>
+                        <Clock className={`w-3.5 h-3.5 ${group.isAvailable ? "text-primary" : group.isTournamentBlocked ? "text-amber-400" : "text-muted-foreground"}`} />
+                        <span className={`text-sm font-semibold ${group.isAvailable ? "text-foreground" : group.isTournamentBlocked ? "text-amber-200" : "text-muted-foreground"}`}>{group.time.split(' – ')[0]}</span>
                       </div>
                       <p className="text-xs text-muted-foreground">{group.time}</p>
-                      <p className={`text-sm font-bold mt-1 ${group.isAvailable ? "text-primary" : "text-muted-foreground"}`}>₹{group.price}</p>
+                      <p className={`text-sm font-bold mt-1 ${group.isAvailable ? "text-primary" : group.isTournamentBlocked ? "text-amber-400" : "text-muted-foreground"}`}>₹{group.price}</p>
                       {group.isAvailable ? (
                         <p className="text-[10px] text-primary/80 mt-1 font-medium">
                           {group.availableSlots.length} {facilityData?.pricing_model === "slot" ? "turf" : "table"}s available
+                        </p>
+                      ) : group.isTournamentBlocked ? (
+                        <p className="text-[10px] text-amber-400 font-bold flex items-center gap-1 mt-1">
+                          <Trophy className="w-3 h-3 text-amber-400 shrink-0" /> Tournament Match
                         </p>
                       ) : (
                         <p className="text-[10px] text-destructive mt-1 font-semibold">Booked Full</p>
@@ -607,7 +659,7 @@ export default function BookingPage() {
                     </button>
                   ))}
 
-                  {blockingTournament ? (
+                  {blockingTournament && blockingTournament.is_full_day ? (
                     <div className="col-span-full py-12 px-4 text-center border border-border rounded-xl bg-card">
                       <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
                       <h3 className="text-xl font-bold text-foreground mb-2">Turf is Closed for {blockingTournament.name}</h3>
