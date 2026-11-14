@@ -45,7 +45,7 @@ export default function FooterSection() {
     address: "Kudire Factory , Sangrul Fata , Koparde",
     phone: "+91 9595153006",
     email: "shritrimurtifitness@gmail.com",
-    working_hours: "Mon–Sun: 10:00 AM – 12:00 AM",
+    working_hours: "Mon–Sun: 5:00 AM – 11:00 PM",
     facebook_url: "",
     instagram_url: "",
     twitter_url: "",

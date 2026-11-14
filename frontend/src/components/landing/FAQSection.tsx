@@ -17,7 +17,7 @@ const faqs = [
   {
     question: "What are the arena operational hours?",
     answer:
-      "SHRI TRIMURTI FITNESS CLUB is open daily from 10:00 AM to 12:00 AM (midnight). High-powered LED floodlights ensure crystal-clear visibility for evening and late-night games.",
+      "SHRI TRIMURTI FITNESS CLUB is open daily from 5:00 AM to 11:00 PM. High-powered LED floodlights ensure crystal-clear visibility for evening and late-night games.",
   },
   {
     question: "Are sports equipment (bats, balls, stumps) provided?",

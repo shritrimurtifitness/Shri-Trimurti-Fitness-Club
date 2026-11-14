@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, Variants } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Star, Clock, Trophy, MapPin } from "lucide-react";
+import { ArrowRight, Clock, Trophy, MapPin, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-arena.jpg";
 import api from "@/lib/api";
@@ -74,8 +74,7 @@ export default function HeroSection() {
       .catch(() => {});
   }, []);
 
-  const rating = settings?.google_rating ? `${settings.google_rating} ★` : "4.6 ★";
-  const hours = settings?.working_hours || "10:00 AM – 12:00 AM";
+  const hours = settings?.working_hours || "5:00 AM – 11:00 PM";
   const isOpen = checkIsOpenNow(hours);
 
   return (
@@ -157,15 +156,15 @@ export default function HeroSection() {
               </a>
             </motion.div>
 
-            {/* 5. Live Stats Row */}
+            {/* 5. Launch Features Row */}
             <motion.div
               variants={itemVariants}
               className="grid grid-cols-3 divide-x divide-zinc-200 dark:divide-zinc-800/80 border-t border-zinc-200 dark:border-zinc-800/80 pt-5 sm:pt-7 w-full max-w-lg"
             >
               {[
-                { icon: Trophy, value: "1,200+", label: "Bookings" },
-                { icon: Star, value: rating, label: "Google Rating" },
-                { icon: Clock, value: "10AM–12AM", label: "Open Daily" },
+                { icon: Clock, value: "5AM–11PM", label: "Open Daily" },
+                { icon: Trophy, value: "2 Turfs", label: "Cricket & Football" },
+                { icon: Zap, value: "Floodlit", label: "Day & Night Arena" },
               ].map((stat) => {
                 const StatIcon = stat.icon;
                 return (
