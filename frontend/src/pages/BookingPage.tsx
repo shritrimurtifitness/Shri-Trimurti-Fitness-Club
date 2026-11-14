@@ -317,12 +317,8 @@ export default function BookingPage() {
       setVerificationChannel(channelToUse);
       if (res.data.verificationLink) {
         setWaLink(res.data.verificationLink);
-        // Automatically open WhatsApp in a new tab for 1-tap verification
-        try {
-          window.open(res.data.verificationLink, '_blank', 'noopener,noreferrer');
-        } catch {}
       }
-      toast.success(res.data.message || "OTP verification initiated!");
+      toast.success(res.data.message || "OTP sent successfully!");
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to send OTP. Please try again.");
     } finally {
@@ -733,7 +729,7 @@ export default function BookingPage() {
                           }
                         }}
                         placeholder="10-digit mobile number"
-                        className={cn("pl-10 bg-card border-border", verificationChannel === 'whatsapp' && !isOtpVerified ? "pr-36" : "")}
+                        className={cn("pl-10 bg-card border-border", verificationChannel === 'whatsapp' && !isOtpVerified ? "pr-28" : "")}
                         type="tel"
                       />
                       {verificationChannel === 'whatsapp' && !isOtpVerified && (
@@ -743,7 +739,7 @@ export default function BookingPage() {
                           disabled={otpSending || phone.length !== 10}
                           className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold transition-all disabled:opacity-40"
                         >
-                          {otpSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : otpSent ? "Resend" : "Verify WhatsApp"}
+                          {otpSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : otpSent ? "Resend" : "Send OTP"}
                         </button>
                       )}
                     </div>
@@ -797,24 +793,11 @@ export default function BookingPage() {
                         <>
                           <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                            WhatsApp verification ready for <strong className="text-foreground">+91 {phone}</strong>
+                            4-digit OTP sent to WhatsApp: <strong className="text-foreground">+91 {phone}</strong>
                           </div>
-                          {waLink && (
-                            <a
-                              href={waLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-full flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-slate-950 font-extrabold text-xs shadow-lg transition-all"
-                            >
-                              <MessageCircle className="w-4 h-4 text-slate-950 fill-current" /> Tap to Open WhatsApp &amp; Send "VERIFY" (1-Tap)
-                            </a>
-                          )}
-                          <p className="text-[11px] text-muted-foreground text-center">
-                            💡 Simply tap the green button above to open WhatsApp. Hit send, and this page will automatically confirm your mobile number!
+                          <p className="text-[11px] text-muted-foreground">
+                            Enter the 4-digit verification code you received on WhatsApp below:
                           </p>
-                          <div className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-bold">
-                            — OR ENTER 4-DIGIT CODE MANUALLY —
-                          </div>
                         </>
                       ) : (
                         <p className="text-xs text-muted-foreground">
@@ -834,12 +817,25 @@ export default function BookingPage() {
                         <Button
                           type="button"
                           onClick={handleVerifyOtp}
-                          disabled={otpVerifying || otp.length < 4}
-                          className="bg-gradient-turf text-primary-foreground font-bold text-xs h-10 px-4 shrink-0"
+                          disabled={otpVerifying || otp.length !== 4}
+                          className="h-10 px-5 bg-gradient-turf text-primary-foreground font-bold text-xs"
                         >
                           {otpVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify Code"}
                         </Button>
                       </div>
+
+                      {verificationChannel === 'whatsapp' && waLink && (
+                        <div className="pt-1 border-t border-border/50 text-center">
+                          <a
+                            href={waLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1 hover:underline"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" /> Didn't receive code? Tap here to verify directly in WhatsApp
+                          </a>
+                        </div>
+                      )}
                     </motion.div>
                   )}
 
