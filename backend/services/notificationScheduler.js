@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { sendInteractiveButtons, sendTextMessage } = require('./whatsapp');
+const { sendInteractiveButtons, sendTextMessage, sendWhatsAppMessage } = require('./whatsapp');
 
 // In-memory timer registries to avoid continuous polling of Neon DB
 // Map<bookingId, NodeJS.Timeout>
@@ -70,10 +70,10 @@ function scheduleBookingNotifications(booking) {
   const matchEndEpoch = parseIST(dateStr, endTime);
 
   // -------------------------------------------------------------------
-  // 1. MATCHDAY REMINDER (2 Hours Prior to Match Kickoff)
+  // 1. MATCHDAY REMINDER (45 Minutes Prior to Match Kickoff)
   // -------------------------------------------------------------------
   if (!booking.reminder_sent_at) {
-    const targetReminderEpoch = matchStartEpoch - (2 * 60 * 60 * 1000); // 2 hours prior
+    const targetReminderEpoch = matchStartEpoch - (45 * 60 * 1000); // 45 minutes prior
     const delay = targetReminderEpoch - now;
 
     const executeReminder = async () => {
@@ -100,7 +100,7 @@ function scheduleBookingNotifications(booking) {
         const reminderMsg =
 `${sportEmoji} *MATCH REMINDER — SHRI TRIMURTI FITNESS CLUB*
 
-Hi *${customerName}*! Your match session is coming up in 2 hours! 🔥
+Hi *${customerName}*! Your match session is coming up in 45 minutes! 🔥
 
 🏟️ *Facility:* ${turfName}
 📅 *Date:* Today (${dateStr})
@@ -112,16 +112,32 @@ ${dugoutEquipment}
 
 See you on the pitch! 🏆`;
 
-        await sendInteractiveButtons({
-          to: phone,
-          headerText: sportHeader,
-          bodyText: reminderMsg,
-          footerText: 'SHRI TRIMURTI FITNESS CLUB',
-          buttons: [
-            { id: 'BTN_LOCATION', title: '📍 Directions' },
-            { id: 'BTN_STAFF', title: '📞 Call Arena' },
-          ],
-        });
+        let sent = false;
+        try {
+          const res = await sendInteractiveButtons({
+            to: phone,
+            headerText: sportHeader,
+            bodyText: reminderMsg,
+            footerText: 'SHRI TRIMURTI FITNESS CLUB',
+            buttons: [
+              { id: 'BTN_LOCATION', title: '📍 Directions' },
+              { id: 'BTN_STAFF', title: '📞 Call Arena' },
+            ],
+          });
+          if (res && res.success) sent = true;
+        } catch (interactiveErr) {
+          console.warn('[INTERACTIVE REMINDER FAILED, TRYING TEMPLATE]', interactiveErr.message);
+        }
+
+        // If outside 24h window, fall back to official Meta Utility template
+        if (!sent) {
+          console.log(`[NOTIFICATION FALLBACK] Sending turf_matchday_reminder template to ${phone}`);
+          await sendWhatsAppMessage({
+            phone,
+            template_name: 'turf_matchday_reminder',
+            params: [customerName, turfName, slotTimeLabel],
+          });
+        }
 
         await pool.query(
           `UPDATE bookings SET reminder_sent_at = NOW() WHERE id = $1`,
@@ -152,10 +168,10 @@ See you on the pitch! 🏆`;
   }
 
   // -------------------------------------------------------------------
-  // 2. VIRAL GOOGLE REVIEW COLLECTOR (1 Hour After Match Ends)
+  // 2. VIRAL GOOGLE REVIEW COLLECTOR (45 Minutes After Match Ends)
   // -------------------------------------------------------------------
   if (!booking.feedback_sent_at) {
-    const targetFeedbackEpoch = matchEndEpoch + (1 * 60 * 60 * 1000); // 1 hour after match
+    const targetFeedbackEpoch = matchEndEpoch + (45 * 60 * 1000); // 45 minutes after match ends
     const delay = targetFeedbackEpoch - now;
 
     const executeFeedback = async () => {
@@ -178,16 +194,32 @@ See you on the pitch! 🏆`;
 
 How was your ${sportTerm} condition and match experience?`;
 
-        await sendInteractiveButtons({
-          to: phone,
-          headerText: '🏆 Matchday Experience',
-          bodyText: surveyMsg,
-          footerText: 'SHRI TRIMURTI FITNESS CLUB',
-          buttons: [
-            { id: `BTN_FEEDBACK_5STAR_${bookingId}`, title: '⭐ Loved it!' },
-            { id: `BTN_FEEDBACK_IMPROVE_${bookingId}`, title: '💬 Give Feedback' },
-          ],
-        });
+        let sent = false;
+        try {
+          const res = await sendInteractiveButtons({
+            to: phone,
+            headerText: '🏆 Matchday Experience',
+            bodyText: surveyMsg,
+            footerText: 'SHRI TRIMURTI FITNESS CLUB',
+            buttons: [
+              { id: `BTN_FEEDBACK_5STAR_${bookingId}`, title: '⭐ Loved it!' },
+              { id: `BTN_FEEDBACK_IMPROVE_${bookingId}`, title: '💬 Give Feedback' },
+            ],
+          });
+          if (res && res.success) sent = true;
+        } catch (interactiveErr) {
+          console.warn('[INTERACTIVE FEEDBACK FAILED, TRYING TEMPLATE]', interactiveErr.message);
+        }
+
+        // If outside 24h window, fall back to official Meta Utility template
+        if (!sent) {
+          console.log(`[NOTIFICATION FALLBACK] Sending match_feedback template to ${phone}`);
+          await sendWhatsAppMessage({
+            phone,
+            template_name: 'match_feedback',
+            params: [customerName],
+          });
+        }
 
         await pool.query(
           `UPDATE bookings SET feedback_sent_at = NOW() WHERE id = $1`,

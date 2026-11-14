@@ -490,7 +490,22 @@ Play Hard. Compete Better! 🔥`;
     console.warn('[INTERACTIVE CONFIRMATION FALLBACK]', btnErr.message);
   }
 
-  return sendTextMessage({ to: phone, text: message });
+  const textRes = await sendTextMessage({ to: phone, text: message });
+  if (textRes && textRes.success) return textRes;
+
+  // Fallback: If free-form message failed (outside 24h customer window), send approved Meta Utility template
+  console.log(`[WHATSAPP CONFIRMATION FALLBACK] Sending booking_confirmed_ticket template to ${phone}`);
+  return sendWhatsAppMessage({
+    phone,
+    template_name: 'booking_confirmed_ticket',
+    params: [
+      customerName || 'Player',
+      turfName || 'Sports Turf',
+      date,
+      formattedSlots,
+      cleanBookingCode,
+    ],
+  });
 }
 
 /**
