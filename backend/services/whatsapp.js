@@ -205,11 +205,11 @@ async function sendInteractiveList({ to, bodyText, buttonTitle = 'View Options',
 /**
  * Sends a pre-approved WhatsApp Template Message (for outbound notifications outside 24h window).
  */
-async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
+async function sendWhatsAppMessage({ phone, template_name, params = [], languageCode = 'en' }) {
   const formattedPhone = normalizePhone(phone);
   if (!process.env.WHATSAPP_TOKEN || !process.env.PHONE_NUMBER_ID) {
     console.log(`[WHATSAPP MOCK TEMPLATE] To: ${formattedPhone}, Template: ${template_name}, Params:`, params);
-    return true;
+    return { success: true, mock: true };
   }
 
   let logId = null;
@@ -234,19 +234,19 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
     });
   }
 
-  const payload = {
-    messaging_product: 'whatsapp',
-    to: formattedPhone,
-    type: 'template',
-    template: {
-      name: template_name,
-      language: { code: 'en' },
-      components: components,
-    },
-  };
+  const attemptSend = async (lang) => {
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: template_name,
+        language: { code: lang },
+        ...(components.length > 0 ? { components } : {}),
+      },
+    };
 
-  try {
-    const response = await axios.post(
+    return axios.post(
       `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
       payload,
       {
@@ -256,6 +256,24 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
         },
       }
     );
+  };
+
+  try {
+    let response;
+    try {
+      response = await attemptSend(languageCode);
+    } catch (primaryErr) {
+      const errSubcode = primaryErr.response?.data?.error?.error_subcode;
+      const errMsg = primaryErr.response?.data?.error?.message || '';
+      // If template was registered with a different English locale (e.g. en_US vs en), retry once
+      if (errSubcode === 132001 || errMsg.includes('specified language') || errMsg.includes('does not exist')) {
+        const fallbackLang = languageCode === 'en' ? 'en_US' : 'en';
+        console.log(`[WHATSAPP TEMPLATE RETRY] Retrying ${template_name} with fallback language ${fallbackLang}`);
+        response = await attemptSend(fallbackLang);
+      } else {
+        throw primaryErr;
+      }
+    }
 
     if (logId) {
       await pool.query(
@@ -263,7 +281,7 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
         [JSON.stringify(response.data), logId]
       );
     }
-    return true;
+    return { success: true, data: response.data };
   } catch (error) {
     const errorData = error.response ? error.response.data : { message: error.message };
     console.error(`WhatsApp API Error [${template_name} to ${formattedPhone}]:`, JSON.stringify(errorData));
@@ -274,8 +292,97 @@ async function sendWhatsAppMessage({ phone, template_name, params = [] }) {
         [JSON.stringify(errorData), logId]
       );
     }
-    return false;
+    return { success: false, error: errorData };
   }
+}
+
+/**
+ * Handles missed calls:
+ * 1. Sanitizes phone to 10-digit / international 91 format.
+ * 2. Checks cooldown (12 hours) so repeat callers don't get spammed and to save Meta costs.
+ * 3. Sends the approved Meta template message (`trimurti_missed_call`).
+ * 4. Records the lead and result in `missed_calls` table.
+ */
+async function sendMissedCallNotification({ phone, template_name = 'trimurti_missed_call' }) {
+  const formattedPhone = normalizePhone(phone);
+  if (!formattedPhone || formattedPhone.length < 10) {
+    return { success: false, error: 'Invalid phone number' };
+  }
+
+  // 1. Ensure missed_calls table exists
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS missed_calls (
+        id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+        phone VARCHAR(25) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        template_name VARCHAR(100),
+        response JSONB,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_missed_calls_phone_time ON missed_calls(phone, created_at DESC);
+    `);
+  } catch (tableErr) {
+    console.warn('[MISSED CALL DB INIT]', tableErr.message);
+  }
+
+  // 2. Cooldown check: Has a message already been sent to this number in the last 12 hours?
+  try {
+    const cooldownRes = await pool.query(
+      `SELECT id, created_at FROM missed_calls 
+       WHERE phone = $1 
+         AND status = 'sent' 
+         AND created_at > NOW() - INTERVAL '12 hours' 
+       ORDER BY created_at DESC LIMIT 1`,
+      [formattedPhone]
+    );
+
+    if (cooldownRes.rows.length > 0) {
+      console.log(`[MISSED CALL] Cooldown active for ${formattedPhone}. Skipping WhatsApp notification.`);
+      await pool.query(
+        `INSERT INTO missed_calls (phone, status, template_name, response) 
+         VALUES ($1, 'cooldown_skipped', $2, $3)`,
+        [formattedPhone, template_name, JSON.stringify({ reason: '12h cooldown active' })]
+      );
+      return {
+        success: true,
+        cooldown: true,
+        phone: formattedPhone,
+        message: 'Missed call logged. WhatsApp skipped due to 12h cooldown.',
+      };
+    }
+  } catch (cdErr) {
+    console.error('[MISSED CALL COOLDOWN CHECK ERROR]', cdErr.message);
+  }
+
+  // 3. Send WhatsApp template message
+  const result = await sendWhatsAppMessage({
+    phone: formattedPhone,
+    template_name,
+    params: [],
+    languageCode: 'en',
+  });
+
+  // 4. Record lead outcome in database
+  try {
+    await pool.query(
+      `INSERT INTO missed_calls (phone, status, template_name, response) 
+       VALUES ($1, $2, $3, $4)`,
+      [
+        formattedPhone,
+        result.success ? 'sent' : 'failed',
+        template_name,
+        JSON.stringify(result.data || result.error || {}),
+      ]
+    );
+  } catch (saveErr) {
+    console.error('[MISSED CALL SAVE ERROR]', saveErr.message);
+  }
+
+  return {
+    ...result,
+    phone: formattedPhone,
+  };
 }
 
 /**
@@ -453,4 +560,5 @@ module.exports = {
   sendWhatsAppMessage,
   sendBookingConfirmationTicket,
   sendAuthOtpMessage,
+  sendMissedCallNotification,
 };

@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const whatsappBot = require('../services/whatsappBot');
+const whatsappService = require('../services/whatsapp');
+const pool = require('../config/db');
 
 // Cache to prevent duplicate processing of the same message
 const processedMessages = new Set();
@@ -138,6 +140,102 @@ router.post('/simulate', async (req, res) => {
       input: { text, buttonPayload },
       botResult: result,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Missed Call Webhook Trigger
+ * Called by Android phone (MacroDroid) or cloud telephony whenever an incoming call is missed.
+ * POST /api/whatsapp/missed-call
+ * Accepts:
+ *   - Header: 'x-missedcall-secret' or 'x-webhook-secret'
+ *   - Query: ?secret=...
+ *   - Body: { phone: "9876543210", secret?: "..." }
+ */
+router.post('/missed-call', async (req, res) => {
+  try {
+    const providedSecret =
+      req.headers['x-missedcall-secret'] ||
+      req.headers['x-webhook-secret'] ||
+      req.query.secret ||
+      req.body.secret;
+
+    const expectedSecret =
+      (process.env.MISSED_CALL_SECRET || '').trim() ||
+      (process.env.WHATSAPP_VERIFY_TOKEN || '').trim() ||
+      'trimurti_missed_call_2026';
+
+    if (!providedSecret || providedSecret.trim() !== expectedSecret) {
+      console.warn('[MISSED CALL] Unauthorized attempt. Received secret:', providedSecret);
+      return res.status(401).json({ error: 'Unauthorized: Invalid secret token' });
+    }
+
+    const phone = req.body.phone || req.body.from || req.query.phone;
+    if (!phone) {
+      return res.status(400).json({ error: 'Missing phone number in request' });
+    }
+
+    console.log(`[MISSED CALL WEBHOOK] Triggered for caller: ${phone}`);
+
+    const result = await whatsappService.sendMissedCallNotification({
+      phone,
+      template_name: process.env.WHATSAPP_MISSED_CALL_TEMPLATE || 'trimurti_missed_call',
+    });
+
+    // Notify active Admin web dashboard via Socket.io
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('missed_call', {
+        phone: result.phone || phone,
+        status: result.status || (result.success ? 'sent' : 'failed'),
+        cooldown: !!result.cooldown,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      lead: result,
+    });
+  } catch (err) {
+    console.error('[MISSED CALL ROUTE ERROR]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Get Recent Missed Call Leads
+ * GET /api/whatsapp/missed-calls
+ */
+router.get('/missed-calls', async (req, res) => {
+  try {
+    const providedSecret =
+      req.headers['x-missedcall-secret'] ||
+      req.headers['x-webhook-secret'] ||
+      req.query.secret;
+
+    const expectedSecret =
+      (process.env.MISSED_CALL_SECRET || '').trim() ||
+      (process.env.WHATSAPP_VERIFY_TOKEN || '').trim() ||
+      'trimurti_missed_call_2026';
+
+    const authHeader = req.headers['authorization'];
+
+    // Require either secret token or admin bearer token
+    if (!authHeader && (!providedSecret || providedSecret.trim() !== expectedSecret)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const result = await pool.query(`
+      SELECT id, phone, status, template_name, response, created_at 
+      FROM missed_calls 
+      ORDER BY created_at DESC 
+      LIMIT 100
+    `);
+
+    res.json({ success: true, count: result.rows.length, missed_calls: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
