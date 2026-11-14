@@ -867,28 +867,47 @@ export default function BookingPage() {
                   </div>
 
                   <div className="rounded-2xl bg-card border border-border p-5 space-y-4 mb-6 shadow-xl">
-                    {/* First Time Welcome Offer Auto-Detection Banner */}
+                    {/* First Time Welcome Offer Ticket Card */}
                     {firstTimeOffer && !appliedCoupon && (
-                      <div className="bg-gradient-to-r from-emerald-500/15 via-[#39FF14]/15 to-emerald-500/15 border border-[#39FF14]/40 rounded-xl p-3 flex items-center justify-between gap-2 shadow-sm animate-pulse-slow">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-[#39FF14]/20 flex items-center justify-center text-[#39FF14] shrink-0">
-                            <Gift className="w-4 h-4" />
+                      <div className="relative overflow-hidden rounded-xl border border-dashed border-[#39FF14]/40 bg-gradient-to-br from-[#39FF14]/10 via-zinc-900/80 to-zinc-950 p-3.5 shadow-sm text-left">
+                        {/* Top row: Badge, Code & Apply CTA */}
+                        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#39FF14]/20">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="w-6 h-6 rounded-md bg-[#39FF14]/20 text-[#39FF14] flex items-center justify-center shrink-0">
+                              <Gift className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#39FF14]">
+                              Welcome Offer
+                            </span>
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 uppercase tracking-wider">
+                              {firstTimeOffer.code}
+                            </span>
                           </div>
-                          <div className="text-left">
-                            <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                              Welcome Offer! <span className="text-[10px] bg-[#39FF14] text-black font-extrabold px-1.5 py-0.2 rounded">FLAT ₹{firstTimeOffer.discount_value} OFF</span>
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">{firstTimeOffer.description || "Special welcome discount on your first match!"}</p>
-                          </div>
+
+                          <Button
+                            size="sm"
+                            onClick={() => applyCoupon(firstTimeOffer.code)}
+                            disabled={isApplyingCoupon}
+                            className="h-7 px-3 text-xs font-extrabold bg-[#39FF14] text-black hover:bg-[#32e010] shadow-[0_2px_8px_rgba(57,255,20,0.25)] rounded-lg shrink-0"
+                          >
+                            {isApplyingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
+                          </Button>
                         </div>
-                        <Button
-                          size="sm"
-                          onClick={() => applyCoupon(firstTimeOffer.code)}
-                          disabled={isApplyingCoupon}
-                          className="h-7 px-3 text-xs font-bold bg-[#39FF14] text-black hover:bg-[#39FF14]/80 shrink-0 shadow-sm"
-                        >
-                          {isApplyingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
-                        </Button>
+
+                        {/* Bottom row: Value Highlight & Description */}
+                        <div className="pt-2">
+                          <div className="text-sm font-extrabold text-foreground tracking-tight">
+                            {firstTimeOffer.discount_type === 'percent'
+                              ? `Get ${firstTimeOffer.discount_value}% OFF`
+                              : `Flat ₹${firstTimeOffer.discount_value} OFF`}
+                            <span className="text-xs font-normal text-muted-foreground ml-1.5">
+                              on your first match
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                            {firstTimeOffer.description || "Special welcome discount applied on your first match!"}
+                          </p>
+                        </div>
                       </div>
                     )}
 
@@ -896,7 +915,7 @@ export default function BookingPage() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Tag className="w-3.5 h-3.5 text-primary" /> Promo Code / Voucher
+                          <Tag className="w-3.5 h-3.5 text-primary" /> {firstTimeOffer && !appliedCoupon ? "Have another Promo Code?" : "Promo Code / Voucher"}
                         </label>
                         {appliedCoupon && (
                           <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
@@ -906,20 +925,28 @@ export default function BookingPage() {
                       </div>
 
                       {appliedCoupon ? (
-                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">
-                              {appliedCoupon.code}
-                            </span>
-                            <span className="text-xs font-medium text-emerald-300">
-                              -₹{couponDiscount} saved
-                            </span>
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                              <Check className="w-4 h-4" />
+                            </div>
+                            <div className="text-left">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
+                                  {appliedCoupon.code}
+                                </span>
+                                <span className="text-xs font-bold text-emerald-300">
+                                  -₹{couponDiscount} Saved!
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-emerald-400/80 mt-0.5">Coupon applied to total</p>
+                            </div>
                           </div>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={removeCoupon}
-                            className="h-6 px-2 text-xs text-muted-foreground hover:text-red-400 hover:bg-red-500/10 gap-1"
+                            className="h-7 px-2.5 text-xs text-muted-foreground hover:text-red-400 hover:bg-red-500/10 gap-1 rounded-lg shrink-0"
                           >
                             <X className="w-3.5 h-3.5" /> Remove
                           </Button>
@@ -938,7 +965,7 @@ export default function BookingPage() {
                             size="sm"
                             onClick={() => applyCoupon()}
                             disabled={isApplyingCoupon || !couponCode.trim()}
-                            className="h-9 px-4 text-xs font-bold bg-secondary hover:bg-secondary/80 text-foreground border border-border"
+                            className="h-9 px-4 text-xs font-bold bg-secondary hover:bg-secondary/80 text-foreground border border-border shrink-0"
                           >
                             {isApplyingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
                           </Button>
