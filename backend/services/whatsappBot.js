@@ -1143,16 +1143,46 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   // ----------------------------------------------------
   // Admin In-Chat Action: Approve or Reject Booking
   // ----------------------------------------------------
-  if (payload.startsWith('BTN_ADMIN_APPROVE_') || payload.startsWith('BTN_ADMIN_REJECT_')) {
-    const isApprove = payload.startsWith('BTN_ADMIN_APPROVE_');
-    const targetBookingId = payload.replace(isApprove ? 'BTN_ADMIN_APPROVE_' : 'BTN_ADMIN_REJECT_', '').trim();
-    const cleanFrom = from.replace(/\D/g, '');
+  const isApproveAction = payload.startsWith('BTN_ADMIN_APPROVE_') ||
+    payload.toLowerCase() === 'approve payment' ||
+    normalizedText === 'approve payment' ||
+    normalizedText === 'approve';
 
+  const isRejectAction = payload.startsWith('BTN_ADMIN_REJECT_') ||
+    payload.toLowerCase() === 'reject payment' ||
+    normalizedText === 'reject payment' ||
+    normalizedText === 'reject';
+
+  if (isApproveAction || isRejectAction) {
+    const isApprove = isApproveAction;
+    let targetBookingId = '';
+    if (payload.startsWith('BTN_ADMIN_APPROVE_') || payload.startsWith('BTN_ADMIN_REJECT_')) {
+      targetBookingId = payload.replace(isApprove ? 'BTN_ADMIN_APPROVE_' : 'BTN_ADMIN_REJECT_', '').trim();
+    }
+
+    const cleanFrom = from.replace(/\D/g, '');
     const isAdmin = await adminBookingService.isAuthorizedAdmin(cleanFrom);
     if (!isAdmin) {
       return sendTextMessage({
         to: from,
         text: '⛔ *Unauthorized:* Only registered club administrators can approve or reject bookings from WhatsApp.',
+      });
+    }
+
+    // If bookingId wasn't passed directly in payload, find the most recent pending verification booking
+    if (!targetBookingId) {
+      const recentPending = await pool.query(
+        `SELECT id FROM bookings WHERE status = 'pending_verification' OR payment_status = 'pending_verification' ORDER BY created_at DESC LIMIT 1`
+      );
+      if (recentPending.rows.length > 0) {
+        targetBookingId = recentPending.rows[0].id;
+      }
+    }
+
+    if (!targetBookingId) {
+      return sendTextMessage({
+        to: from,
+        text: 'ℹ️ No pending booking found awaiting approval.',
       });
     }
 

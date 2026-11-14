@@ -118,7 +118,7 @@ async function notifyAdminNewBooking({ bookingId, io }) {
 ✅ *Approve:* ${shortApproveUrl}
 ❌ *Reject:* ${shortRejectUrl}`;
 
-    // Attempt interactive buttons first
+    // 1. Attempt interactive buttons first (works within 24h customer window)
     let sendResult = await whatsappService.sendInteractiveButtons({
       to: adminPhone,
       headerText: 'Shri Trimurti Fitness Club',
@@ -129,8 +129,33 @@ async function notifyAdminNewBooking({ bookingId, io }) {
       ],
     });
 
-    // Fall back to plain text if buttons fail
+    // 2. If outside 24h window (or interactive buttons fail), send approved Meta Template
     if (!sendResult.success) {
+      console.log(`[ADMIN ALERT] Interactive buttons failed (24h window), attempting Meta template admin_booking_alert...`);
+      sendResult = await whatsappService.sendWhatsAppMessage({
+        phone: adminPhone,
+        template_name: 'admin_booking_alert',
+        params: [
+          bookingCode,
+          turfName,
+          dateStr,
+          timeStr,
+          b.customer_name,
+          (b.customer_phone || '').replace(/\D/g, ''),
+          String(amount),
+          utr,
+        ],
+        quickReplyPayloads: [
+          `BTN_ADMIN_APPROVE_${b.id}`,
+          `BTN_ADMIN_REJECT_${b.id}`,
+        ],
+        languageCode: 'en',
+      });
+    }
+
+    // 3. Fall back to plain text if template is still pending review or fails
+    if (!sendResult.success) {
+      console.log(`[ADMIN ALERT] Template fallback failed, attempting plain text fallback...`);
       sendResult = await whatsappService.sendTextMessage({
         to: adminPhone,
         text: adminAlertText,

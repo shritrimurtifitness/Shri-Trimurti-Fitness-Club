@@ -205,7 +205,7 @@ async function sendInteractiveList({ to, bodyText, buttonTitle = 'View Options',
 /**
  * Sends a pre-approved WhatsApp Template Message (for outbound notifications outside 24h window).
  */
-async function sendWhatsAppMessage({ phone, template_name, params = [], languageCode = 'en' }) {
+async function sendWhatsAppMessage({ phone, template_name, params = [], quickReplyPayloads = [], languageCode = 'en' }) {
   const formattedPhone = normalizePhone(phone);
   if (!process.env.WHATSAPP_TOKEN || !process.env.PHONE_NUMBER_ID) {
     console.log(`[WHATSAPP MOCK TEMPLATE] To: ${formattedPhone}, Template: ${template_name}, Params:`, params);
@@ -231,6 +231,22 @@ async function sendWhatsAppMessage({ phone, template_name, params = [], language
         type: 'text',
         text: String(p),
       })),
+    });
+  }
+
+  if (quickReplyPayloads && quickReplyPayloads.length > 0) {
+    quickReplyPayloads.forEach((btnPayload, index) => {
+      components.push({
+        type: 'button',
+        sub_type: 'quick_reply',
+        index: String(index),
+        parameters: [
+          {
+            type: 'payload',
+            payload: btnPayload,
+          },
+        ],
+      });
     });
   }
 
