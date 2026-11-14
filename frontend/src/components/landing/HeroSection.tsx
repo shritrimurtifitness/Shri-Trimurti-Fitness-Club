@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, Variants } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Clock, Trophy, MapPin, Zap } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-arena.jpg";
 import api from "@/lib/api";
@@ -65,17 +65,67 @@ function checkIsOpenNow(workingHours: string): boolean {
   }
 }
 
+function formatHourNumber(h: number): string {
+  if (h === 0 || h === 24) return "12AM";
+  if (h === 12) return "12PM";
+  if (h < 12) return `${h}AM`;
+  return `${h - 12}PM`;
+}
+
+function getDynamicHoursDisplay(facilities: any[], settings: any): { display: string; full: string } {
+  // 1. Compute from sports facilities opening & closing hours set by admin
+  const activeFacs = (facilities || []).filter(
+    (f) => f.is_active !== false && f.opening_hour != null && f.closing_hour != null
+  );
+
+  if (activeFacs.length > 0) {
+    const minOpen = Math.min(...activeFacs.map((f) => Number(f.opening_hour)));
+    const maxClose = Math.max(...activeFacs.map((f) => Number(f.closing_hour)));
+    if (!isNaN(minOpen) && !isNaN(maxClose) && minOpen < maxClose) {
+      const startStr = formatHourNumber(minOpen);
+      const endStr = formatHourNumber(maxClose);
+      return {
+        display: `${startStr}–${endStr}`,
+        full: `${startStr} – ${endStr}`,
+      };
+    }
+  }
+
+  // 2. Fall back to settings.working_hours configured by admin in Settings
+  if (settings?.working_hours) {
+    const cleaned = settings.working_hours
+      .replace(/^Mon[–-]Sun:\s*/i, "")
+      .replace(/:\d{2}/g, "")
+      .replace(/\s+/g, "");
+    return {
+      display: cleaned,
+      full: settings.working_hours,
+    };
+  }
+
+  // 3. Fallback default
+  return {
+    display: "5AM–11PM",
+    full: "5:00 AM – 11:00 PM",
+  };
+}
+
 export default function HeroSection() {
   const [settings, setSettings] = useState<any>(null);
+  const [facilities, setFacilities] = useState<any[]>([]);
 
   useEffect(() => {
-    api.get("/settings/contact")
-      .then((res) => setSettings(res.data))
-      .catch(() => {});
+    Promise.all([
+      api.get("/settings/contact").catch(() => null),
+      api.get("/facilities").catch(() => null),
+    ]).then(([contactRes, facRes]) => {
+      if (contactRes?.data) setSettings(contactRes.data);
+      if (facRes?.data) setFacilities(facRes.data);
+    });
   }, []);
 
-  const hours = settings?.working_hours || "5:00 AM – 11:00 PM";
-  const isOpen = checkIsOpenNow(hours);
+  const dynamicHours = getDynamicHoursDisplay(facilities, settings);
+  const isOpen = checkIsOpenNow(dynamicHours.full);
 
   return (
     <section className="relative flex items-center overflow-hidden min-h-[calc(100vh-4rem)] lg:min-h-screen bg-background pt-20 sm:pt-24 pb-14 lg:py-0 transition-colors duration-300">
@@ -159,18 +209,17 @@ export default function HeroSection() {
             {/* 5. Launch Features Row */}
             <motion.div
               variants={itemVariants}
-              className="grid grid-cols-3 divide-x divide-zinc-200 dark:divide-zinc-800/80 border-t border-zinc-200 dark:border-zinc-800/80 pt-5 sm:pt-7 w-full max-w-lg"
+              className="grid grid-cols-2 divide-x divide-zinc-200 dark:divide-zinc-800/80 border-t border-zinc-200 dark:border-zinc-800/80 pt-5 sm:pt-7 w-full max-w-sm sm:max-w-md"
             >
               {[
-                { icon: Clock, value: "5AM–11PM", label: "Open Daily" },
-                { icon: Trophy, value: "2 Turfs", label: "Cricket & Football" },
+                { icon: Clock, value: dynamicHours.display, label: "Open Daily" },
                 { icon: Zap, value: "Floodlit", label: "Day & Night Arena" },
               ].map((stat) => {
                 const StatIcon = stat.icon;
                 return (
                   <div
                     key={stat.label}
-                    className="flex flex-col justify-center items-start pl-3.5 sm:pl-6 first:pl-0"
+                    className="flex flex-col justify-center items-start pl-4 sm:pl-6 first:pl-0"
                   >
                     <div className="flex items-center gap-1.5 text-zinc-900 dark:text-white font-heading font-extrabold text-base sm:text-2xl">
                       <StatIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#39FF14] shrink-0" />
