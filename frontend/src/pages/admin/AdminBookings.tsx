@@ -262,7 +262,7 @@ export default function AdminBookings() {
                   {pendingApprovalCount} UPI Payment{pendingApprovalCount > 1 ? 's' : ''} Awaiting Admin Approval
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Customer submitted 12-digit UPI Ref ID. Verify against your bank/UPI app and approve.
+                  Customer submitted UPI Ref ID (last 4 digits). Verify against your bank/UPI app and approve.
                 </p>
               </div>
             </div>

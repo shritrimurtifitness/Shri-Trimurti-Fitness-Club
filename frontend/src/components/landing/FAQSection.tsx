@@ -27,7 +27,7 @@ const faqs = [
   {
     question: "How does UPI payment verification work?",
     answer:
-      "After scanning our verified UPI QR code, simply enter the 12-digit UPI Ref ID. Our automated verification confirms your booking instantly.",
+      "After scanning our verified UPI QR code, simply enter the last 4 digits of your UPI Ref ID. Our verification confirms your booking swiftly.",
   },
   {
     question: "Can we organize corporate tournaments or private championships?",

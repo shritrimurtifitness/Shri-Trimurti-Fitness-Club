@@ -866,8 +866,8 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
 👉 *1-Tap Pay:* ${upiPayLink}
 
 ⚡ *ACTION REQUIRED TO CONFIRM:*
-Reply here with your *12-digit UPI Ref ID*:
-👉 Example: \`431289012345\`
+Reply here with the *last 4 digits of your UPI Ref ID*:
+👉 Example: \`8901\`
 *(Or upload your payment screenshot)*
 
 _Tap Cancel below if you change your mind._`;
@@ -897,16 +897,16 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
   try {
     const cleanUtr = String(utr).trim();
 
-    if (cleanUtr.length < 6) {
+    if (cleanUtr.length < 4) {
       return sendTextMessage({
         to: from,
-        text: '⚠️ Please enter a valid 12-digit UPI Ref ID (found on your payment receipt in GPay, PhonePe, or Paytm).',
+        text: '⚠️ Please enter at least the *last 4 digits* of your UPI Ref ID (found on your payment receipt in GPay, PhonePe, or Paytm).',
       });
     }
 
-    // Check duplicate UTR
+    // Check duplicate UTR within active 48 hours window
     const dupRes = await pool.query(
-      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')",
+      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected') AND created_at > NOW() - INTERVAL '48 hours'",
       [cleanUtr]
     );
     if (dupRes.rows.length > 0) {
@@ -1296,8 +1296,8 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
   // User is in AWAITING_PAYMENT state and sends message
   if (activeSession && activeSession.state === 'AWAITING_PAYMENT') {
-    // Check if message contains 10-18 digit numeric UTR reference
-    const utrMatch = (text || '').match(/\b\d{10,18}\b/);
+    // Check if message contains 4 or more numeric digits for UPI reference (or last 4 digits)
+    const utrMatch = (text || '').match(/\b\d{4,18}\b/);
     if (utrMatch) {
       return handleUtrSubmission({
         from,
@@ -1313,7 +1313,7 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
       return sendInteractiveButtons({
         to: from,
         headerText: 'Payment Received',
-        bodyText: `📸 Thank you! We received your payment confirmation.\n\nTo ensure instant verification with our bank, please type and send the *12-digit UPI Ref ID* from your receipt (e.g. \`431289012345\`).`,
+        bodyText: `📸 Thank you! We received your payment confirmation.\n\nTo ensure instant verification with our bank, please type and send the *last 4 digits of your UPI Ref ID* from your receipt (e.g. \`8901\`).`,
         buttons: [
           { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
           { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
@@ -1325,7 +1325,7 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     return sendInteractiveButtons({
       to: from,
       headerText: 'Pending Payment',
-      bodyText: `⏳ We are holding your ${activeSession.turfName} slot (${activeSession.timeStr}) for ₹${activeSession.price}.\n\nTo complete your booking, please reply with your *12-digit UPI Ref ID*.\n\nOr tap below to cancel:`,
+      bodyText: `⏳ We are holding your ${activeSession.turfName} slot (${activeSession.timeStr}) for ₹${activeSession.price}.\n\nTo complete your booking, please reply with the *last 4 digits of your UPI Ref ID* (e.g. \`8901\`).\n\nOr tap below to cancel:`,
       buttons: [
         { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
         { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
@@ -1417,9 +1417,9 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   }
 
   // ----------------------------------------------------
-  // C. Handle standalone 12-digit UTR sent without active session
+  // C. Handle standalone UPI Ref ID (last 4 digits or full) sent without active session
   // ----------------------------------------------------
-  const standaloneUtrMatch = (text || '').match(/\b\d{10,18}\b/);
+  const standaloneUtrMatch = (text || '').match(/\b\d{4,18}\b/);
   if (standaloneUtrMatch && !activeSession) {
     const customerPhone = normalizeTo10Digits(from);
     const recentBooking = await pool.query(`

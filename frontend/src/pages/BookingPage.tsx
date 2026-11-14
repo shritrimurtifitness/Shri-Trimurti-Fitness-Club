@@ -469,8 +469,8 @@ export default function BookingPage() {
 
   const handleConfirmUpiBooking = async () => {
     if (!selectedSlot) return;
-    if (!utrNumber || utrNumber.trim().length < 6) {
-      toast.error("Please enter the 12-digit UPI Ref ID from your payment app");
+    if (!utrNumber || utrNumber.trim().length < 4) {
+      toast.error("Please enter the last 4 digits of UPI Ref ID from your payment app");
       return;
     }
     setIsSubmitting(true);
@@ -1091,20 +1091,20 @@ export default function BookingPage() {
                     {/* UPI Ref ID Input Section */}
                     <div className="border-t border-border pt-4 space-y-2">
                       <label className="text-xs font-bold text-foreground block uppercase tracking-wider">
-                        Enter 12-Digit UPI Ref ID
+                        Enter Last 4 Digits of UPI Ref ID
                       </label>
                       <div className="relative">
                         <Input
                           type="text"
                           value={utrNumber}
                           onChange={(e) => setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
-                          placeholder="e.g. 412345678901"
-                          maxLength={22}
+                          placeholder="e.g. 8901"
+                          maxLength={16}
                           className="bg-background border-border font-mono text-base font-bold tracking-wider"
                         />
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        💡 Found in your payment app under: <em>UPI Ref ID</em> or <em>Transaction ID</em>.
+                        💡 Found in your payment app under: <em>UPI Ref ID</em> or <em>UTR</em> (enter last 4 digits).
                       </p>
                     </div>
                   </div>
@@ -1112,7 +1112,7 @@ export default function BookingPage() {
                   <div className="flex gap-3">
                     <Button variant="outline" onClick={() => setStep("details")} className="flex-1">Back</Button>
                     <Button
-                      disabled={isSubmitting || !utrNumber || utrNumber.trim().length < 6}
+                      disabled={isSubmitting || !utrNumber || utrNumber.trim().length < 4}
                       onClick={handleConfirmUpiBooking}
                       className="flex-1 bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-90 disabled:opacity-50"
                     >

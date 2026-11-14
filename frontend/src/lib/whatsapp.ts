@@ -154,7 +154,7 @@ export function generateAdminUtrRequestMessage({
 }): string {
   let msg = `⚠️ *Action Needed: UPI Verification - ${ARENA_VENUE_NAME}*\n\n`;
   msg += `Hi *${customerName}*, we received your slot booking request for *${facilityName}* on *${date}* (${timeSlot}).\n\n`;
-  msg += `To confirm and lock your slot, please share your *12-digit UPI Ref ID* or a payment screenshot here.\n`;
+  msg += `To confirm and lock your slot, please share the *last 4 digits of your UPI Ref ID* or a payment screenshot here.\n`;
   msg += `📲 *Arena UPI ID:* ${upiId}\n\n`;
   msg += `Once verified, we will immediately send you your confirmed match pass!`;
   return msg;

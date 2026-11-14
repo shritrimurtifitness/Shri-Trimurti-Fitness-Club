@@ -840,13 +840,13 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
     const cleanPhone = phone10 ? '91' + phone10 : '';
     const cleanUtr = utr_number.trim();
 
-    if (cleanUtr.length < 6) {
-      return res.status(400).json({ error: 'Please enter a valid 12-digit UPI Ref ID' });
+    if (cleanUtr.length < 4) {
+      return res.status(400).json({ error: 'Please enter at least the last 4 digits of your UPI Ref ID' });
     }
 
-    // Check duplicate UTR
+    // Check duplicate UTR within active 48 hours
     const duplicateUtr = await pool.query(
-      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')",
+      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected') AND created_at > NOW() - INTERVAL '48 hours'",
       [cleanUtr]
     );
     if (duplicateUtr.rows.length > 0) {

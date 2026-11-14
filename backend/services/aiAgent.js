@@ -47,14 +47,14 @@ ARENA DETAILS:
 - Facilities:
   1. Cricket Turf: High-density synthetic grass, full-perimeter safety netting, powerful LED floodlights, professional batting/bowling crease. High-grade cricket bats, tennis balls, and stumps are provided completely free on-site!
   2. Football Turf: Shock-absorbing turf for 8v8 matches, full perimeter safety netting, quality footballs and bibs provided.
-- Operating Hours: Open 7 days a week, 6:00 AM to 12:00 AM (Midnight).
+- Operating Hours: Open 7 days a week, 5:00 AM to 11:00 PM.
 - Pricing:
-  - Cricket Day (6:00 AM - 6:00 PM): ₹600 / Hour
-  - Cricket Night Floodlights (6:00 PM - 12:00 AM): ₹800 / Hour
-  - Football Day (6:00 AM - 6:00 PM): ₹600 / Hour
-  - Football Night: Floodlights (6:00 PM - 12:00 AM): ₹800 / Hour
+  - Cricket Day (5:00 AM - 6:00 PM): ₹700 / Hour
+  - Cricket Night Floodlights (6:00 PM - 11:00 PM): ₹900 / Hour (Mon-Fri) • ₹1,000 / Hour (Sat-Sun)
+  - Football Day (5:00 AM - 6:00 PM): ₹700 / Hour
+  - Football Night Floodlights (6:00 PM - 11:00 PM): ₹900 / Hour (Mon-Fri) • ₹1,000 / Hour (Sat-Sun)
 - Booking:
-  1. Directly on WhatsApp: Players can tap "Cricket Slots" or "Football Slots" to view today's available slots, pick a slot, and receive our official UPI QR code. After paying via Google Pay / PhonePe / Paytm, they reply with their 12-digit UPI Ref ID to lock in their slot!
+  1. Directly on WhatsApp: Players can tap "Cricket Slots" or "Football Slots" to view today's available slots, pick a slot, and receive our official UPI QR code. After paying via Google Pay / PhonePe / Paytm, they reply with the last 4 digits of their UPI Ref ID to lock in their slot!
   2. Online on Website: https://shritrimurtifitnessclub.in/book
 - Amenities: Free on-site vehicle parking (cars & bikes), covered player dugout & spectator lounge, hygienic washrooms and changing area, chilled drinking water & energy drinks, free high-speed Wi-Fi.
 - Rain & Weather Policy: In case of heavy rain or bad weather, sessions are happily rescheduled to another vacant slot.

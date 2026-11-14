@@ -380,8 +380,8 @@ router.post('/:id/register', async (req, res) => {
       return res.status(400).json({ error: "Please verify Captain's contact details (via WhatsApp or Email OTP) first" });
     }
 
-    if (!utr_number || utr_number.trim().length < 6) {
-      return res.status(400).json({ error: 'Please enter a valid 12-digit UPI Ref ID' });
+    if (!utr_number || utr_number.trim().length < 4) {
+      return res.status(400).json({ error: 'Please enter at least the last 4 digits of your UPI Ref ID' });
     }
 
     // Verify slots left
@@ -401,9 +401,9 @@ router.post('/:id/register', async (req, res) => {
       return res.status(400).json({ error: 'Tournament is already full' });
     }
 
-    // Check duplicate UTR
+    // Check duplicate UTR within active 48 hours
     const dupUtr = await pool.query(
-      "SELECT id FROM tournament_registrations WHERE utr_number = $1 AND payment_status NOT IN ('cancelled', 'rejected')",
+      "SELECT id FROM tournament_registrations WHERE utr_number = $1 AND payment_status NOT IN ('cancelled', 'rejected') AND created_at > NOW() - INTERVAL '48 hours'",
       [utr_number.trim()]
     );
     if (dupUtr.rows.length > 0) {
