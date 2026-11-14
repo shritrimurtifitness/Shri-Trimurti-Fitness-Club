@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, Variants } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Clock, MapPin, Zap } from "lucide-react";
+import { ArrowRight, Clock, Trophy, MapPin, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-arena.jpg";
 import api from "@/lib/api";
