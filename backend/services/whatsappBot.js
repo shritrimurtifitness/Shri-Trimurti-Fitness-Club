@@ -188,8 +188,36 @@ function formatTime12h(timeStr) {
 }
 
 /**
+ * Formats hour integer (e.g. 5, 23) into clean 12h time (e.g. "5:00 AM", "11:00 PM")
+ */
+function formatHourNumber(h) {
+  const num = parseInt(h, 10);
+  if (isNaN(num)) return '5:00 AM';
+  if (num === 0 || num === 24) return '12:00 AM';
+  if (num === 12) return '12:00 PM';
+  if (num < 12) return `${num}:00 AM`;
+  return `${num - 12}:00 PM`;
+}
+
+/**
+ * Checks if a slot time overlaps with tournament active daily window
+ */
+function isSlotInTournament(slotStart, slotEnd, dStart, dEnd) {
+  const sStart = slotStart.slice(0, 5);
+  const sEnd = slotEnd.slice(0, 5);
+  const tStart = (dStart || '18:00').slice(0, 5);
+  const tEnd = (dEnd || '23:00').slice(0, 5);
+  if (tStart <= tEnd) {
+    return sStart < tEnd && sEnd > tStart;
+  } else {
+    return sStart >= tStart || sEnd <= tEnd;
+  }
+}
+
+/**
  * Queries Neon DB for available slots for a specific date and facility type ('cricket' | 'football')
- * Supports filtering by 3 Time Bands: 'morning' (6-12), 'afternoon' (12-17), 'night' (17-24)
+ * Supports filtering by 3 Time Bands: 'morning', 'afternoon', 'night'
+ * Automatically excludes tournament-blocked slots and respects arena/turf closures.
  */
 async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = null, timeBand = null) {
   try {
@@ -198,25 +226,12 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
     const isToday = (dateToQuery === today);
     const nowIST = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false });
 
-    // 1. Check if club is closed on this date
-    const closureCheck = await pool.query(
-      'SELECT reason FROM arena_closures WHERE date = $1',
-      [dateToQuery]
-    );
-    if (closureCheck.rows.length > 0) {
-      return {
-        isClosed: true,
-        reason: closureCheck.rows[0].reason || 'Club closed for maintenance on this date',
-        slots: [],
-        date: dateToQuery,
-        timeBand,
-        counts: { morning: 0, afternoon: 0, night: 0, total: 0 },
-      };
-    }
-
-    // 2. Fetch turf info
+    // 1. Fetch turf info
     const turfRes = await pool.query(
-      `SELECT id, name, facility_type, physical_resource_id FROM turfs WHERE facility_type ILIKE $1 AND is_active = true LIMIT 1`,
+      `SELECT id, name, facility_type, physical_resource_id, opening_hour, closing_hour, weekday_day_price, weekday_night_price, weekend_day_price, weekend_night_price 
+       FROM turfs 
+       WHERE facility_type ILIKE $1 AND is_active = true 
+       LIMIT 1`,
       [`%${facilityType}%`]
     );
 
@@ -226,22 +241,77 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
 
     const turf = turfRes.rows[0];
 
-    // 3. Ensure slots are generated for this date
+    // 2. Check if turf/club is closed on this date
+    const closureCheck = await pool.query(
+      'SELECT reason FROM arena_closures WHERE date = $1 AND (turf_id IS NULL OR turf_id = $2)',
+      [dateToQuery, turf.id]
+    );
+    if (closureCheck.rows.length > 0) {
+      return {
+        isClosed: true,
+        reason: closureCheck.rows[0].reason || 'Club closed for maintenance on this date',
+        facilityName: turf.name,
+        slots: [],
+        date: dateToQuery,
+        timeBand,
+        counts: { morning: 0, afternoon: 0, night: 0, total: 0 },
+      };
+    }
+
+    // 3. Check for active tournament on this date (direct or shared resource turf)
+    const tournamentCheck = await pool.query(`
+      SELECT name, is_full_day, daily_start_time, daily_end_time 
+      FROM tournaments
+      WHERE is_active = true
+        AND (
+          LOWER(sport_type) = LOWER($1)
+          OR (
+            $2::int IS NOT NULL AND EXISTS (
+              SELECT 1 FROM turfs t_shared
+              WHERE t_shared.physical_resource_id = $2::int
+              AND LOWER(t_shared.facility_type) = LOWER(tournaments.sport_type)
+            )
+          )
+        )
+        AND $3 >= start_date::date
+        AND $3 <= end_date::date
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [turf.facility_type, turf.physical_resource_id, dateToQuery]);
+
+    let activeTournament = null;
+    if (tournamentCheck.rows.length > 0) {
+      activeTournament = tournamentCheck.rows[0];
+      if (activeTournament.is_full_day) {
+        return {
+          isClosed: true,
+          isTournament: true,
+          tournamentName: activeTournament.name,
+          reason: `Turf is reserved for the whole day for "${activeTournament.name}"`,
+          facilityName: turf.name,
+          slots: [],
+          date: dateToQuery,
+          timeBand,
+          counts: { morning: 0, afternoon: 0, night: 0, total: 0 },
+        };
+      }
+    }
+
+    // 4. Ensure slots are generated for this date
     try {
       await pool.query('SELECT generate_daily_slots($1, $2)', [dateToQuery, turf.id]);
     } catch {
       // Ignore if function already populated
     }
 
-    // 4. Query vacant slots for the date
-    // If today, filter out passed hours (s.end_time > nowIST). If future date, include all day.
+    // 5. Query vacant slots for the date
     let bandSqlClause = '';
     if (timeBand === 'morning') {
-      bandSqlClause = "AND s.start_time >= '06:00:00' AND s.start_time < '12:00:00'";
+      bandSqlClause = "AND s.start_time < '12:00:00'";
     } else if (timeBand === 'afternoon') {
       bandSqlClause = "AND s.start_time >= '12:00:00' AND s.start_time < '18:00:00'";
     } else if (timeBand === 'night') {
-      bandSqlClause = "AND s.start_time >= '18:00:00' AND s.start_time <= '23:59:59'";
+      bandSqlClause = "AND s.start_time >= '18:00:00'";
     }
 
     const query = `
@@ -270,7 +340,7 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
 
     const slotsRes = await pool.query(query, [turf.id, dateToQuery, nowIST, isToday]);
 
-    const formattedSlots = slotsRes.rows.map((row) => {
+    const rawSlots = slotsRes.rows.map((row) => {
       const price = parseInt(row.price, 10) || 800;
       const timeLabel = `${formatTime12h(row.start_time)} - ${formatTime12h(row.end_time)}`;
       return {
@@ -283,13 +353,21 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
       };
     });
 
+    // Exclude tournament slots from available slots
+    let formattedSlots = rawSlots;
+    if (activeTournament && !activeTournament.is_full_day) {
+      formattedSlots = formattedSlots.filter((s) =>
+        !isSlotInTournament(s.start_time, s.end_time, activeTournament.daily_start_time, activeTournament.daily_end_time)
+      );
+    }
+
     // Compute session slot counts
     let morningCount = 0;
     let afternoonCount = 0;
     let nightCount = 0;
 
     if (!timeBand) {
-      morningCount = formattedSlots.filter((s) => s.start_time >= '06:00:00' && s.start_time < '12:00:00').length;
+      morningCount = formattedSlots.filter((s) => s.start_time < '12:00:00').length;
       afternoonCount = formattedSlots.filter((s) => s.start_time >= '12:00:00' && s.start_time < '18:00:00').length;
       nightCount = formattedSlots.filter((s) => s.start_time >= '18:00:00').length;
     } else {
@@ -298,6 +376,12 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
       if (timeBand === 'night') nightCount = formattedSlots.length;
     }
 
+    // Dynamic weekend vs weekday pricing
+    const queryDay = new Date(dateToQuery).getDay();
+    const isWeekend = queryDay === 0 || queryDay === 6;
+    const dayPrice = Math.round(Number(isWeekend ? (turf.weekend_day_price || 700) : (turf.weekday_day_price || 700)));
+    const nightPrice = Math.round(Number(isWeekend ? (turf.weekend_night_price || 1000) : (turf.weekday_night_price || 900)));
+
     return {
       isClosed: false,
       turfId: turf.id,
@@ -305,6 +389,11 @@ async function getAvailableSlotsForDate(facilityType = 'cricket', targetDate = n
       isToday,
       timeBand,
       facilityName: turf.name || (facilityType === 'football' ? 'Football Turf' : 'Cricket Turf'),
+      activeTournament,
+      dayPrice,
+      nightPrice,
+      openingHour: turf.opening_hour || 5,
+      closingHour: turf.closing_hour || 23,
       slots: formattedSlots,
       counts: {
         morning: morningCount,
@@ -392,12 +481,71 @@ async function sendDateListMenu({ to, facilityType = 'cricket' }) {
 }
 
 /**
+ * Fetches dynamic turf pricing, amenities, and operating hours from Neon DB
+ */
+async function getDynamicFacilityDetails() {
+  try {
+    const res = await pool.query(`
+      SELECT name, facility_type, opening_hour, closing_hour, 
+             weekday_day_price, weekday_night_price, weekend_day_price, weekend_night_price 
+      FROM turfs 
+      WHERE is_active = true 
+      ORDER BY name ASC
+    `);
+
+    let settingsHours = null;
+    try {
+      const sRes = await pool.query('SELECT working_hours FROM settings LIMIT 1');
+      if (sRes.rows.length > 0 && sRes.rows[0].working_hours) {
+        settingsHours = sRes.rows[0].working_hours;
+      }
+    } catch {
+      // Ignore if settings table not present
+    }
+
+    const turfs = res.rows;
+    let minOpen = 5;
+    let maxClose = 23;
+
+    if (turfs.length > 0) {
+      const openHours = turfs.map((t) => Number(t.opening_hour)).filter((h) => !isNaN(h));
+      const closeHours = turfs.map((t) => Number(t.closing_hour)).filter((h) => !isNaN(h));
+      if (openHours.length > 0) minOpen = Math.min(...openHours);
+      if (closeHours.length > 0) maxClose = Math.max(...closeHours);
+    }
+
+    const openStr = formatHourNumber(minOpen);
+    const closeStr = formatHourNumber(maxClose);
+    const operatingHoursStr = settingsHours || `Mon - Sun: ${openStr} - ${closeStr}`;
+
+    return {
+      turfs,
+      minOpen,
+      maxClose,
+      operatingHoursStr,
+      openStr,
+      closeStr,
+    };
+  } catch (err) {
+    console.error('Error fetching facility details:', err.message);
+    return {
+      turfs: [],
+      minOpen: 5,
+      maxClose: 23,
+      operatingHoursStr: 'Mon - Sun: 5:00 AM - 11:00 PM',
+      openStr: '5:00 AM',
+      closeStr: '11:00 PM',
+    };
+  }
+}
+
+/**
  * Sends a 3-button Time Band prompt:
- * 1. 🌙 Night (6:00 PM to 12:00 AM)
- * 2. ☀️ Morning (6:00 AM to 12:00 PM)
+ * 1. 🌙 Night (6:00 PM to closingHour)
+ * 2. ☀️ Morning (openingHour to 12:00 PM)
  * 3. ⛅ Afternoon (12:00 PM to 6:00 PM)
  */
-async function sendTimeBandPrompt({ to, facilityType = 'cricket', date, counts = null }) {
+async function sendTimeBandPrompt({ to, facilityType = 'cricket', date, counts = null, result = null }) {
   const isCricket = facilityType.toLowerCase().includes('cricket');
   const sportEmoji = isCricket ? '🏏' : '⚽';
   const sportName = isCricket ? 'Cricket Turf' : 'Football Turf';
@@ -406,17 +554,23 @@ async function sendTimeBandPrompt({ to, facilityType = 'cricket', date, counts =
   const dateFormatted = formatDisplayDate(date);
   const dateLabel = date === todayIST ? `Today (${dateFormatted})` : date === tomorrowIST ? `Tomorrow (${dateFormatted})` : dateFormatted;
 
-  const mCount = counts ? counts.morning : 6;
-  const aCount = counts ? counts.afternoon : 6;
-  const nCount = counts ? counts.night : 6;
+  const mCount = counts ? counts.morning : (result ? result.counts.morning : 6);
+  const aCount = counts ? counts.afternoon : (result ? result.counts.afternoon : 6);
+  const nCount = counts ? counts.night : (result ? result.counts.night : 6);
+
+  const dayPrice = result?.dayPrice || 700;
+  const nightPrice = result?.nightPrice || 900;
+  const openStr = formatHourNumber(result?.openingHour || 5);
+  const closeStr = formatHourNumber(result?.closingHour || 23);
+  const activeTournament = result?.activeTournament || null;
 
   const buttons = [];
   // Night first as prime-time
-  if (nCount > 0 || (mCount === 0 && aCount === 0)) {
-    buttons.push({ id: `BAND_${date}_${facilityType}_night`, title: '🌙 Night (6-12)' });
+  if (nCount > 0) {
+    buttons.push({ id: `BAND_${date}_${facilityType}_night`, title: '🌙 Night (6-11)' });
   }
   if (mCount > 0) {
-    buttons.push({ id: `BAND_${date}_${facilityType}_morning`, title: '☀️ Morning (6-12)' });
+    buttons.push({ id: `BAND_${date}_${facilityType}_morning`, title: `☀️ Morning (${openStr.replace(':00', '')}-12)` });
   }
   if (aCount > 0) {
     buttons.push({ id: `BAND_${date}_${facilityType}_afternoon`, title: '⛅ Afternoon (12-6)' });
@@ -428,12 +582,19 @@ async function sendTimeBandPrompt({ to, facilityType = 'cricket', date, counts =
     buttons.push({ id: `DATE_PICKER_${facilityType}`, title: '🗓️ Other Date' });
   }
 
+  let tournamentAlert = '';
+  if (activeTournament) {
+    const tStart = formatTime12h(activeTournament.daily_start_time || '18:00');
+    const tEnd = formatTime12h(activeTournament.daily_end_time || '23:00');
+    tournamentAlert = `\n🏆 *Tournament Alert:* Matches for _${activeTournament.name}_ run *${tStart} - ${tEnd}*. Other session slots are open!\n`;
+  }
+
   const bodyText =
 `Which match session would you like to book for *${sportName}* on *${dateLabel}*?
-
-🌙 *Floodlit Night (6:00 PM - 12:00 AM):* ${nCount} open (₹800/hr)
-☀️ *Morning (6:00 AM - 12:00 PM):* ${mCount} open (₹600/hr)
-⛅ *Afternoon (12:00 PM - 6:00 PM):* ${aCount} open (₹600/hr)
+${tournamentAlert}
+🌙 *Floodlit Night (6:00 PM - ${closeStr}):* ${nCount > 0 ? `${nCount} open (₹${nightPrice}/hr)` : activeTournament ? '🏆 Reserved for Tournament' : 'Booked Full'}
+☀️ *Morning (${openStr} - 12:00 PM):* ${mCount > 0 ? `${mCount} open (₹${dayPrice}/hr)` : 'Booked Full'}
+⛅ *Afternoon (12:00 PM - 6:00 PM):* ${aCount > 0 ? `${aCount} open (₹${dayPrice}/hr)` : 'Booked Full'}
 
 👇 *Tap a session below to view live slots:*`;
 
@@ -457,21 +618,56 @@ async function sendSlotsListMenu({ to, facilityType = 'cricket', date, timeBand 
   const dateFormatted = formatDisplayDate(date);
   const dateLabel = date === todayIST ? `Today (${dateFormatted})` : date === tomorrowIST ? `Tomorrow (${dateFormatted})` : dateFormatted;
 
+  const openStr = formatHourNumber(result?.openingHour || 5);
+  const closeStr = formatHourNumber(result?.closingHour || 23);
+
   const bandHeaders = {
-    morning: '☀️ Morning (6:00 AM - 12:00 PM)',
-    afternoon: '⛅ Afternoon (12:00 PM - 6:00 PM)',
-    night: '🌙 Floodlit Night (6:00 PM - 12:00 AM)',
+    morning: `☀️ Morning (${openStr} - 12:00 PM)`,
+    afternoon: `⛅ Afternoon (12:00 PM - 6:00 PM)`,
+    night: `🌙 Floodlit Night (6:00 PM - ${closeStr})`,
   };
   const sessionLabel = timeBand && bandHeaders[timeBand] ? ` • ${bandHeaders[timeBand]}` : '';
 
   if (result.isClosed) {
-    return sendTextMessage({
+    if (result.isTournament) {
+      return sendInteractiveButtons({
+        to,
+        headerText: 'Tournament Match Day',
+        bodyText: `🏆 *${result.tournamentName}*\n\nThe ${sportName} is reserved for the entire day on *${dateLabel}* for tournament matches.\n\nYou are welcome to visit the club to watch the matches! Would you like to check another date or sport?`,
+        buttons: [
+          { id: `DATE_PICKER_${facilityType}`, title: '🗓️ Pick Another Date' },
+          { id: isCricket ? 'BTN_FOOTBALL_SLOTS' : 'BTN_CRICKET_SLOTS', title: isCricket ? '⚽ Check Football' : '🏏 Check Cricket' },
+          { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+        ],
+      });
+    }
+
+    return sendInteractiveButtons({
       to,
-      text: `⚠️ *Update for ${dateLabel}:*\n${result.reason}\n\nYou can book other dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=${facilityType}`,
+      headerText: `${sportName} Closed`,
+      bodyText: `⚠️ *Update for ${dateLabel}:*\n${result.reason}\n\nWould you like to check another date or speak with our desk staff?`,
+      buttons: [
+        { id: `DATE_PICKER_${facilityType}`, title: '🗓️ Pick Another Date' },
+        { id: isCricket ? 'BTN_FOOTBALL_SLOTS' : 'BTN_CRICKET_SLOTS', title: isCricket ? '⚽ Check Football' : '🏏 Check Cricket' },
+        { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+      ],
     });
   }
 
   if (!result.slots || result.slots.length === 0) {
+    if (result.activeTournament && timeBand === 'night') {
+      return sendInteractiveButtons({
+        to,
+        headerText: 'Tournament Session',
+        bodyText: `🏆 Evening slots on *${dateLabel}* are reserved for *${result.activeTournament.name}* (${formatTime12h(result.activeTournament.daily_start_time || '18:00')} - ${formatTime12h(result.activeTournament.daily_end_time || '23:00')}).\n\nMorning and afternoon slots are open for regular bookings!`,
+        buttons: [
+          { id: `SESSION_PICKER_${date}_${facilityType}`, title: '☀️ Other Sessions' },
+          { id: `DATE_PICKER_${facilityType}`, title: '🗓️ Pick Another Date' },
+          { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+        ],
+      });
+    }
+
     return sendInteractiveButtons({
       to,
       headerText: `${sportEmoji} ${sportName}`,
@@ -579,6 +775,56 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
           { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
         ],
       });
+    }
+
+    // Check if turf is closed on this date
+    const closureCheck = await pool.query(
+      'SELECT reason FROM arena_closures WHERE date = $1 AND (turf_id IS NULL OR turf_id = $2)',
+      [slot.date, slot.turf_id]
+    );
+    if (closureCheck.rows.length > 0) {
+      return sendTextMessage({
+        to: from,
+        text: `⚠️ The turf is closed on ${slotDateStr}: ${closureCheck.rows[0].reason || 'Club maintenance'}. Please pick another date!`,
+      });
+    }
+
+    // Check if slot overlaps with an active tournament
+    const tournamentCheck = await pool.query(`
+      SELECT name, is_full_day, daily_start_time, daily_end_time 
+      FROM tournaments
+      WHERE is_active = true
+        AND (
+          LOWER(sport_type) = LOWER($1)
+          OR (
+            $2::int IS NOT NULL AND EXISTS (
+              SELECT 1 FROM turfs t_shared
+              WHERE t_shared.physical_resource_id = $2::int
+              AND LOWER(t_shared.facility_type) = LOWER(tournaments.sport_type)
+            )
+          )
+        )
+        AND $3 >= start_date::date
+        AND $3 <= end_date::date
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [slot.facility_type, slot.physical_resource_id, slotDateStr]);
+
+    if (tournamentCheck.rows.length > 0) {
+      const tMatch = tournamentCheck.rows[0];
+      const isBlocked = tMatch.is_full_day || isSlotInTournament(slot.start_time, slot.end_time, tMatch.daily_start_time, tMatch.daily_end_time);
+      if (isBlocked) {
+        return sendInteractiveButtons({
+          to: from,
+          headerText: 'Slot Reserved for Tournament',
+          bodyText: `🏆 The ${formatTime12h(slot.start_time)} - ${formatTime12h(slot.end_time)} slot is reserved for *${tMatch.name}*.\n\nWould you like to check remaining slots?`,
+          buttons: [
+            { id: `DATE_${slotDateStr}_${slot.facility_type}`, title: '🗓️ Check Other Slots' },
+            { id: `DATE_PICKER_${slot.facility_type}`, title: '🗓️ Pick Another Date' },
+            { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+          ],
+        });
+      }
     }
 
     const price = Number(slot.price) || 800;
@@ -1074,7 +1320,10 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     const facilityType = parts[1] || 'cricket';
 
     const result = await getAvailableSlotsForDate(facilityType, selectedDate, null);
-    return sendTimeBandPrompt({ to: from, facilityType, date: selectedDate, counts: result.counts });
+    if (result.isClosed) {
+      return sendSlotsListMenu({ to: from, facilityType, date: selectedDate, timeBand: null, result });
+    }
+    return sendTimeBandPrompt({ to: from, facilityType, date: selectedDate, counts: result.counts, result });
   }
 
   // ----------------------------------------------------
@@ -1109,11 +1358,7 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     const result = await getAvailableSlotsForDate(facilityType, selectedDate, null);
 
     if (result.isClosed) {
-      const dateFormatted = formatDisplayDate(selectedDate);
-      return sendTextMessage({
-        to: from,
-        text: `⚠️ *Update for ${dateFormatted}:*\n${result.reason}\n\nYou can book other dates online:\n👉 https://shritrimurtifitnessclub.in/book?facility=${facilityType}`,
-      });
+      return sendSlotsListMenu({ to: from, facilityType, date: selectedDate, timeBand: null, result });
     }
 
     if (!result.slots || result.slots.length === 0) {
@@ -1134,7 +1379,7 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
     // If available slots > 10, present Option 3: 3 Time Bands
     if (result.slots.length > 10) {
-      return sendTimeBandPrompt({ to: from, facilityType, date: selectedDate, counts: result.counts });
+      return sendTimeBandPrompt({ to: from, facilityType, date: selectedDate, counts: result.counts, result });
     }
 
     // If 10 or fewer slots, display them directly in the list
@@ -1195,8 +1440,11 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
     if (naturalDate) {
       const result = await getAvailableSlotsForDate('cricket', naturalDate, null);
+      if (result.isClosed) {
+        return sendSlotsListMenu({ to: from, facilityType: 'cricket', date: naturalDate, timeBand: null, result });
+      }
       if (result.slots.length > 10) {
-        return sendTimeBandPrompt({ to: from, facilityType: 'cricket', date: naturalDate, counts: result.counts });
+        return sendTimeBandPrompt({ to: from, facilityType: 'cricket', date: naturalDate, counts: result.counts, result });
       }
       return sendSlotsListMenu({ to: from, facilityType: 'cricket', date: naturalDate, timeBand: null, result });
     }
@@ -1229,8 +1477,11 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
     if (naturalDate) {
       const result = await getAvailableSlotsForDate('football', naturalDate, null);
+      if (result.isClosed) {
+        return sendSlotsListMenu({ to: from, facilityType: 'football', date: naturalDate, timeBand: null, result });
+      }
       if (result.slots.length > 10) {
-        return sendTimeBandPrompt({ to: from, facilityType: 'football', date: naturalDate, counts: result.counts });
+        return sendTimeBandPrompt({ to: from, facilityType: 'football', date: naturalDate, counts: result.counts, result });
       }
       return sendSlotsListMenu({ to: from, facilityType: 'football', date: naturalDate, timeBand: null, result });
     }
@@ -1306,23 +1557,36 @@ Need to check other times or book another session? Choose an option below:`;
     normalizedText.includes('cost') ||
     normalizedText.includes('charges')
   ) {
+    const details = await getDynamicFacilityDetails();
+
+    let turfSections = '';
+    for (const t of details.turfs) {
+      const sportEmoji = t.facility_type?.toLowerCase().includes('cricket') ? '🏏' : '⚽';
+      const dayRate = Math.round(Number(t.weekday_day_price || 700));
+      const nightWeekday = Math.round(Number(t.weekday_night_price || 900));
+      const nightWeekend = Math.round(Number(t.weekend_night_price || 1000));
+      const nightRateStr = nightWeekday === nightWeekend
+        ? `*₹${nightWeekday} / hr*`
+        : `*₹${nightWeekday}* (Mon-Fri) • *₹${nightWeekend}* (Sat-Sun)`;
+
+      turfSections += `\n${sportEmoji} *${t.name} Turf:*
+• Day Slots (${details.openStr} - 6:00 PM): *₹${dayRate} / hr*
+• Floodlit Night (6:00 PM - ${details.closeStr}): ${nightRateStr}`;
+
+      if (t.facility_type?.toLowerCase().includes('cricket')) {
+        turfSections += `\n• _Includes premium cricket bats, leather/tennis balls & stumps._\n`;
+      } else if (t.facility_type?.toLowerCase().includes('football')) {
+        turfSections += `\n• _Includes official match footballs, goals & bibs._\n`;
+      }
+    }
+
     const pricingMsg =
-`💰 *OFFICIAL Fitness Club PRICING & AMENITIES*
-
-🏏 *Cricket Turf:*
-• Day Slots (6:00 AM - 6:00 PM): *₹600 / Hour*
-• Floodlit Night Slots (6:00 PM - 12:00 AM): *₹800 / Hour*
-• _Includes high-grade cricket bats & stumps._
-
-⚽ *Football Turf:*
-• Day Slots (6:00 AM - 6:00 PM): *₹600 / Hour*
-• Floodlit Night Slots (6:00 PM - 12:00 AM): *₹800 / Hour*
-• _Includes quality footballs, perimeter netting & bibs._
-
+`💰 *OFFICIAL FITNESS CLUB PRICING & AMENITIES*
+${turfSections}
 🚗 *Amenities:*
 • Free on-site vehicle parking
 • Covered player dugout & spectator lounge
-• Purified drinking water & chilled energy drinks (Paid)
+• Purified drinking water & chilled energy drinks
 
 Ready to hit the pitch?`;
 
@@ -1347,16 +1611,19 @@ Ready to hit the pitch?`;
     normalizedText.includes('address') ||
     normalizedText.includes('map') ||
     normalizedText.includes('directions') ||
-    normalizedText.includes('where')
+    normalizedText.includes('where') ||
+    normalizedText.includes('timing') ||
+    normalizedText.includes('hours')
   ) {
+    const details = await getDynamicFacilityDetails();
     const locationMsg =
-`📍 *Shri Trimurti Fitness Club LOCATION*
+`📍 *Shri Trimurti Fitness Club LOCATION & TIMINGS*
 
 📌 *Address:*
 Kudire Factory, Sangrul Fata, Koparde, Maharashtra 416205
 
 ⏰ *Operating Hours:*
-Mon - Sun: 6:00 AM - 12:00 AM (Midnight)
+${details.operatingHoursStr}
 
 🗺️ *Google Maps Directions:*
 https://maps.app.goo.gl/XCxniFWMMtnfw2MJA
@@ -1365,7 +1632,7 @@ https://maps.app.goo.gl/XCxniFWMMtnfw2MJA
 
     return sendInteractiveButtons({
       to: from,
-      headerText: 'Fitness Club Location',
+      headerText: 'Fitness Club Info',
       bodyText: locationMsg,
       buttons: [
         { id: 'BTN_CRICKET_SLOTS', title: '🏏 Check Slots' },
@@ -1427,6 +1694,8 @@ Book your turf slot directly here on WhatsApp with instant UPI payment, or check
 
 module.exports = {
   getTodayAvailableSlots,
+  getAvailableSlotsForDate,
+  getDynamicFacilityDetails,
   initiateSlotBooking,
   handleUtrSubmission,
   handleIncomingMessage,
