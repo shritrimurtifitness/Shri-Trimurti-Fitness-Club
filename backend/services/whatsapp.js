@@ -496,7 +496,7 @@ Play Hard. Compete Better! 🔥`;
   // Fallback: If free-form message failed (outside 24h customer window), send approved Meta Utility template
   const confirmationTemplate = process.env.WHATSAPP_BOOKING_TEMPLATE || 'turf_booking_confirmed';
   console.log(`[WHATSAPP CONFIRMATION FALLBACK] Sending ${confirmationTemplate} template to ${phone}`);
-  let sendResult = await sendWhatsAppMessage({
+  return sendWhatsAppMessage({
     phone,
     template_name: confirmationTemplate,
     params: [
@@ -507,20 +507,6 @@ Play Hard. Compete Better! 🔥`;
       cleanBookingCode,
     ],
   });
-  if (!sendResult.success && confirmationTemplate !== 'booking_confirmed_ticket') {
-    sendResult = await sendWhatsAppMessage({
-      phone,
-      template_name: 'booking_confirmed_ticket',
-      params: [
-        customerName || 'Player',
-        turfName || 'Sports Turf',
-        date,
-        formattedSlots,
-        cleanBookingCode,
-      ],
-    });
-  }
-  return sendResult;
 }
 
 /**
