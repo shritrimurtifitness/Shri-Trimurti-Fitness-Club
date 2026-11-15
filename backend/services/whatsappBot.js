@@ -1006,22 +1006,26 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 💰 *Amount Paid:* ₹${session.price}
 💳 *UPI Ref ID:* ${cleanUtr}
 
-⏳ *Status:* *Pending Admin Verification*
-Our turf manager has received your booking and is verifying the payment in our bank account.
+🔒 *YOUR SLOT IS TEMPORARILY LOCKED:*
+We are holding this slot exclusively for you for 15 minutes. No other team or player can take your slot.
 
-🎟️ *What happens next?*
-Once verified, you will automatically receive your official *Digital Entry Pass* with check-in instructions right here on WhatsApp!
+⚡ *EXPECTED VERIFICATION TIME:*
+Our turf manager is verifying the UPI bank credit now. Verification usually takes *2 – 5 minutes*.
 
-📍 *Turf Location:* Kudire Factory, Sangrul Fata, Koparde
-📞 *Helpdesk:* +91 9595153006`;
+🎟️ *Official Gate Entry Pass:*
+The second payment is verified, your official *Digital Entry Pass with QR code* will be delivered automatically right here!
+
+🚨 *Need urgent confirmation before heading out?*
+📞 Tap "Call Manager" below or call +91 9595153006 directly!`;
 
     return sendInteractiveButtons({
       to: from,
       headerText: 'Shri Trimurti Fitness Club',
       bodyText: successMsg,
       buttons: [
+        { id: 'BTN_STAFF', title: '📞 Call Manager' },
         { id: 'BTN_LOCATION', title: '📍 Directions' },
-        { id: 'BTN_STAFF', title: '👤 Contact Desk' },
+        { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
       ],
     });
   } catch (err) {

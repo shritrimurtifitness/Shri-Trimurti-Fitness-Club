@@ -390,6 +390,37 @@ router.get('/my-bookings/:phone', async (req, res) => {
   }
 });
 
+// Public: Get live booking status for customer pending verification screen
+router.get('/status/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return res.status(400).json({ error: 'Invalid booking ID format' });
+    }
+
+    const result = await pool.query(`
+      SELECT b.id, b.status, b.payment_status, b.paid_amount, b.remaining_amount, b.utr_number, b.qr_token,
+             s.date, s.start_time, s.end_time, s.price as total_amount,
+             u.name as customer_name, u.phone,
+             t.facility_type, t.name as facility_name
+      FROM bookings b
+      JOIN users u ON u.id = b.user_id
+      JOIN slots s ON s.id = b.slot_id
+      JOIN turfs t ON t.id = s.turf_id
+      WHERE b.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    res.json({ success: true, booking: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch booking status: ' + err.message });
+  }
+});
+
 // Staff: Verify QR Token (Publicly accessible but returns limited info, Staff uses it to get ID)
 router.get('/verify-qr/:token', async (req, res) => {
   try {

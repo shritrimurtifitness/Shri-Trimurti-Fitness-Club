@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format, addDays, startOfDay, parse, isAfter } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Clock, User, Phone, ArrowRight, CheckCircle2, ArrowLeft, Loader2, Trophy, ShieldCheck, Lock, Mail, QrCode, Copy, Check, AlertCircle, ExternalLink, MessageCircle, Tag, Sparkles, Gift, X } from "lucide-react";
+import { CalendarDays, Clock, User, Phone, ArrowRight, CheckCircle2, ArrowLeft, Loader2, Trophy, ShieldCheck, Lock, Mail, QrCode, Copy, Check, AlertCircle, ExternalLink, MessageCircle, Tag, Sparkles, Gift, X, PhoneCall, Zap } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -509,6 +509,44 @@ export default function BookingPage() {
       setIsSubmitting(false);
     }
   };
+
+  // Real-time status update for customer pending verification screen
+  const fetchBookingStatus = async (bookingId: string) => {
+    try {
+      const res = await api.get(`/bookings/status/${bookingId}`);
+      if (res.data?.success && res.data?.booking) {
+        const updated = res.data.booking;
+        if (updated.status === 'confirmed' && confirmedBooking?.status !== 'confirmed') {
+          setConfirmedBooking((prev: any) => ({ ...prev, ...updated, status: 'confirmed' }));
+          confetti({
+            particleCount: 200,
+            spread: 80,
+            origin: { y: 0.5 },
+            colors: ['#39FF14', '#10b981', '#06b6d4', '#ffffff']
+          });
+          toast.success("Payment verified! Your official Entry Pass is confirmed.");
+        }
+      }
+    } catch {
+      // quiet fallback
+    }
+  };
+
+  useSocket('booking_updated', () => {
+    if (confirmedBooking?.id && confirmedBooking.status !== 'confirmed') {
+      fetchBookingStatus(confirmedBooking.id);
+    }
+  });
+
+  useEffect(() => {
+    if (!confirmedBooking?.id || confirmedBooking.status === 'confirmed') return;
+
+    const interval = setInterval(() => {
+      fetchBookingStatus(confirmedBooking.id);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [confirmedBooking?.id, confirmedBooking?.status]);
 
   const resetBooking = () => {
     setStep("facility");
@@ -1145,11 +1183,97 @@ export default function BookingPage() {
             {/* Step: Pending Verification Receipt Screen */}
             {(step === "pending_approval" || step === "success") && (
               <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md mx-auto">
-                <div className="w-20 h-20 rounded-full bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center mx-auto mb-6 glow-turf">
-                  <Clock className="w-10 h-10 text-amber-400 animate-pulse" />
-                </div>
-                <h1 className="font-heading text-3xl font-bold mb-2">Booking <span className="text-gradient-turf">Submitted!</span></h1>
-                <p className="text-muted-foreground text-sm mb-6">Payment verification in progress by Shri Trimurti Fitness Club team.</p>
+                {confirmedBooking?.status === 'confirmed' ? (
+                  <div className="w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto mb-6 glow-turf">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                  </div>
+                ) : (
+                  <div className="relative w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-20 animate-ping" />
+                    <div className="w-20 h-20 rounded-full bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center relative glow-turf">
+                      <Clock className="w-10 h-10 text-amber-400 animate-pulse" />
+                    </div>
+                  </div>
+                )}
+
+                <h1 className="font-heading text-3xl font-bold mb-2">
+                  {confirmedBooking?.status === 'confirmed' ? (
+                    <>Booking <span className="text-[#39FF14]">Confirmed!</span></>
+                  ) : (
+                    <>Booking <span className="text-gradient-turf">Submitted!</span></>
+                  )}
+                </h1>
+                <p className="text-muted-foreground text-sm mb-6">
+                  {confirmedBooking?.status === 'confirmed'
+                    ? "Payment verified! Your official Entry Pass QR code is ready below."
+                    : "Payment verification in progress by Shri Trimurti Fitness Club team."}
+                </p>
+
+                {/* Slot Temporarily Held Reassurance Banner (Only while awaiting approval) */}
+                {confirmedBooking?.status !== 'confirmed' && (
+                  <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border-2 border-amber-500/30 text-left space-y-2.5 shadow-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-heading font-bold text-sm text-amber-400">SLOT TEMPORARILY LOCKED</h4>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                            Held for 15 mins
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          We are holding your slot exclusively for you. <strong className="text-foreground">No other player or team can book this slot</strong> while our team verifies your payment.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2.5 border-t border-amber-500/20 text-xs">
+                      <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" /> Expected Verification:
+                      </span>
+                      <span className="font-bold text-amber-300">
+                        Usually 2 – 5 minutes
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Urgent Confirmation Hotline (Only while awaiting approval) */}
+                {confirmedBooking?.status !== 'confirmed' && (
+                  <div className="mb-6 p-4 rounded-2xl bg-card border border-border/80 shadow-md text-left space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <PhoneCall className="w-4 h-4 text-primary" /> Need Urgent Confirmation?
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        Desk on Duty
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Heading to the turf now or need an immediate gate entry pass? Connect with our manager directly:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <a
+                        href="tel:+919595153006"
+                        className="flex items-center justify-center gap-2 h-11 px-4 rounded-xl font-bold text-xs bg-primary text-primary-foreground hover:opacity-90 shadow-md transition-all hover:scale-[1.01]"
+                      >
+                        <Phone className="w-3.5 h-3.5" /> Call Manager (+91 9595153006)
+                      </a>
+                      <a
+                        href={`https://wa.me/919595153006?text=${encodeURIComponent(
+                          `Hi Shri Trimurti Fitness Club, I have submitted booking #${confirmedBooking?.id?.substring(0, 8).toUpperCase() || ''} for ${facilityName} (${selectedSlotGroup?.time || ''}). Please confirm my entry pass.`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-2 h-11 px-4 rounded-xl font-bold text-xs bg-[#25D366] text-white hover:bg-[#20ba59] shadow-md transition-all hover:scale-[1.01]"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" /> WhatsApp Manager
+                      </a>
+                    </div>
+                  </div>
+                )}
 
                 {/* Digital Receipt Pass */}
                 <div id="entry-pass" className="bg-card border-2 border-primary/20 rounded-3xl overflow-hidden shadow-2xl mb-8 relative">
@@ -1193,7 +1317,11 @@ export default function BookingPage() {
                       )}
 
                       <p className="text-xs text-muted-foreground leading-relaxed text-center">
-                        A booking receipt and your official Entry Pass QR code have been sent to {email ? <strong className="text-foreground">{email}</strong> : <strong className="text-foreground">+91 {phone} (WhatsApp)</strong>}. Once club staff verifies the UPI transfer, your slot is confirmed!
+                        {confirmedBooking?.status === 'confirmed' ? (
+                          <>🎉 <strong>Match Confirmed!</strong> Your booking is officially verified. Show this Gate Entry Pass on arrival or access it via WhatsApp.</>
+                        ) : (
+                          <>A booking receipt has been sent to {email ? <strong className="text-foreground">{email}</strong> : <strong className="text-foreground">+91 {phone} (WhatsApp)</strong>}. Once club staff verifies the UPI transfer, your slot is confirmed!</>
+                        )}
                       </p>
                    </div>
                    <div className="bg-black/5 border-t border-border p-3 flex items-center justify-center gap-2">

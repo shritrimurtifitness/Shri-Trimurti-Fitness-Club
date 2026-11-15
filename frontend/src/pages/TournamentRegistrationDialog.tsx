@@ -20,7 +20,10 @@ import {
   Send,
   MessageSquare,
   MessageCircle,
-  Phone
+  Phone,
+  Lock,
+  Zap,
+  PhoneCall
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -266,9 +269,65 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
           </span>
 
           <h2 className="text-2xl font-heading font-black mb-1">Registration Received!</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            A confirmation receipt has been sent to your verified contact details. Once our club desk verifies the UPI payment, your official tournament match pass will be delivered!
+          <p className="text-sm text-muted-foreground mb-4">
+            A confirmation receipt has been sent to your verified contact details.
           </p>
+
+          {/* Team Slot Held Guarantee */}
+          <div className="mb-4 p-3.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border-2 border-amber-500/30 text-left space-y-2">
+            <div className="flex items-start gap-2.5">
+              <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-heading font-bold text-xs text-amber-400">TEAM SLOT TEMPORARILY LOCKED</h4>
+                  <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+                    Held 15 mins
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Your team slot is held exclusively for you. <strong>No other team can take your spot</strong> while payment is being verified.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-amber-500/20 text-[11px]">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Zap className="w-3 h-3 text-amber-400" /> Expected Verification:
+              </span>
+              <span className="font-bold text-amber-300">Usually 2 – 5 minutes</span>
+            </div>
+          </div>
+
+          {/* Urgent Confirmation Hotline */}
+          <div className="mb-4 p-3 rounded-xl bg-card border border-border text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <PhoneCall className="w-3.5 h-3.5 text-primary" /> Need Urgent Confirmation?
+              </span>
+              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                Desk on Duty
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <a
+                href="tel:+919595153006"
+                className="flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg font-bold text-xs bg-primary text-primary-foreground hover:opacity-90 shadow-sm transition-all"
+              >
+                <Phone className="w-3 h-3" /> Call Desk
+              </a>
+              <a
+                href={`https://wa.me/919595153006?text=${encodeURIComponent(
+                  `Hi Shri Trimurti Fitness Club, I registered team "${teamName}" for ${tournament.name}. UPI Ref ending in ${submittedUtr}. Please verify our team pass.`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg font-bold text-xs bg-[#25D366] text-white hover:bg-[#20ba59] shadow-sm transition-all"
+              >
+                <MessageSquare className="w-3 h-3" /> WhatsApp
+              </a>
+            </div>
+          </div>
 
           <div className="bg-card border border-border rounded-xl p-4 text-left space-y-2.5 text-xs mb-6">
             <div className="flex justify-between pb-2 border-b border-border/50">
