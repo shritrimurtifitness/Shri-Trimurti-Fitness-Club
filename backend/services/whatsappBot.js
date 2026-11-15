@@ -1626,7 +1626,8 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
           [match.id]
         );
 
-        const qrImageUrl = 'https://res.cloudinary.com/dm9owuqhs/image/upload/v1773400000/shri-trimurti/upi-qr-code.png';
+        const upiSettings = await getLiveUpiSettings();
+        const qrImageUrl = upiSettings.upi_qr_url;
         const promptPayMsg =
 `🎉 *WELCOME BACK, CAPTAIN!* 🏏⚽
 
