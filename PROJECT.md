@@ -380,12 +380,83 @@ The platform integrates with [cron-job.org](https://cron-job.org) for scheduled 
 | Task Name | Schedule (IST) | Crontab (`Asia/Kolkata`) | Target Endpoint | Headers |
 |---|---|---|---|---|
 | **Ghost Booking Cleanup** | Every 15 mins | `*/15 * * * *` | `POST /api/bookings/cleanup` | `x-cron-secret: <CRON_SECRET>` |
-| **Squad Churn Predictor** | Thursdays 11:00 AM | `0 11 * * 4` | `POST /api/retention/churn-analysis` | `x-retention-secret: trimurti_retention_secret_2026` |
-| **Weekly Executive Summary** | Mondays 08:00 AM | `0 8 * * 1` | `GET /api/analytics/weekly-executive-summary` | `x-bi-secret: trimurti_bi_secret_2026` |
+| **Squad Churn Predictor** | Thursdays 11:00 AM | `0 11 * * 4` | `POST/GET /api/retention/churn-analysis` | `x-retention-secret: trimurti_retention_secret_2026` |
+| **Weekly Executive Summary** | Mondays 08:00 AM | `0 8 * * 1` | `POST/GET /api/analytics/weekly-executive-summary` | `x-bi-secret: trimurti_bi_secret_2026` |
 
 ---
 
-## 8. Summary & Competitive Advantages
+## 8. Mobile Edge Automation Guide (MacroDroid Configuration)
+
+[MacroDroid](https://www.macrodroid.com) runs on the arena's dedicated Android business phone (the device linked to the bank account and receiving incoming customer calls). It acts as an edge forwarder, streaming hardware events to the cloud backend in real time.
+
+```
+       📱 Arena Business Android Phone
+      ┌────────────────────────────────┐
+      │  Bank SMS / UPI Credit Alert   │
+      │  Missed Call from Customer     │
+      └──────────────┬─────────────────┘
+                     │ MacroDroid HTTP POST Webhook
+                     ▼
+      ☁️ Shri Trimurti Fitness Backend (/api)
+```
+
+### 8.1 Macro 1: Bank Credit SMS Auto-Forwarder (Instant UPI Reconciler)
+Captures bank credit SMS messages and pushes them to the auto-verification engine in under 1 second.
+
+- **Trigger:**
+  - `SMS Received` $\rightarrow$ Any Sender (or filter for bank sender patterns like `*SBI*`, `*HDFC*`, `*MAHABK*`, `*AXIS*`, `*ICICI*`, `*UNION*` or text containing `credit`, `credited`, `received`, `deposited`, `UPI`).
+- **Action:**
+  - `HTTP Request`
+  - **Request Method:** `POST`
+  - **URL:** `https://<YOUR-BACKEND-DOMAIN>/api/payments/bank-sms`
+  - **Content Type:** `application/json`
+  - **Request Headers:**
+    - `x-bank-secret`: `trimurti_bank_secret_2026`
+    - `Content-Type`: `application/json`
+  - **Request Body (JSON):**
+    ```json
+    {
+      "sms_body": "{sms_body}",
+      "sender": "{sms_number}",
+      "secret": "trimurti_bank_secret_2026"
+    }
+    ```
+    *(Note: `{sms_body}` and `{sms_number}` are MacroDroid Magic Text variables).*
+
+### 8.2 Macro 2: Missed Call Instant Booking Agent
+Detects whenever a player calls the venue phone and hangs up, triggering an immediate interactive WhatsApp booking menu.
+
+- **Trigger:**
+  - `Call Ended` $\rightarrow$ Call Missed (or `Call Missed` trigger).
+- **Action:**
+  - `HTTP Request`
+  - **Request Method:** `POST`
+  - **URL:** `https://<YOUR-BACKEND-DOMAIN>/api/whatsapp/missed-call`
+  - **Content Type:** `application/json`
+  - **Request Headers:**
+    - `x-webhook-secret`: `trimurti_missed_call_2026`
+    - `Content-Type`: `application/json`
+  - **Request Body (JSON):**
+    ```json
+    {
+      "phone": "{call_number}",
+      "secret": "trimurti_missed_call_2026"
+    }
+    ```
+    *(Note: `{call_number}` is the MacroDroid Magic Text variable for the incoming caller phone number).*
+
+### 8.3 Android Phone Reliability & Permissions Checklist
+To ensure MacroDroid runs 24/7 without being killed by Android power management:
+1. **Battery Optimization:** Set MacroDroid battery usage to **Unrestricted** / **Don't Optimize**.
+2. **Permissions:** Grant `SMS (Read & Receive)`, `Call Logs (Read)`, `Phone State`, and `Notification Access`.
+3. **App Pinning / Autostart:**
+   - In Recent Apps, tap the lock icon to lock MacroDroid in memory.
+   - For Xiaomi (MIUI/HyperOS), Vivo (Funtouch), Oppo (ColorOS), or OnePlus (OxygenOS): enable **Autostart** in system settings.
+4. **Data Saver:** Exclude MacroDroid from Android Data Saver so webhooks send even in low-data mode.
+
+---
+
+## 9. Summary & Competitive Advantages
 
 1. **Zero-Touch Financial Operations:** Direct UPI payments are automatically reconciled and approved in under 3 seconds via Bank SMS webhooks, eliminating manual bank statement checks.
 2. **Conversational Multi-Channel Commerce:** Customers can book on the web, chat with the AI WhatsApp bot, or simply give a missed call to receive an instant booking menu.
