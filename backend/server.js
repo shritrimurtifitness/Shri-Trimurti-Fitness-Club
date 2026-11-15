@@ -80,6 +80,23 @@ app.use(compression()); // Gzip compression
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev')); // Logging
 app.use(cors({ origin: corsOriginChecker, credentials: true }));
 app.use(express.json({ limit: '10kb' })); // Payload limit
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.text({ type: ['text/*', 'application/text'], limit: '10kb' }));
+
+// Graceful recovery for MacroDroid / external webhooks sending raw text/phone with application/json
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    const raw = String(err.body || '').trim();
+    const phoneMatch = raw.match(/(?:\+?91)?[6-9]\d{9}/);
+    if (phoneMatch) {
+      console.log(`[BODY-PARSER RECOVERY] Extracted phone ${phoneMatch[0]} from raw body: "${raw}"`);
+      req.body = { phone: phoneMatch[0], rawText: raw };
+      return next();
+    }
+    return res.status(400).json({ error: 'Malformed JSON payload', details: err.message });
+  }
+  next(err);
+});
 // Root & Health check endpoints (placed before rate limiter for uptime monitors & Render probes)
 // Lightweight service check: does NOT touch the database so Neon serverless can sleep when idle
 const handleHealthCheck = (req, res) => {

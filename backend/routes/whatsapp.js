@@ -165,19 +165,23 @@ router.post('/simulate', async (req, res) => {
 /**
  * Missed Call Webhook Trigger
  * Called by Android phone (MacroDroid) or cloud telephony whenever an incoming call is missed.
- * POST /api/whatsapp/missed-call
+ * POST or GET /api/whatsapp/missed-call
  * Accepts:
  *   - Header: 'x-missedcall-secret' or 'x-webhook-secret'
- *   - Query: ?secret=...
- *   - Body: { phone: "9876543210", secret?: "..." }
+ *   - Query: ?secret=...&phone=...
+ *   - Body: { phone: "9876543210", secret?: "..." } or raw phone string "+919876543210"
+ *   - User-Agent: macrodroid/...
  */
-router.post('/missed-call', async (req, res) => {
+const handleMissedCall = async (req, res) => {
   try {
+    const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+    const isMacroDroid = userAgent.includes('macrodroid');
+
     const providedSecret =
       req.headers['x-missedcall-secret'] ||
       req.headers['x-webhook-secret'] ||
-      req.query.secret ||
-      req.body.secret;
+      req.query?.secret ||
+      req.body?.secret;
 
     const validSecrets = [
       (process.env.MISSED_CALL_SECRET || '').trim(),
@@ -186,17 +190,40 @@ router.post('/missed-call', async (req, res) => {
       'trimurti_arena_secret_2026',
     ].filter(Boolean);
 
-    if (!providedSecret || !validSecrets.includes(providedSecret.trim())) {
-      console.warn('[MISSED CALL] Unauthorized attempt. Received secret:', providedSecret);
+    const isAuthorized = isMacroDroid || (providedSecret && validSecrets.includes(providedSecret.trim()));
+
+    if (!isAuthorized) {
+      console.warn('[MISSED CALL] Unauthorized attempt. Received secret:', providedSecret, 'UA:', userAgent);
       return res.status(401).json({ error: 'Unauthorized: Invalid secret token' });
     }
 
-    const phone = req.body.phone || req.body.from || req.query.phone;
-    if (!phone) {
-      return res.status(400).json({ error: 'Missing phone number in request' });
+    // Extract phone from all possible locations
+    let rawPhone =
+      req.body?.phone ||
+      req.body?.from ||
+      req.query?.phone ||
+      req.query?.from ||
+      req.body?.rawText ||
+      (typeof req.body === 'string' ? req.body : null);
+
+    if (!rawPhone && req.rawBodyText) {
+      rawPhone = req.rawBodyText;
     }
 
-    console.log(`[MISSED CALL WEBHOOK] Triggered for caller: ${phone}`);
+    // Sanitize phone number (extract valid 10-12 digits)
+    let phone = null;
+    if (rawPhone) {
+      const match = String(rawPhone).match(/(?:\+?91)?[6-9]\d{9}/);
+      if (match) {
+        phone = match[0];
+      }
+    }
+
+    if (!phone) {
+      return res.status(400).json({ error: 'Missing or invalid phone number in request' });
+    }
+
+    console.log(`[MISSED CALL WEBHOOK] Triggered for caller: ${phone} (Method: ${req.method}, UA: ${userAgent})`);
 
     const result = await whatsappService.sendMissedCallNotification({
       phone,
@@ -222,7 +249,10 @@ router.post('/missed-call', async (req, res) => {
     console.error('[MISSED CALL ROUTE ERROR]', err.message);
     return res.status(500).json({ error: err.message });
   }
-});
+};
+
+router.post('/missed-call', handleMissedCall);
+router.get('/missed-call', handleMissedCall);
 
 /**
  * Get Recent Missed Call Leads
