@@ -1227,6 +1227,78 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   }
 
   // ----------------------------------------------------
+  // Admin In-Chat Action: Approve or Reject Tournament Registration
+  // ----------------------------------------------------
+  const isTrnApproveAction = payload.startsWith('BTN_TRN_APPROVE_') ||
+    payload.toLowerCase() === 'approve team' ||
+    normalizedText === 'approve team';
+
+  const isTrnRejectAction = payload.startsWith('BTN_TRN_REJECT_') ||
+    payload.toLowerCase() === 'reject team' ||
+    normalizedText === 'reject team';
+
+  if (isTrnApproveAction || isTrnRejectAction) {
+    const isApprove = isTrnApproveAction;
+    let targetRegId = '';
+    if (payload.startsWith('BTN_TRN_APPROVE_') || payload.startsWith('BTN_TRN_REJECT_')) {
+      targetRegId = payload.replace(isApprove ? 'BTN_TRN_APPROVE_' : 'BTN_TRN_REJECT_', '').trim();
+    }
+
+    const cleanFrom = from.replace(/\D/g, '');
+    const isAdmin = await adminBookingService.isAuthorizedAdmin(cleanFrom);
+    if (!isAdmin) {
+      return sendTextMessage({
+        to: from,
+        text: '⛔ *Unauthorized:* Only registered club administrators can approve or reject tournament teams from WhatsApp.',
+      });
+    }
+
+    // If regId wasn't passed directly in payload, find the most recent pending tournament registration
+    if (!targetRegId) {
+      const recentPending = await pool.query(
+        `SELECT id FROM tournament_registrations WHERE payment_status = 'pending_verification' ORDER BY created_at DESC LIMIT 1`
+      );
+      if (recentPending.rows.length > 0) {
+        targetRegId = recentPending.rows[0].id;
+      }
+    }
+
+    if (!targetRegId) {
+      return sendTextMessage({
+        to: from,
+        text: 'ℹ️ No pending tournament registration found awaiting approval.',
+      });
+    }
+
+    const result = await adminBookingService.processTournamentRegistrationAction({
+      registrationId: targetRegId,
+      action: isApprove ? 'approve' : 'reject',
+      rejectionReason: 'Payment could not be verified by admin',
+      io,
+      adminIdentifier: cleanFrom,
+    });
+
+    if (!result.success) {
+      return sendTextMessage({
+        to: from,
+        text: `⚠️ Could not ${isApprove ? 'approve' : 'reject'} tournament registration: ${result.message}`,
+      });
+    }
+
+    if (isApprove) {
+      return sendTextMessage({
+        to: from,
+        text: `✅ *Tournament Registration Approved!* 🏆🏏⚽\n\nTeam *${result.teamName}* has been officially confirmed for *${result.tournamentName}*!\n\nCaptain *${result.captainName}* has been issued their confirmation pass on WhatsApp & Email.`,
+      });
+    } else {
+      return sendTextMessage({
+        to: from,
+        text: `❌ *Tournament Registration Rejected.* Registration for Team *${result.teamName}* in *${result.tournamentName}* has been rejected and the slot has been released.`,
+      });
+    }
+  }
+
+  // ----------------------------------------------------
   // A0. Website Slot Booking OTP Verification (e.g. "VERIFY 1234" or 4-digit code)
   // ----------------------------------------------------
   const verifyMatch = normalizedText.match(/(?:verify\s*)?(\b\d{4}\b)/i);

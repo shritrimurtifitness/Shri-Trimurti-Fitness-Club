@@ -450,12 +450,208 @@ function renderAdminResultHtml({ success, alreadyProcessed, bookingCode, custome
 </html>`;
 }
 
+/**
+ * Notifies admin about a new tournament registration via 3-tier cascade:
+ * 1. Interactive buttons (works if inside 24h window)
+ * 2. Meta Utility Template admin_tournament_alert (works 24/7 outside 24h window)
+ * 3. Plain text fallback
+ */
+async function notifyAdminTournamentRegistration({ registrationId, tournamentName, teamName, captainName, captainPhone, entryFee, utrNumber, io = null }) {
+  try {
+    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_PHONE).replace(/\D/g, '');
+    const cleanPhone = (captainPhone || '').replace(/\D/g, '');
+    const phone10 = cleanPhone.startsWith('91') && cleanPhone.length === 12 ? cleanPhone.slice(2) : cleanPhone;
+    const cleanUtr = utrNumber ? String(utrNumber).trim() : 'N/A';
+    const feeStr = String(entryFee || '0');
+
+    const adminAlertText =
+`🚨 *NEW TOURNAMENT REGISTRATION!*
+
+🏆 *Tournament:* ${tournamentName}
+👥 *Team:* ${teamName}
+👤 *Captain:* ${captainName} (📞 +91 ${phone10})
+💰 *Entry Fee:* ₹${feeStr}
+💳 *Submitted UPI Ref ID:* ${cleanUtr}
+
+Please verify payment in club bank account.`;
+
+    // 1. Try interactive buttons first (inside 24h window)
+    let sendResult = await whatsappService.sendInteractiveButtons({
+      to: adminPhone,
+      headerText: 'Shri Trimurti Fitness Club',
+      bodyText: adminAlertText,
+      buttons: [
+        { id: `BTN_TRN_APPROVE_${registrationId}`, title: '✅ Approve Team' },
+        { id: `BTN_TRN_REJECT_${registrationId}`, title: '❌ Reject Team' },
+      ],
+    });
+
+    // 2. Fall back to approved Meta Template admin_tournament_alert (outside 24h window)
+    if (!sendResult.success) {
+      console.log(`[TOURNAMENT ADMIN ALERT] Interactive buttons failed (24h window), attempting Meta template admin_tournament_alert...`);
+      sendResult = await whatsappService.sendWhatsAppMessage({
+        phone: adminPhone,
+        template_name: 'admin_tournament_alert',
+        params: [
+          tournamentName,
+          teamName,
+          captainName,
+          cleanPhone,
+          feeStr,
+          cleanUtr,
+        ],
+        quickReplyPayloads: [
+          `BTN_TRN_APPROVE_${registrationId}`,
+          `BTN_TRN_REJECT_${registrationId}`,
+        ],
+        languageCode: 'en',
+      });
+    }
+
+    // 3. Plain text fallback if template is still in review or fails
+    if (!sendResult.success) {
+      console.log(`[TOURNAMENT ADMIN ALERT] Template failed, attempting plain text fallback...`);
+      sendResult = await whatsappService.sendTextMessage({
+        to: adminPhone,
+        text: adminAlertText,
+      });
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[NOTIFY ADMIN TOURNAMENT ERROR]', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Approves or Rejects a tournament registration by ID (used by Dashboard & WhatsApp Bot)
+ */
+async function processTournamentRegistrationAction({ registrationId, action, rejectionReason = '', io = null, adminIdentifier = 'admin' }) {
+  try {
+    if (!['approve', 'reject'].includes(action)) {
+      return { success: false, message: "Action must be either 'approve' or 'reject'" };
+    }
+
+    let query, params;
+    if (action === 'approve') {
+      query = `UPDATE tournament_registrations 
+               SET payment_status = 'paid' 
+               WHERE id = $1 
+               RETURNING *`;
+      params = [registrationId];
+    } else {
+      query = `UPDATE tournament_registrations 
+               SET payment_status = 'rejected', rejection_reason = $2 
+               WHERE id = $1 
+               RETURNING *`;
+      params = [registrationId, rejectionReason || 'UPI Ref ID could not be verified'];
+    }
+
+    const result = await pool.query(query, params);
+    if (result.rows.length === 0) {
+      return { success: false, message: 'Tournament registration not found' };
+    }
+
+    const reg = result.rows[0];
+
+    // Fetch tournament data
+    const tRes = await pool.query('SELECT name, sport_type, entry_fee FROM tournaments WHERE id = $1', [reg.tournament_id]);
+    const tData = tRes.rows[0];
+    const tournamentName = tData?.name || 'Tournament';
+
+    // Dispatch automated status email
+    if (reg.email) {
+      if (action === 'approve') {
+        mailer.sendTournamentRegistrationConfirmed({
+          email: reg.email,
+          captainName: reg.captain_name,
+          teamName: reg.team_name,
+          tournamentName,
+          entryFee: tData?.entry_fee || '0',
+          registrationId: reg.id,
+          sportType: tData?.sport_type
+        }).catch(err => console.error('[TOURNAMENT CONFIRMATION EMAIL ERROR]', err));
+      } else {
+        mailer.sendTournamentRegistrationRejected({
+          email: reg.email,
+          captainName: reg.captain_name,
+          teamName: reg.team_name,
+          tournamentName,
+          registrationId: reg.id,
+          reason: rejectionReason
+        }).catch(err => console.error('[TOURNAMENT REJECTION EMAIL ERROR]', err));
+      }
+    }
+
+    // Send WhatsApp notification to Captain
+    if (reg.phone) {
+      const captainCleanPhone = (reg.phone || '').replace(/\D/g, '');
+      const captainFormattedPhone = captainCleanPhone.startsWith('91') ? captainCleanPhone : `91${captainCleanPhone}`;
+
+      if (action === 'approve') {
+        const passMsg = 
+`🏆 *TOURNAMENT REGISTRATION APPROVED!* 🏏⚽
+
+Namaskar *${reg.captain_name}*!
+Your team *${reg.team_name}* is officially confirmed for *${tournamentName}*!
+
+📋 *Registration ID:* #${reg.id.substring(0, 8).toUpperCase()}
+💰 *Entry Fee:* ₹${tData?.entry_fee || '0'} (Verified & Paid)
+💳 *UPI Ref ID:* ${reg.utr_number || 'N/A'}
+
+Our tournament committee will share match fixtures and timings soon.
+
+Play Hard. Compete Better! 🔥
+Shri Trimurti Fitness Club`;
+
+        whatsappService.sendTextMessage({ to: captainFormattedPhone, text: passMsg }).catch(() => {});
+      } else {
+        const rejectMsg = 
+`❌ *Tournament Registration Update - Shri Trimurti Fitness Club*
+
+Hi *${reg.captain_name}*, we were unable to verify the UPI payment for Team *${reg.team_name}* for *${tournamentName}*.
+
+Reason: ${rejectionReason || 'UPI Ref ID could not be verified'}
+
+If this is a mistake or typo, please contact our tournament desk immediately at 📞 +91 9595153006.`;
+
+        whatsappService.sendTextMessage({ to: captainFormattedPhone, text: rejectMsg }).catch(() => {});
+      }
+    }
+
+    await cache.delPattern('tournaments:*');
+    if (io) {
+      io.emit('tournament_registration_success', { 
+        tournament_id: reg.tournament_id, 
+        registration_id: registrationId,
+        action 
+      });
+    }
+
+    return {
+      success: true,
+      teamName: reg.team_name,
+      captainName: reg.captain_name,
+      tournamentName,
+      registrationId: reg.id,
+      action,
+      reg
+    };
+  } catch (err) {
+    console.error('[PROCESS TOURNAMENT REGISTRATION ACTION ERROR]', err);
+    return { success: false, message: err.message };
+  }
+}
+
 module.exports = {
   DEFAULT_ADMIN_PHONE,
   generateAdminActionToken,
   verifyAdminActionToken,
   isAuthorizedAdmin,
   notifyAdminNewBooking,
+  notifyAdminTournamentRegistration,
+  processTournamentRegistrationAction,
   approveBookingById,
   rejectBookingById,
   renderAdminResultHtml,

@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/auth');
 const cache = require('../config/cache');
 const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
+const adminBookingService = require('../services/adminBookingService');
 const { normalizeTo10Digits } = require('../utils/phone');
 
 const cloudinary = require('../config/cloudinary');
@@ -448,19 +449,17 @@ Shri Trimurti Fitness Club`;
 
     whatsappService.sendTextMessage({ to: cleanPhone, text: captainWaText }).catch(() => {});
 
-    // Notify Admin's Personal WhatsApp in Real-Time
-    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
-    const adminAlert = 
-`🚨 *NEW TOURNAMENT REGISTRATION!*
-
-🏆 *Tournament:* ${tournamentRes.rows[0].name}
-👥 *Team:* ${team_name.trim()}
-👤 *Captain:* ${captain_name.trim()} (📞 +91 ${phone10})
-💰 *Entry Fee:* ₹${tournamentRes.rows[0].entry_fee}
-💳 *Submitted UPI Ref ID:* ${utr_number.trim()}
-
-Please verify payment in club bank account.`;
-    whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+    // Notify Admin's Personal WhatsApp in Real-Time via 3-Tier Cascade (Interactive -> Meta Template -> Plain Text)
+    adminBookingService.notifyAdminTournamentRegistration({
+      registrationId: insertRes.rows[0].id,
+      tournamentName: tournamentRes.rows[0].name,
+      teamName: team_name.trim(),
+      captainName: captain_name.trim(),
+      captainPhone: cleanPhone,
+      entryFee: tournamentRes.rows[0].entry_fee,
+      utrNumber: utr_number.trim(),
+      io: req.app.get('io'),
+    }).catch(err => console.error('[TOURNAMENT ADMIN NOTIFY ERROR]', err.message));
 
     await cache.delPattern('tournaments:*');
     const io = req.app.get('io');
@@ -483,80 +482,28 @@ Please verify payment in club bank account.`;
   }
 });
 
-// Admin: Verify UPI Registration (Approve or Reject with Email Notifications)
+// Admin: Verify UPI Registration (Approve or Reject with Email & WhatsApp Notifications)
 router.post('/registrations/:id/verify-upi', authMiddleware, async (req, res) => {
   const { action, rejection_reason } = req.body;
   const { id } = req.params;
 
   try {
-    if (!['approve', 'reject'].includes(action)) {
-      return res.status(400).json({ error: "Action must be either 'approve' or 'reject'" });
-    }
+    const result = await adminBookingService.processTournamentRegistrationAction({
+      registrationId: id,
+      action,
+      rejectionReason: rejection_reason,
+      io: req.app.get('io'),
+      adminIdentifier: req.user?.id || 'admin',
+    });
 
-    let query, params;
-    if (action === 'approve') {
-      query = `UPDATE tournament_registrations 
-               SET payment_status = 'paid' 
-               WHERE id = $1 
-               RETURNING *`;
-      params = [id];
-    } else {
-      query = `UPDATE tournament_registrations 
-               SET payment_status = 'rejected', rejection_reason = $2 
-               WHERE id = $1 
-               RETURNING *`;
-      params = [id, rejection_reason || 'UPI Ref ID could not be verified'];
-    }
-
-    const result = await pool.query(query, params);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Registration not found' });
-    }
-
-    const reg = result.rows[0];
-
-    // Fetch tournament data for email
-    const tRes = await pool.query('SELECT name, sport_type, entry_fee FROM tournaments WHERE id = $1', [reg.tournament_id]);
-    const tData = tRes.rows[0];
-
-    // Dispatch automated status email
-    if (reg.email) {
-      if (action === 'approve') {
-        mailer.sendTournamentRegistrationConfirmed({
-          email: reg.email,
-          captainName: reg.captain_name,
-          teamName: reg.team_name,
-          tournamentName: tData?.name || 'Tournament',
-          entryFee: tData?.entry_fee || '0',
-          registrationId: reg.id,
-          sportType: tData?.sport_type
-        }).catch(err => console.error('[TOURNAMENT CONFIRMATION EMAIL ERROR]', err));
-      } else {
-        mailer.sendTournamentRegistrationRejected({
-          email: reg.email,
-          captainName: reg.captain_name,
-          teamName: reg.team_name,
-          tournamentName: tData?.name || 'Tournament',
-          registrationId: reg.id,
-          reason: rejection_reason
-        }).catch(err => console.error('[TOURNAMENT REJECTION EMAIL ERROR]', err));
-      }
-    }
-
-    await cache.delPattern('tournaments:*');
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('tournament_registration_success', { 
-        tournament_id: reg.tournament_id, 
-        registration_id: id,
-        action 
-      });
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
     }
 
     res.json({
       success: true,
-      message: action === 'approve' ? 'Team registration approved & official match pass emailed!' : 'Team registration rejected and captain notified',
-      registration: reg
+      message: action === 'approve' ? 'Team registration approved & official match pass issued!' : 'Team registration rejected and captain notified',
+      registration: result.reg
     });
   } catch (err) {
     console.error("Verify UPI error:", err);
