@@ -45,13 +45,13 @@ export default function Navbar() {
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo & Brand */}
-          <Link to="/" className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2 sm:gap-2.5 shrink-0 min-w-0">
             <img
               src={logoImage}
               alt="SHRI TRIMURTI FITNESS CLUB logo"
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#39FF14]/50 shadow-turf"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover ring-2 ring-[#39FF14]/50 shadow-turf shrink-0"
             />
-            <span className="font-heading font-extrabold text-base sm:text-xl text-zinc-900 dark:text-white tracking-tight">
+            <span className="font-heading font-extrabold text-sm sm:text-xl text-zinc-900 dark:text-white tracking-tight whitespace-nowrap">
               <span className="hidden sm:inline">Shri Trimurti Fitness </span>
               <span className="sm:hidden">Trimurti </span>
               <span className="text-gradient-turf">Club</span>
@@ -98,11 +98,11 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Right Quick Actions */}
-          <div className="flex md:hidden items-center gap-1.5">
+          <div className="flex md:hidden items-center gap-1 sm:gap-1.5 shrink-0">
             <a
               href={`tel:${phone}`}
               aria-label="Call arena"
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/10"
+              className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
             >
               <Phone className="w-4 h-4 text-emerald-500" />
             </a>
@@ -112,7 +112,7 @@ export default function Navbar() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="WhatsApp arena"
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-emerald-500 hover:bg-zinc-100 dark:hover:bg-white/10"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-500 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
             </a>
@@ -120,11 +120,11 @@ export default function Navbar() {
             <SportsThemeToggle size="sm" />
 
             <button
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-900 dark:text-white ml-0.5"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-900 dark:text-white ml-0.5"
               onClick={() => setIsOpen(!isOpen)}
               aria-label="Toggle menu"
             >
-              {isOpen ? <X size={22} /> : <Menu size={22} />}
+              {isOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>

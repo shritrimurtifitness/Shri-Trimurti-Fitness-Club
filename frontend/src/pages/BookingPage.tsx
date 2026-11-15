@@ -567,7 +567,7 @@ export default function BookingPage() {
   const stepLabels = ["Sport", "Date", "Slot", "Details", "Confirm"];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4 lg:px-8 max-w-4xl">
@@ -1182,7 +1182,7 @@ export default function BookingPage() {
 
             {/* Step: Pending Verification Receipt Screen */}
             {(step === "pending_approval" || step === "success") && (
-              <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md mx-auto">
+              <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md mx-auto w-full px-2 sm:px-0">
                 {confirmedBooking?.status === 'confirmed' ? (
                   <div className="w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto mb-6 glow-turf">
                     <CheckCircle2 className="w-10 h-10 text-emerald-400" />
@@ -1196,14 +1196,14 @@ export default function BookingPage() {
                   </div>
                 )}
 
-                <h1 className="font-heading text-3xl font-bold mb-2">
+                <h1 className="font-heading text-2xl sm:text-3xl font-bold mb-2">
                   {confirmedBooking?.status === 'confirmed' ? (
                     <>Booking <span className="text-[#39FF14]">Confirmed!</span></>
                   ) : (
                     <>Booking <span className="text-gradient-turf">Submitted!</span></>
                   )}
                 </h1>
-                <p className="text-muted-foreground text-sm mb-6">
+                <p className="text-muted-foreground text-xs sm:text-sm mb-6">
                   {confirmedBooking?.status === 'confirmed'
                     ? "Payment verified! Your official Entry Pass QR code is ready below."
                     : "Payment verification in progress by Shri Trimurti Fitness Club team."}
@@ -1216,7 +1216,7 @@ export default function BookingPage() {
                       <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
                         <Lock className="w-5 h-5" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-heading font-bold text-sm text-amber-400">SLOT TEMPORARILY LOCKED</h4>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
@@ -1276,26 +1276,26 @@ export default function BookingPage() {
                 )}
 
                 {/* Digital Receipt Pass */}
-                <div id="entry-pass" className="bg-card border-2 border-primary/20 rounded-3xl overflow-hidden shadow-2xl mb-8 relative">
+                <div id="entry-pass" className="bg-card border-2 border-primary/20 rounded-3xl overflow-hidden shadow-2xl mb-6 sm:mb-8 relative w-full">
                    <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-turf" />
-                   <div className="p-6">
+                   <div className="p-4 sm:p-6">
                       <div className="flex justify-between items-start mb-6">
                         <div className="text-left">
                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Booking Request</p>
-                           <h3 className="font-heading font-bold text-lg">{facilityName}</h3>
+                           <h3 className="font-heading font-bold text-base sm:text-lg">{facilityName}</h3>
                         </div>
                         <div className="text-right">
                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Date</p>
-                           <p className="font-bold text-sm tracking-tight">{selectedDate && format(selectedDate, "dd MMM yyyy")}</p>
+                           <p className="font-bold text-xs sm:text-sm tracking-tight">{selectedDate && format(selectedDate, "dd MMM yyyy")}</p>
                         </div>
                       </div>
 
-                      <div className="p-4 rounded-2xl bg-secondary/30 border border-border/80 space-y-2 text-left text-xs mb-6">
-                        <div className="flex justify-between"><span className="text-muted-foreground">Booking ID:</span><span className="font-mono font-bold text-[#39FF14]">{confirmedBooking?.id?.substring(0, 8).toUpperCase() || "PENDING"}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span className="font-bold text-foreground">{name}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Time Slot:</span><span className="font-bold text-foreground">{selectedSlotGroup?.time}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Amount:</span><span className="font-bold text-foreground">₹{selectedSlotGroup?.price}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Submitted UPI Ref ID:</span><span className="font-mono font-bold text-amber-400">{utrNumber || confirmedBooking?.utr_number}</span></div>
+                      <div className="p-3.5 sm:p-4 rounded-2xl bg-secondary/30 border border-border/80 space-y-2 text-left text-xs mb-6">
+                        <div className="flex justify-between items-center"><span className="text-muted-foreground">Booking ID:</span><span className="font-mono font-bold text-[#39FF14]">{confirmedBooking?.id?.substring(0, 8).toUpperCase() || "PENDING"}</span></div>
+                        <div className="flex justify-between items-center"><span className="text-muted-foreground">Customer:</span><span className="font-bold text-foreground">{name}</span></div>
+                        <div className="flex justify-between items-center"><span className="text-muted-foreground">Time Slot:</span><span className="font-bold text-foreground">{selectedSlotGroup?.time}</span></div>
+                        <div className="flex justify-between items-center"><span className="text-muted-foreground">Amount:</span><span className="font-bold text-foreground">₹{selectedSlotGroup?.price}</span></div>
+                        <div className="flex justify-between items-center gap-2"><span className="text-muted-foreground shrink-0">Submitted UPI Ref ID:</span><span className="font-mono font-bold text-amber-400 break-all text-right">{utrNumber || confirmedBooking?.utr_number}</span></div>
                         <div className="flex justify-between pt-1 border-t border-border/50 items-center">
                           <span className="text-muted-foreground">Status:</span>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
@@ -1334,9 +1334,10 @@ export default function BookingPage() {
                   <Button
                     type="button"
                     onClick={() => setShowTeamSplit(true)}
-                    className="h-12 rounded-xl font-bold bg-[#25D366] hover:bg-[#20ba59] text-white shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2"
+                    className="w-full h-auto min-h-[48px] py-3 px-4 rounded-xl font-bold bg-[#25D366] hover:bg-[#20ba59] text-white shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 whitespace-normal text-xs sm:text-sm text-center leading-snug"
                   >
-                    <MessageSquare className="w-4 h-4" /> Share Match & Split with Teammates (WhatsApp)
+                    <MessageSquare className="w-4 h-4 shrink-0 text-white" />
+                    <span>Split Bill & Share with Team (WhatsApp)</span>
                   </Button>
 
                   <Button 
@@ -1352,11 +1353,15 @@ export default function BookingPage() {
                       }
                     }} 
                     variant="outline" 
-                    className="h-12 rounded-xl font-bold border-2"
+                    className="w-full h-auto min-h-[48px] py-3 px-4 rounded-xl font-bold border-2 whitespace-normal text-xs sm:text-sm text-center leading-snug"
                   >
-                    <Download className="mr-2 w-4 h-4" /> Download Booking Receipt
+                    <Download className="mr-2 w-4 h-4 shrink-0" />
+                    <span>Download Booking Receipt</span>
                   </Button>
-                  <Button onClick={resetBooking} className="h-12 rounded-xl bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-90">
+                  <Button
+                    onClick={resetBooking}
+                    className="w-full h-auto min-h-[48px] py-3 px-4 rounded-xl bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-90 whitespace-normal text-xs sm:text-sm text-center leading-snug"
+                  >
                     Done & Book Another Slot
                   </Button>
                 </div>
