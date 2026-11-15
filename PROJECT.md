@@ -322,6 +322,39 @@ Eliminates manual admin approval for UPI payments:
 - Supports flat (₹) and percentage (%) discounts with floor price protection (minimum ₹300 payable to prevent losses).
 - Restricts coupons to first-time bookings, sets minimum booking thresholds, and enforces per-user and global usage limits.
 
+### 5.9 Multilingual Conversational WhatsApp Digital Turf Manager (`aiAgent.js`)
+- Powered by Google Gemini with multi-turn conversational memory (30-minute rolling context per phone number).
+- **Direct Neon DB Function Calling**: When a customer asks about open slots, the AI executes a live database query (`queryAvailableSlots`), format-matches the request, and presents real-time availability without hallucination.
+- **Fluent Trilingual Conversational Persona**: Fluently replies in the customer's preferred tongue:
+  - **Marathi** (e.g. *"आज संध्याकाळी ७ वाजता क्रिकेटचा स्लॉट मोकळा आहे का?"*)
+  - **Hindi / Hinglish** (e.g. *"Bhaiya cricket turf ka charge kya hai floodlights ke sath?"*)
+  - **English** (e.g. *"Are there any slots available for 8v8 football this Saturday?"*)
+- Answers questions regarding venue rules, free equipment (bats, balls, stumps, bibs provided free on-site), amenities, weather/rain policies, and provides instant booking links.
+
+### 5.10 Automated Match Reminders & Post-Match Feedback Surveys (`notificationScheduler.js`)
+- **Zero-Polling Precision Architecture**: Uses in-memory precision timers initialized at server startup and on every new booking confirmation—eliminating continuous scheduled polling against the Neon PostgreSQL database.
+- **T - 2 Hours (Matchday Reminder)**: Dispatches a match briefing to the team captain including pitch status, gate arrival instructions, Google Maps venue directions, and the entry QR pass.
+- **T + 1 Hour (Feedback & Sentiment Survey)**: Dispatches an interactive 1-to-5 star rating prompt via WhatsApp.
+  - ⭐⭐⭐⭐⭐ (4-5 Stars): Praises the squad and delivers a direct 1-tap link to rate on **Google Maps**.
+  - ⭐ / ⭐⭐ (1-2 Stars): Solicits feedback notes, logs maintenance sentiment into `weekly_executive_summaries`, and triggers an immediate admin alert.
+
+### 5.11 Ad Studio Social Marketing Engine (`AdminAdStudio.tsx`)
+- High-resolution dynamic 9:16 (1080x1920) story poster creator for Instagram and WhatsApp status promotion.
+- Live-queries tomorrow's open slots from the database, renders branded graphic layouts with facility badges and pricing, and exports high-quality PNGs in 1 click via `html-to-image`.
+
+### 5.12 WhatsApp Team Split-Bill Calculator (`TeamSplitModal.tsx`)
+- Interactive squad cost-splitting utility for captains directly within the web booking interface.
+- Calculates per-player share for squad sizes (8 to 15 players) with automatic upward rounding.
+- One-tap button generates an formatted WhatsApp squad invite containing match details and a pre-configured UPI payment link directly to the captain's UPI ID.
+
+### 5.13 On-Site Gate Pass Cryptographic QR Scanner (`AdminScanner.tsx` & `/scanner`)
+- Turnkey camera-based QR validator built with `html5-qrcode` designed for staff smartphones or reception tablets.
+- Decrypts and verifies the booking UUID token, validates the scheduled time window, checks payment status, emits audio confirmation beeps, and updates the booking status to `completed` in real time.
+
+### 5.14 Snooker & Pool Stopwatch Session Billing (`sessions.js`)
+- Digital referee stopwatch for walk-in pool and snooker tables.
+- Staff start a session upon arrival; the system computes elapsed time down to the minute, calculates total bill based on hourly rate tables, logs payment mode, and closes out table availability.
+
 ---
 
 ## 6. Complete API Reference
@@ -370,6 +403,85 @@ All routes are mounted under `/api`.
 | `PATCH`| `/bookings/:id/check-in` | Bearer | Staff mark booking checked-in |
 | `POST` | `/bookings/:id/extend` | Bearer | Extend active slot by +1 hour |
 | `GET` | `/v/:action/:code/:token` | Public | 1-tap secure admin action link (approve/reject) |
+
+### 6.6 Facilities & Slots (`/api/facilities` & `/api/slots`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/facilities` | Public | List active turfs and game tables (cached in Redis) |
+| `GET` | `/facilities/admin` | Bearer | Admin list of all facilities including inactive/drafts |
+| `POST` | `/facilities` | Bearer | Create a new sports facility |
+| `PUT` | `/facilities/:id` | Bearer | Update rates, opening/closing hours, resource mapping |
+| `PATCH`| `/facilities/:id/toggle` | Bearer | Instant toggle active/inactive status |
+| `POST` | `/facilities/upload` | Bearer | Upload facility cover image to Cloudinary |
+| `GET` | `/slots` | Public | JIT slot query for date and facility with real-time status |
+| `POST` | `/slots/bulk` | Bearer | Bulk generator for custom holiday or special pricing slots |
+| `PATCH`| `/slots/:id` | Bearer | Lock, unlock, or adjust specific slot rate |
+| `DELETE`| `/slots/:id` | Bearer | Remove custom slot override |
+
+### 6.7 Coupons & Discounts (`/api/coupons`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/coupons/validate` | Public | Validate coupon code, check min booking & compute discount |
+| `GET` | `/coupons` | Bearer | Admin view of all discount codes and redemption counts |
+| `POST` | `/coupons` | Bearer | Create coupon (flat ₹ or %, max discount, first-booking rule) |
+| `PUT` | `/coupons/:id` | Bearer | Update coupon rules or limits |
+| `DELETE`| `/coupons/:id` | Bearer | Deactivate/delete coupon |
+
+### 6.8 Tournaments & Registrations (`/api/tournaments`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/tournaments` | Public | List public tournaments with prizes and registration status |
+| `GET` | `/tournaments/:id` | Public | Get tournament details, bracket structure, and rules |
+| `POST` | `/tournaments/:id/register` | Public | Submit team enrollment with captain UPI UTR |
+| `POST` | `/tournaments` | Bearer | Admin create new competitive tournament |
+| `PUT` | `/tournaments/:id` | Bearer | Update tournament dates, prize pool, or banners |
+| `DELETE`| `/tournaments/:id` | Bearer | Archive/delete tournament |
+| `GET` | `/tournaments/:id/registrations` | Bearer | Admin list of registered teams and payment statuses |
+| `PATCH`| `/tournaments/registrations/:regId/status` | Bearer | Approve or reject team registration |
+
+### 6.9 Snooker & Pool Sessions (`/api/sessions`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/sessions/active` | Bearer | List active running stopwatch sessions across all tables |
+| `POST` | `/sessions/start` | Bearer | Start stopwatch timer for table with customer name/phone |
+| `POST` | `/sessions/:id/stop` | Bearer | Stop session timer, calculate bill, and settle payment |
+| `GET` | `/sessions/history` | Bearer | Completed table sessions history ledger |
+
+### 6.10 Operational Expenses & Closures (`/api/expenses` & `/api/closures`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/expenses` | Bearer | Filter expenses by category (Equipment, Utilities, Salary) |
+| `POST` | `/expenses` | Bearer | Log overhead expense with amount, category, and date |
+| `DELETE`| `/expenses/:id` | Bearer | Remove logged expense entry |
+| `GET` | `/closures` | Public | List upcoming maintenance or holiday closures |
+| `POST` | `/closures` | Bearer | Add turf-specific or global facility blackout date |
+| `DELETE`| `/closures/:id` | Bearer | Reopen arena on closed date |
+
+### 6.11 Staff RBAC & Identity (`/api/auth` & `/api/staff`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/auth/login` | Public | Admin email + password authentication (returns JWT) |
+| `POST` | `/auth/pin-login` | Public | Staff 6-digit numeric PIN fast login |
+| `POST` | `/auth/forgot-password` | Public | Request password recovery email |
+| `POST` | `/auth/reset-password` | Public | Set new password with secure token |
+| `GET` | `/staff` | Bearer | List staff members and permission sets (`allowed_tabs`) |
+| `POST` | `/staff` | Bearer | Create staff account with role and assigned access tabs |
+| `PUT` | `/staff/:id` | Bearer | Update staff permissions or role |
+| `POST` | `/staff/:id/reset-pin` | Bearer | Reset staff 6-digit terminal PIN |
+| `DELETE`| `/staff/:id` | Bearer | Deactivate staff user |
+
+### 6.12 Arena Settings, Gallery & Testimonials (`/api/settings`, `/api/gallery`, `/api/testimonials`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/settings` | Public | Get public settings (UPI ID, QR URL, timings, phone, Google Rating) |
+| `PUT` | `/settings` | Bearer | Update arena configuration, UPI details, and tax rates |
+| `POST` | `/settings/upload-qr` | Bearer | Upload official arena UPI QR graphic to Cloudinary |
+| `GET` | `/gallery` | Public | Fetch gallery media assets sorted by display order |
+| `POST` | `/gallery` | Bearer | Add new gallery image via Cloudinary CDN |
+| `DELETE`| `/gallery/:id` | Bearer | Remove gallery image asset |
+| `GET` | `/testimonials` | Public | List approved player reviews and star ratings |
+| `POST` | `/testimonials` | Bearer | Create featured testimonial |
+| `PATCH`| `/testimonials/:id/feature` | Bearer | Toggle display on public homepage |
 
 ---
 
@@ -456,7 +568,94 @@ To ensure MacroDroid runs 24/7 without being killed by Android power management:
 
 ---
 
-## 9. Summary & Competitive Advantages
+## 9. Environment Variables Reference
+
+Create a `.env` file in the `backend/` directory based on the following reference:
+
+| Variable | Required | Default / Format | Description |
+|---|---|---|---|
+| `PORT` | No | `5000` | Backend Express server port |
+| `DATABASE_URL` | **Yes** | `postgresql://user:pass@host:5432/dbname?sslmode=require` | Neon PostgreSQL pooled connection URI |
+| `JWT_SECRET` | **Yes** | String (32+ chars) | Secret key for signing stateless authentication JWTs |
+| `FRONTEND_URL` | No | `http://localhost:5173` | Allowed CORS origin for web client |
+| `GEMINI_API_KEY` | **Yes** | Google AI Studio Key | Powers Vision OCR, WhatsApp conversational bot, and BI synthesis |
+| `WHATSAPP_TOKEN` | **Yes** | Meta System User Token | Permanent Cloud API Bearer access token |
+| `PHONE_NUMBER_ID` | **Yes** | 15-digit ID | Meta WhatsApp Cloud API registered phone number ID |
+| `WHATSAPP_VERIFY_TOKEN`| No | `trimurti_arena_secret_2026` | Webhook verification token configured in Meta App Dashboard |
+| `WHATSAPP_WABA_ID` | No | Numeric ID | WhatsApp Business Account ID |
+| `BANK_SMS_SECRET` | No | `trimurti_bank_secret_2026` | MacroDroid webhook auth token for bank SMS alerts |
+| `RETENTION_SECRET` | No | `trimurti_retention_secret_2026`| cron-job.org auth token for Thursday churn predictor |
+| `BI_SECRET` | No | `trimurti_bi_secret_2026` | cron-job.org auth token for Monday executive summary |
+| `MISSED_CALL_SECRET` | No | `trimurti_missed_call_2026` | MacroDroid missed-call trigger secret |
+| `CRON_SECRET` | No | String | Secret key for 15-minute ghost booking cleanup |
+| `CLOUDINARY_CLOUD_NAME`| **Yes**| Cloudinary ID | Image storage for venue photos, UPI QR code, and tournament posters |
+| `CLOUDINARY_API_KEY` | **Yes** | Cloudinary API Key | Media upload authentication key |
+| `CLOUDINARY_API_SECRET`| **Yes** | Cloudinary Secret | Media upload signing secret |
+| `REDIS_URL` | No | `redis://localhost:6379` | Optional caching & rate limiter layer (falls back to memory if absent) |
+| `RAZORPAY_KEY_ID` | No | `rzp_test_...` / `rzp_live_...` | Razorpay API key ID for online gateway checkouts |
+| `RAZORPAY_KEY_SECRET` | No | Razorpay Secret | Signature verification key for Razorpay webhooks |
+| `BREVO_API_KEY` | No | Brevo v3 Key | Dual-provider transactional email service |
+| `BREVO_SENDER_EMAIL` | No | `hello@shritrimurtifitnessclub.in`| Verified sender email address |
+| `RESEND_API_KEY` | No | `re_...` | Secondary transactional email fallback provider |
+
+---
+
+## 10. Development, Testing & Operations Runbook
+
+### 10.1 Initial Project Setup
+```bash
+# 1. Clone the repository
+git clone https://github.com/shritrimurtifitness/Shri-Trimurti-Fitness-Club.git
+cd ShriTrimurtiFitness
+
+# 2. Install backend dependencies
+cd backend && npm install
+
+# 3. Install frontend dependencies
+cd ../frontend && npm install
+```
+
+### 10.2 Database Provisioning (Neon PostgreSQL)
+```bash
+# Connect to your Neon PostgreSQL instance and execute the schema:
+psql "$DATABASE_URL" -f database_schema.sql
+```
+*(Note: The backend also runs automated schema migrations on startup to ensure all indexes, enum types, and foreign keys are intact).*
+
+### 10.3 Running the Development Servers
+```bash
+# Terminal 1: Start Backend API (Port 5000 with nodemon live reload)
+cd backend
+npm run dev
+
+# Terminal 2: Start Frontend Web Client (Port 5173 with Vite HMR)
+cd frontend
+npm run dev
+```
+
+### 10.4 Running Automated Verification Test Suites
+The project includes self-contained end-to-end automated test suites in the `scratch/` directory:
+```bash
+# 1. Test Bank SMS Auto-Verification Engine (10/10 test cases)
+node scratch/test_bank_sms_e2e.js
+
+# 2. Test Smart Churn & Squad Retention Predictor (8/8 test cases)
+node scratch/test_retention_e2e.js
+
+# 3. Test Weekly BI Executive Summary & SQL Math (19/19 test cases)
+node scratch/test_weekly_bi_e2e.js
+```
+
+### 10.5 Frontend Production Build
+```bash
+cd frontend
+npm run build
+# Compiles optimized bundles to frontend/dist with Workbox Service Worker assets
+```
+
+---
+
+## 11. Summary & Competitive Advantages
 
 1. **Zero-Touch Financial Operations:** Direct UPI payments are automatically reconciled and approved in under 3 seconds via Bank SMS webhooks, eliminating manual bank statement checks.
 2. **Conversational Multi-Channel Commerce:** Customers can book on the web, chat with the AI WhatsApp bot, or simply give a missed call to receive an instant booking menu.
