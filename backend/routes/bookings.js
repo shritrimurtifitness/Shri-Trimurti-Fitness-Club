@@ -471,26 +471,29 @@ router.get('/verify-qr/:token', async (req, res) => {
     const isExpired = now > slotEnd;
     const isFuture = now < slotStart;
     const isActive = now >= slotStart && now <= slotEnd;
+    const isPaymentConfirmed = b.status === 'confirmed' && (b.payment_status === 'paid' || b.payment_status === 'completed');
+    const canCheckIn = isActive && !b.checked_in_at && isPaymentConfirmed;
 
     res.json({ 
       booking: b, 
       timing: { isExpired, isFuture, isActive },
-      canCheckIn: isActive && !b.checked_in_at && b.status !== 'cancelled'
+      isPaymentConfirmed,
+      canCheckIn
     });
   } catch (err) {
     res.status(500).json({ error: 'Verification failed: ' + err.message });
   }
 });
 
-// Staff: Mark as Checked-In
+// Staff: Mark as Checked-In (Requires status to be confirmed)
 router.patch('/:id/check-in', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      "UPDATE bookings SET checked_in_at = NOW() WHERE id = $1 AND checked_in_at IS NULL RETURNING *",
+      "UPDATE bookings SET checked_in_at = NOW() WHERE id = $1 AND checked_in_at IS NULL AND status = 'confirmed' RETURNING *",
       [id]
     );
-    if (result.rows.length === 0) return res.status(400).json({ error: 'Already checked in or booking not found' });
+    if (result.rows.length === 0) return res.status(400).json({ error: 'Cannot check in: Booking is not confirmed or already checked in' });
     
     req.app.get('io').emit('booking_updated');
     res.json(result.rows[0]);

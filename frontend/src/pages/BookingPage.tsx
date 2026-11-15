@@ -489,14 +489,20 @@ export default function BookingPage() {
 
       if (res.data.success) {
         const booked = res.data.bookings ? res.data.bookings[0] : res.data.booking;
-        setConfirmedBooking(booked);
-        confetti({
-          particleCount: 150,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#39FF14', '#10b981', '#34d399']
-        });
-        toast.success("Booking submitted! Payment verification is underway.");
+        const isApproved = res.data.autoApproved || booked?.status === 'confirmed';
+        setConfirmedBooking({ ...booked, status: isApproved ? 'confirmed' : 'pending_verification' });
+        
+        if (isApproved) {
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#39FF14', '#10b981', '#34d399']
+          });
+          toast.success("Payment verified instantly via Bank SMS! Your slot is confirmed.");
+        } else {
+          toast.info("Booking submitted! Payment verification is underway.");
+        }
         setStep("pending_approval");
       }
     } catch (err: any) {
@@ -1321,11 +1327,24 @@ export default function BookingPage() {
                         </div>
                       </div>
 
-                      {confirmedBooking?.qr_token && (
+                      {confirmedBooking?.status === 'confirmed' && confirmedBooking?.qr_token ? (
                         <div className="my-5 p-4 rounded-2xl bg-white text-zinc-900 border border-zinc-200 flex flex-col items-center justify-center text-center shadow-sm">
                           <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 mb-2">Official Gate Entry Pass</p>
                           <QRCodeSVG value={confirmedBooking.qr_token} size={150} level="H" />
                           <p className="text-[11px] text-zinc-600 font-medium mt-2">Show this QR code at turf gate for instant check-in</p>
+                        </div>
+                      ) : (
+                        <div className="my-5 p-5 rounded-2xl bg-amber-500/10 border-2 border-dashed border-amber-500/30 flex flex-col items-center justify-center text-center shadow-sm">
+                          <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mb-2.5">
+                            <Lock className="w-6 h-6 animate-pulse" />
+                          </div>
+                          <p className="text-xs font-bold text-amber-300 uppercase tracking-wider">Gate Entry Pass Locked</p>
+                          <p className="text-[11px] text-muted-foreground mt-1 max-w-xs leading-relaxed">
+                            Your official entry QR pass will unlock automatically here as soon as our bank SMS or arena staff verifies your UPI transfer.
+                          </p>
+                          <div className="mt-3 flex items-center gap-1.5 text-[10px] text-amber-400 font-medium bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                            <Clock className="w-3 h-3 animate-spin" /> Auto-unlocks in real time
+                          </div>
                         </div>
                       )}
 
@@ -1369,7 +1388,11 @@ export default function BookingPage() {
                     className="w-full h-auto min-h-[48px] py-3 px-4 rounded-xl font-bold border-2 whitespace-normal text-xs sm:text-sm text-center leading-snug"
                   >
                     <Download className="mr-2 w-4 h-4 shrink-0" />
-                    <span>Download Booking Receipt</span>
+                    <span>
+                      {confirmedBooking?.status === 'confirmed'
+                        ? "Download Official Gate Pass & Receipt"
+                        : "Download Booking Receipt (Pending Verification)"}
+                    </span>
                   </Button>
                   <Button
                     onClick={resetBooking}

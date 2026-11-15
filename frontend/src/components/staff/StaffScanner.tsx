@@ -174,13 +174,15 @@ export default function StaffScanner() {
                    <div>
                       <h3 className="text-xl font-bold">
                         {scanResult.timing.isExpired ? "Access Denied" :
+                         scanResult.booking.status !== 'confirmed' ? "Payment Pending" :
                          scanResult.booking.checked_in_at ? "Already Entered" :
                          scanResult.timing.isFuture ? "Too Early" : "Access Granted"}
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         {scanResult.timing.isExpired ? "This session has expired." :
-                         scanResult.booking.checked_in_at ? "Passenger has already checked in." :
-                         scanResult.timing.isFuture ? "The player is early for their slot." : "Valid entry pass found."}
+                         scanResult.booking.status !== 'confirmed' ? "Booking payment is not yet verified. Please verify bank SMS or collect cash." :
+                         scanResult.booking.checked_in_at ? "Player has already checked in." :
+                         scanResult.timing.isFuture ? "The player is early for their slot." : "Valid entry pass verified."}
                       </p>
                    </div>
                 </div>
