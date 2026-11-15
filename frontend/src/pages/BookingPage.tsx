@@ -1138,9 +1138,13 @@ export default function BookingPage() {
                         <label className="text-xs font-bold text-foreground block uppercase tracking-wider">
                           {requiresFullUtr ? "Enter Full 12-Digit UPI Ref ID" : "Enter Last 4 Digits of UPI Ref ID"}
                         </label>
-                        {requiresFullUtr && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
-                            Previous 4-Digit Match • Full UTR Required
+                        {requiresFullUtr ? (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                            ⚠️ Previous 4-Digit Match • Full UTR Required
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-mono text-muted-foreground font-semibold">
+                            {utrNumber.trim().length}/4 digits
                           </span>
                         )}
                       </div>
@@ -1151,8 +1155,17 @@ export default function BookingPage() {
                           onChange={(e) => setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
                           placeholder={requiresFullUtr ? "e.g. 431289018901" : "e.g. 8901"}
                           maxLength={22}
-                          className="bg-background border-border font-mono text-base font-bold tracking-wider"
+                          className={`bg-background border-2 font-mono text-base font-bold tracking-wider transition-all ${
+                            utrNumber.trim().length >= (requiresFullUtr ? 12 : 4)
+                              ? "border-[#39FF14] shadow-[0_0_12px_rgba(57,255,20,0.25)]"
+                              : "border-border focus:border-[#39FF14]"
+                          }`}
                         />
+                        {utrNumber.trim().length >= (requiresFullUtr ? 12 : 4) && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#39FF14] flex items-center gap-1">
+                            <Check className="w-4 h-4" /> Ready
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
                         {requiresFullUtr ? (
@@ -1160,7 +1173,7 @@ export default function BookingPage() {
                             ⚠️ The 4-digit code was previously used for another booking. Please enter the full 12-digit UPI Ref ID from your payment receipt to verify.
                           </span>
                         ) : (
-                          <>💡 Found in your payment app under: <em>UPI Ref ID</em> or <em>UTR</em> (enter last 4 digits).</>
+                          <>💡 Found in your payment app under: <em>UPI Ref ID</em>, <em>UTR</em>, or <em>Transaction ID</em> (enter last 4 digits).</>
                         )}
                       </p>
                     </div>

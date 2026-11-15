@@ -906,11 +906,12 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       });
     }
 
-    // Check duplicate UTR across all time
-    const dupRes = await pool.query(
-      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')",
-      [cleanUtr]
-    );
+    // Check duplicate UTR across all time (4-digit suffix collision or exact 12-digit match)
+    const dupBotQuery = cleanUtr.length < 10
+      ? "SELECT id FROM bookings WHERE (utr_number = $1 OR utr_number LIKE '%' || $1) AND status NOT IN ('cancelled', 'rejected')"
+      : "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')";
+
+    const dupRes = await pool.query(dupBotQuery, [cleanUtr]);
     if (dupRes.rows.length > 0) {
       if (cleanUtr.length < 10) {
         // Player entered only 4 digits and it collided with an older booking

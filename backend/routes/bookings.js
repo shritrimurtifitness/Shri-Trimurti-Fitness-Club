@@ -876,11 +876,12 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Please enter at least the last 4 digits of your UPI Ref ID' });
     }
 
-    // Check duplicate UTR across all time
-    const duplicateUtr = await pool.query(
-      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')",
-      [cleanUtr]
-    );
+    // Check duplicate UTR across all time (4-digit suffix collision or exact 12-digit match)
+    const duplicateQuery = cleanUtr.length < 10
+      ? "SELECT id FROM bookings WHERE (utr_number = $1 OR utr_number LIKE '%' || $1) AND status NOT IN ('cancelled', 'rejected')"
+      : "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')";
+
+    const duplicateUtr = await pool.query(duplicateQuery, [cleanUtr]);
     if (duplicateUtr.rows.length > 0) {
       if (cleanUtr.length < 10) {
         return res.status(400).json({

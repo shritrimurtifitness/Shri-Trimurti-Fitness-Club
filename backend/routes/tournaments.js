@@ -403,15 +403,17 @@ router.post('/:id/register', async (req, res) => {
       return res.status(400).json({ error: 'Tournament is already full' });
     }
 
-    // Check duplicate UTR across all time
-    const dupUtr = await pool.query(
-      "SELECT id FROM tournament_registrations WHERE utr_number = $1 AND payment_status NOT IN ('cancelled', 'rejected')",
-      [utr_number.trim()]
-    );
+    // Check duplicate UTR across all time (4-digit suffix collision or exact 12-digit match)
+    const cleanUtr = utr_number.trim();
+    const dupQuery = cleanUtr.length < 10
+      ? "SELECT id FROM tournament_registrations WHERE (utr_number = $1 OR utr_number LIKE '%' || $1) AND payment_status NOT IN ('cancelled', 'rejected')"
+      : "SELECT id FROM tournament_registrations WHERE utr_number = $1 AND payment_status NOT IN ('cancelled', 'rejected')";
+
+    const dupUtr = await pool.query(dupQuery, [cleanUtr]);
     if (dupUtr.rows.length > 0) {
-      if (utr_number.trim().length < 10) {
+      if (cleanUtr.length < 10) {
         return res.status(400).json({
-          error: `The 4-digit reference (${utr_number.trim()}) was previously used for another registration. Please enter your full 12-digit UPI Ref ID from your payment receipt to verify.`,
+          error: `The 4-digit reference (${cleanUtr}) was previously used for another registration. Please enter your full 12-digit UPI Ref ID from your payment receipt to verify.`,
           requiresFullUtr: true,
         });
       }
