@@ -30,6 +30,7 @@ import AdminScanner from "./pages/admin/AdminScanner";
 import AdminPresence from "./pages/admin/AdminPresence";
 import AdminStaff from "./pages/admin/AdminStaff";
 import AdminCoupons from "./pages/admin/AdminCoupons";
+import AdminRetention from "./pages/admin/AdminRetention";
 import StaffLogin from "./pages/StaffLogin";
 import ForgotPassword from "./pages/admin/ForgotPassword";
 import ResetPassword from "./pages/admin/ResetPassword";
@@ -103,6 +104,7 @@ const App = () => (
               <Route path="analytics" element={<AdminAnalytics />} />
               <Route path="finance" element={<AdminFinance />} />
               <Route path="coupons" element={<AdminCoupons />} />
+              <Route path="retention" element={<AdminRetention />} />
               <Route path="pricing" element={<AdminPricing />} />
               <Route path="gallery" element={<AdminGallery />} />
               <Route path="testimonials" element={<AdminTestimonials />} />

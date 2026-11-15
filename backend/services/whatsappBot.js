@@ -1576,6 +1576,85 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
   }
 
   // ----------------------------------------------------
+  // Churn Outreach Re-Engagement Response Hook
+  // If player replies "yes", "book", "ha", "haan", "reserve", "lock it"
+  // ----------------------------------------------------
+  if (
+    !activeSession &&
+    ['yes', 'ha', 'haan', 'book', 'lock', 'lock it', 'reserve', 'pls book', 'please book', 'karo book', 'book karo'].includes(normalizedText)
+  ) {
+    try {
+      const fromClean = normalizeTo10Digits(from);
+      const outreachRes = await pool.query(`
+        SELECT col.*, s.date, s.start_time, s.end_time, s.price, s.is_available,
+               t.name as turf_name, t.facility_type
+        FROM churn_outreach_logs col
+        JOIN slots s ON col.target_slot_id = s.id
+        JOIN turfs t ON s.turf_id = t.id
+        WHERE (col.customer_phone = $1 OR col.customer_phone = $2)
+          AND col.status IN ('drafted', 'sent')
+          AND col.created_at > NOW() - INTERVAL '7 days'
+          AND s.date >= CURRENT_DATE
+          AND s.is_available = true
+          AND NOT EXISTS (
+            SELECT 1 FROM bookings b
+            WHERE b.slot_id = s.id
+              AND b.status NOT IN ('cancelled', 'rejected')
+          )
+        ORDER BY col.created_at DESC
+        LIMIT 1
+      `, [fromClean, `91${fromClean}`]);
+
+      if (outreachRes.rows.length > 0) {
+        const match = outreachRes.rows[0];
+        const slotTimeStr = `${match.start_time.substring(0, 5)} - ${match.end_time.substring(0, 5)}`;
+        const dateStr = typeof match.date === 'string' ? match.date.substring(0, 10) : new Date(match.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+        setBookingSession(from, {
+          state: 'AWAITING_PAYMENT',
+          slotId: match.target_slot_id,
+          turfId: match.preferred_turf_id,
+          turfName: match.turf_name,
+          date: dateStr,
+          timeStr: slotTimeStr,
+          price: Number(match.price) || 800,
+          userName: match.customer_name || userName || 'WhatsApp Player',
+        });
+
+        await pool.query(
+          "UPDATE churn_outreach_logs SET status = 'converted' WHERE id = $1",
+          [match.id]
+        );
+
+        const qrImageUrl = 'https://res.cloudinary.com/dm9owuqhs/image/upload/v1773400000/shri-trimurti/upi-qr-code.png';
+        const promptPayMsg =
+`🎉 *WELCOME BACK, CAPTAIN!* 🏏⚽
+
+We have locked your favorite slot:
+🏟️ *Facility:* ${match.turf_name}
+📅 *Date:* ${dateStr}
+⏰ *Time:* ${slotTimeStr}
+💰 *Payable:* ₹${match.price}
+
+📲 *HOW TO CONFIRM:*
+1. Scan the UPI QR code below with GPay, PhonePe, or Paytm.
+2. Transfer ₹${match.price}.
+3. Reply here with the *last 4 digits of your UPI Ref ID* (or send a payment screenshot).
+
+🔒 *Your slot is held exclusively for 15 minutes!*`;
+
+        return sendImageMessage({
+          to: from,
+          imageUrl: qrImageUrl,
+          caption: promptPayMsg,
+        });
+      }
+    } catch (reEngageErr) {
+      console.error('[RE-ENGAGE HOOK ERROR]', reEngageErr.message);
+    }
+  }
+
+  // ----------------------------------------------------
   // B. Handle Direct Slot Selection (e.g. BOOK_SLOT_<uuid>)
   // ----------------------------------------------------
   if (payload.startsWith('BOOK_SLOT_')) {

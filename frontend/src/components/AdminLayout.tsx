@@ -54,6 +54,7 @@ const sidebarGroups: SidebarGroup[] = [
   {
     title: "Marketing",
     links: [
+      { name: "Squad Retention", path: "/admin/retention", icon: Users },
       { name: "Gallery", path: "/admin/gallery", icon: LucideImage },
       { name: "Testimonials", path: "/admin/testimonials", icon: MessageSquare },
       { name: "Ad Studio", path: "/admin/ads", icon: Megaphone },
