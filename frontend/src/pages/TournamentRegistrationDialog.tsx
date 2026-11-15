@@ -56,6 +56,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
 
   // UPI payment & UPI Ref ID state
   const [utrNumber, setUtrNumber] = useState("");
+  const [requiresFullUtr, setRequiresFullUtr] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -101,6 +102,7 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
       setIsOtpVerified(false);
       setWaLink("");
       setUtrNumber("");
+      setRequiresFullUtr(false);
       setIsSuccess(false);
       setSubmittedUtr("");
     }
@@ -221,8 +223,9 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
   const handleSubmitRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUtr = utrNumber.trim();
-    if (cleanUtr.length < 4) {
-      return toast.error("Please enter at least the last 4 digits of UPI Ref ID");
+    const minLength = requiresFullUtr ? 10 : 4;
+    if (cleanUtr.length < minLength) {
+      return toast.error(requiresFullUtr ? "Please enter your full 12-digit UPI Ref ID" : "Please enter at least the last 4 digits of UPI Ref ID");
     }
 
     setIsSubmitting(true);
@@ -240,6 +243,9 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
       toast.success("Tournament registration submitted! Confirmation sent to your contact details.");
     } catch (err: any) {
       console.error("Registration error:", err);
+      if (err.response?.data?.requiresFullUtr) {
+        setRequiresFullUtr(true);
+      }
       toast.error(err.response?.data?.error || "Registration failed. Please check details.");
     } finally {
       setIsSubmitting(false);
@@ -667,29 +673,35 @@ export default function TournamentRegistrationDialog({ tournament, isOpen, onClo
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Last 4 Digits of UPI Ref ID
+                  {requiresFullUtr ? "Full 12-Digit UPI Ref ID" : "Last 4 Digits of UPI Ref ID"}
                 </Label>
                 <span className="text-[11px] font-mono text-muted-foreground">
-                  {utrNumber.trim().length}/4
+                  {requiresFullUtr ? `${utrNumber.trim().length}/12` : `${utrNumber.trim().length}/4`}
                 </span>
               </div>
               <Input
                 type="text"
-                placeholder="e.g. 5678"
+                placeholder={requiresFullUtr ? "e.g. 431289015678" : "e.g. 5678"}
                 value={utrNumber}
                 onChange={(e) => setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))}
-                maxLength={16}
+                maxLength={24}
                 required
                 className="bg-background font-mono font-bold text-sm tracking-wider uppercase"
               />
               <p className="text-[10px] text-muted-foreground">
-                Found on your payment success screen in GPay, PhonePe, Paytm, or your bank app (enter last 4 digits).
+                {requiresFullUtr ? (
+                  <span className="text-amber-400 font-medium">
+                    ⚠️ The 4-digit code was previously used for another registration. Please enter the full 12-digit UPI Ref ID from your payment receipt to verify.
+                  </span>
+                ) : (
+                  <>Found on your payment success screen in GPay, PhonePe, Paytm, or your bank app (enter last 4 digits).</>
+                )}
               </p>
             </div>
 
             <Button
               type="submit"
-              disabled={isSubmitting || utrNumber.trim().length < 4}
+              disabled={isSubmitting || utrNumber.trim().length < (requiresFullUtr ? 10 : 4)}
               className="w-full h-11 text-base font-bold bg-gradient-turf text-primary-foreground shadow-turf transition-all hover:opacity-95"
             >
               {isSubmitting ? (

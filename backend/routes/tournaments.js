@@ -402,13 +402,19 @@ router.post('/:id/register', async (req, res) => {
       return res.status(400).json({ error: 'Tournament is already full' });
     }
 
-    // Check duplicate UTR within active 48 hours
+    // Check duplicate UTR across all time
     const dupUtr = await pool.query(
-      "SELECT id FROM tournament_registrations WHERE utr_number = $1 AND payment_status NOT IN ('cancelled', 'rejected') AND created_at > NOW() - INTERVAL '48 hours'",
+      "SELECT id FROM tournament_registrations WHERE utr_number = $1 AND payment_status NOT IN ('cancelled', 'rejected')",
       [utr_number.trim()]
     );
     if (dupUtr.rows.length > 0) {
-      return res.status(400).json({ error: 'This UPI Ref ID has already been submitted for a registration' });
+      if (utr_number.trim().length < 10) {
+        return res.status(400).json({
+          error: `The 4-digit reference (${utr_number.trim()}) was previously used for another registration. Please enter your full 12-digit UPI Ref ID from your payment receipt to verify.`,
+          requiresFullUtr: true,
+        });
+      }
+      return res.status(400).json({ error: 'This 12-digit UPI Ref ID has already been submitted for a registration' });
     }
 
     // Create registration with pending_verification

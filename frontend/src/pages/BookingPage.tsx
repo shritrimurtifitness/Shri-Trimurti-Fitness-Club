@@ -58,6 +58,7 @@ export default function BookingPage() {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [utrNumber, setUtrNumber] = useState("");
+  const [requiresFullUtr, setRequiresFullUtr] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [upiSettings, setUpiSettings] = useState({
     upi_id: "harshvardhanp@slc",
@@ -469,8 +470,9 @@ export default function BookingPage() {
 
   const handleConfirmUpiBooking = async () => {
     if (!selectedSlot) return;
-    if (!utrNumber || utrNumber.trim().length < 4) {
-      toast.error("Please enter the last 4 digits of UPI Ref ID from your payment app");
+    const minLength = requiresFullUtr ? 10 : 4;
+    if (!utrNumber || utrNumber.trim().length < minLength) {
+      toast.error(requiresFullUtr ? "Please enter the full 12-digit UPI Ref ID" : "Please enter the last 4 digits of UPI Ref ID from your payment app");
       return;
     }
     setIsSubmitting(true);
@@ -499,6 +501,9 @@ export default function BookingPage() {
       }
     } catch (err: any) {
       console.error("Booking submission failed:", err);
+      if (err.response?.data?.requiresFullUtr) {
+        setRequiresFullUtr(true);
+      }
       toast.error(err.response?.data?.error || "Booking submission failed");
     } finally {
       setIsSubmitting(false);
@@ -517,6 +522,7 @@ export default function BookingPage() {
     setAppliedCoupon(null);
     setCouponDiscount(0);
     setFirstTimeOffer(null);
+    setRequiresFullUtr(false);
   };
 
   const stepIndex = ["facility", "date", "slot", "details", "confirm"].indexOf(step);
@@ -1090,21 +1096,34 @@ export default function BookingPage() {
 
                     {/* UPI Ref ID Input Section */}
                     <div className="border-t border-border pt-4 space-y-2">
-                      <label className="text-xs font-bold text-foreground block uppercase tracking-wider">
-                        Enter Last 4 Digits of UPI Ref ID
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-foreground block uppercase tracking-wider">
+                          {requiresFullUtr ? "Enter Full 12-Digit UPI Ref ID" : "Enter Last 4 Digits of UPI Ref ID"}
+                        </label>
+                        {requiresFullUtr && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                            Previous 4-Digit Match • Full UTR Required
+                          </span>
+                        )}
+                      </div>
                       <div className="relative">
                         <Input
                           type="text"
                           value={utrNumber}
                           onChange={(e) => setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
-                          placeholder="e.g. 8901"
-                          maxLength={16}
+                          placeholder={requiresFullUtr ? "e.g. 431289018901" : "e.g. 8901"}
+                          maxLength={22}
                           className="bg-background border-border font-mono text-base font-bold tracking-wider"
                         />
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        💡 Found in your payment app under: <em>UPI Ref ID</em> or <em>UTR</em> (enter last 4 digits).
+                        {requiresFullUtr ? (
+                          <span className="text-amber-400 font-medium">
+                            ⚠️ The 4-digit code was previously used for another booking. Please enter the full 12-digit UPI Ref ID from your payment receipt to verify.
+                          </span>
+                        ) : (
+                          <>💡 Found in your payment app under: <em>UPI Ref ID</em> or <em>UTR</em> (enter last 4 digits).</>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -1112,7 +1131,7 @@ export default function BookingPage() {
                   <div className="flex gap-3">
                     <Button variant="outline" onClick={() => setStep("details")} className="flex-1">Back</Button>
                     <Button
-                      disabled={isSubmitting || !utrNumber || utrNumber.trim().length < 4}
+                      disabled={isSubmitting || !utrNumber || utrNumber.trim().length < (requiresFullUtr ? 10 : 4)}
                       onClick={handleConfirmUpiBooking}
                       className="flex-1 bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-90 disabled:opacity-50"
                     >

@@ -844,13 +844,19 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Please enter at least the last 4 digits of your UPI Ref ID' });
     }
 
-    // Check duplicate UTR within active 48 hours
+    // Check duplicate UTR across all time
     const duplicateUtr = await pool.query(
-      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected') AND created_at > NOW() - INTERVAL '48 hours'",
+      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')",
       [cleanUtr]
     );
     if (duplicateUtr.rows.length > 0) {
-      return res.status(400).json({ error: 'This UPI Ref ID has already been submitted for another booking' });
+      if (cleanUtr.length < 10) {
+        return res.status(400).json({
+          error: `The 4-digit reference (${cleanUtr}) was previously used for another booking. Please enter your full 12-digit UPI Ref ID from your payment receipt to verify.`,
+          requiresFullUtr: true,
+        });
+      }
+      return res.status(400).json({ error: 'This 12-digit UPI Ref ID has already been submitted for another booking' });
     }
 
     // Check OTP verification: Either Email OR WhatsApp Phone must be verified

@@ -904,16 +904,24 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       });
     }
 
-    // Check duplicate UTR within active 48 hours window
+    // Check duplicate UTR across all time
     const dupRes = await pool.query(
-      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected') AND created_at > NOW() - INTERVAL '48 hours'",
+      "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')",
       [cleanUtr]
     );
     if (dupRes.rows.length > 0) {
+      if (cleanUtr.length < 10) {
+        // Player entered only 4 digits and it collided with an older booking
+        return sendTextMessage({
+          to: from,
+          text: `⚠️ The 4-digit reference (*${cleanUtr}*) was previously used for another booking in our records.\n\nTo verify your new transaction, please reply here with your *full 12-digit UPI Ref ID* from your payment receipt (e.g. \`43128901${cleanUtr}\`).\n\n*(Or upload your payment screenshot)*`,
+        });
+      }
+
       return sendInteractiveButtons({
         to: from,
         headerText: 'Duplicate UPI Ref ID',
-        bodyText: `⚠️ The UPI Ref ID (*${cleanUtr}*) has already been submitted for another booking.\n\nPlease check your receipt or contact our desk if this is an error.`,
+        bodyText: `⚠️ The 12-digit UPI Ref ID (*${cleanUtr}*) has already been verified for another booking.\n\nPlease check your receipt or contact our desk if this is an error.`,
         buttons: [
           { id: 'BTN_STAFF', title: '👤 Call Staff' },
           { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
