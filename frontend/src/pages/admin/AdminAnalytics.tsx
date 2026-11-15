@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { IndianRupee, TrendingUp, Users, Calendar, Clock, Activity } from "lucide-react";
+import { IndianRupee, TrendingUp, Users, Calendar, Clock, Activity, Sparkles, MessageSquare, RefreshCw, Send, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, Legend, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,19 @@ const tooltipStyle = {
 export default function AdminAnalytics() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [weeklySummaries, setWeeklySummaries] = useState<any[]>([]);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const fetchSummaries = useCallback(async () => {
+    try {
+      const res = await api.get('/analytics/weekly-summaries?limit=6');
+      if (res.data.success) {
+        setWeeklySummaries(res.data.summaries || []);
+      }
+    } catch {}
+  }, []);
+
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     try {
@@ -35,7 +49,23 @@ export default function AdminAnalytics() {
 
   useEffect(() => {
     fetchAnalytics();
-  }, [fetchAnalytics]);
+    fetchSummaries();
+  }, [fetchAnalytics, fetchSummaries]);
+
+  const generateLiveSummary = async () => {
+    try {
+      setGeneratingSummary(true);
+      const res = await api.post('/analytics/weekly-executive-summary?trailing=true');
+      if (res.data.success) {
+        toast.success(`Executive Summary generated for ${res.data.period}! Dispatched to WhatsApp.`);
+        fetchSummaries();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to generate executive summary");
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
 
   const sportData = (data?.revenueBySport || []).map((s: any) => ({
     name: s.type.charAt(0).toUpperCase() + s.type.slice(1),
@@ -54,6 +84,17 @@ export default function AdminAnalytics() {
         <div>
           <h2 className="text-2xl font-heading font-bold text-foreground">Operational Insights</h2>
           <p className="text-xs text-muted-foreground mt-0.5">Real-time performance metrics across all facilities.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={generateLiveSummary}
+            disabled={generatingSummary}
+            size="sm"
+            className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm h-8 text-xs font-semibold"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${generatingSummary ? "animate-spin" : ""}`} />
+            <span>{generatingSummary ? "Generating Executive Brief..." : "Generate Live Executive Summary"}</span>
+          </Button>
         </div>
       </div>
 
@@ -152,6 +193,67 @@ export default function AdminAnalytics() {
               <Area type="monotone" dataKey="bookings" stroke="hsl(142 76% 36%)" strokeWidth={2} fill="url(#colorPeak)" />
             </AreaChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Weekly Executive Summary Card */}
+      {weeklySummaries.length > 0 && (
+        <div className="rounded-2xl border border-border/80 bg-card/60 p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-base text-foreground flex items-center gap-2">
+                  <span>Weekly Executive Intelligence Brief</span>
+                  <Badge variant="outline" className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                    Auto-Delivered Mon 8 AM
+                  </Badge>
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Period: {weeklySummaries[0].period_start} to {weeklySummaries[0].period_end}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowHistory(!showHistory)}
+                className="text-xs h-7 gap-1"
+              >
+                <span>{showHistory ? "Hide Past Briefs" : `Past Reports (${weeklySummaries.length})`}</span>
+                {showHistory ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Latest Summary Display */}
+          <div className="bg-muted/40 rounded-xl p-4 border border-border/50 text-xs font-mono text-foreground/90 whitespace-pre-wrap leading-relaxed">
+            {weeklySummaries[0].generated_summary_text}
+          </div>
+
+          {/* Past Summaries History Accordion */}
+          {showHistory && weeklySummaries.length > 1 && (
+            <div className="pt-2 space-y-3 border-t border-border/40">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Previous Weekly Reports</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {weeklySummaries.slice(1).map((s: any) => (
+                  <div key={s.id} className="rounded-lg border border-border/50 bg-background/50 p-3 text-xs space-y-1.5">
+                    <div className="flex justify-between items-center font-bold text-foreground">
+                      <span>{s.period_start} – {s.period_end}</span>
+                      <span className="text-emerald-500 font-mono">₹{Number(s.total_revenue).toLocaleString('en-IN')}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground line-clamp-3 font-sans whitespace-pre-wrap">
+                      {s.generated_summary_text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

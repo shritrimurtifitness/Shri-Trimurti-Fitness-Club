@@ -4,6 +4,7 @@ const pool = require('../config/db');
 const authMiddleware = require('../middleware/auth');
 const cache = require('../config/cache');
 const { format } = require('date-fns');
+const weeklyBiService = require('../services/weeklyBiService');
 
 // Comprehensive analytics endpoint
 router.get('/', authMiddleware, async (req, res) => {
@@ -369,6 +370,68 @@ router.post('/finance/settle', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Settle-up error:', err);
     res.status(500).json({ error: 'Failed to settle payments' });
+  }
+});
+
+/**
+ * Weekly Executive Summary Webhook (cron-job.org)
+ * Called every Monday at 8:00 AM IST.
+ * Accepts GET or POST with secret token.
+ */
+async function handleWeeklySummaryWebhook(req, res) {
+  try {
+    const providedSecret =
+      req.headers['x-bi-secret'] ||
+      req.headers['x-cron-secret'] ||
+      req.headers['x-retention-secret'] ||
+      req.query?.secret ||
+      req.body?.secret;
+
+    const validSecrets = [
+      (process.env.BI_SECRET || '').trim(),
+      (process.env.RETENTION_SECRET || '').trim(),
+      (process.env.BANK_SMS_SECRET || '').trim(),
+      'trimurti_bi_secret_2026',
+      'trimurti_retention_secret_2026',
+    ].filter(Boolean);
+
+    const isAuthorized =
+      (req.user && req.user.role === 'admin') ||
+      (providedSecret && validSecrets.includes(providedSecret.trim()));
+
+    if (!isAuthorized) {
+      console.warn('[WEEKLY BI] Unauthorized trigger attempt.');
+      return res.status(401).json({ error: 'Unauthorized: Invalid executive summary secret token' });
+    }
+
+    const dispatchWhatsApp = req.query?.dispatch !== 'false' && req.body?.dispatch !== false;
+    const trailing7Days = req.query?.trailing === 'true' || req.body?.trailing === true;
+    const io = req.app.get('io');
+
+    const result = await weeklyBiService.generateWeeklyExecutiveSummary({
+      dispatchWhatsApp,
+      trailing7Days,
+      io,
+    });
+
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('[WEEKLY BI WEBHOOK ERROR]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+router.post('/weekly-executive-summary', handleWeeklySummaryWebhook);
+router.get('/weekly-executive-summary', handleWeeklySummaryWebhook);
+
+// Admin: Get historical weekly executive summaries
+router.get('/weekly-summaries', authMiddleware, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 12;
+    const summaries = await weeklyBiService.getWeeklySummariesHistory(limit);
+    res.json({ success: true, summaries });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
