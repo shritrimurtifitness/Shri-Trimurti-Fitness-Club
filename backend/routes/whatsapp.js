@@ -82,6 +82,8 @@ router.post('/webhook', async (req, res) => {
 
       let textContent = '';
       let buttonPayload = '';
+      let mediaId = null;
+      let mimeType = null;
 
       if (type === 'text') {
         textContent = msg.text?.body || '';
@@ -99,9 +101,11 @@ router.post('/webhook', async (req, res) => {
         textContent = msg.button?.text || '';
       } else if (type === 'image') {
         textContent = msg.image?.caption || 'PAYMENT_SCREENSHOT_UPLOADED';
+        mediaId = msg.image?.id || null;
+        mimeType = msg.image?.mime_type || 'image/jpeg';
       }
 
-      console.log(`[WHATSAPP INCOMING] From: ${from} (${userName}) | Text: "${textContent}" | Payload: "${buttonPayload}"`);
+      console.log(`[WHATSAPP INCOMING] From: ${from} (${userName}) | Text: "${textContent}" | Payload: "${buttonPayload}" | MediaId: ${mediaId || 'none'}`);
 
       // Hand off to the Bot Engine
       await whatsappBot.handleIncomingMessage({
@@ -109,6 +113,8 @@ router.post('/webhook', async (req, res) => {
         text: textContent,
         buttonPayload,
         messageId,
+        mediaId,
+        mimeType,
         userName,
         io: req.app.get('io'),
       });
@@ -126,12 +132,23 @@ router.post('/webhook', async (req, res) => {
  */
 router.post('/simulate', async (req, res) => {
   try {
-    const { from = '919595153006', text = 'hi', buttonPayload = '', userName = 'Test Player' } = req.body;
+    const {
+      from = '919595153006',
+      text = 'hi',
+      buttonPayload = '',
+      userName = 'Test Player',
+      mediaId = null,
+      mimeType = 'image/jpeg',
+      base64Data = null,
+    } = req.body;
     const result = await whatsappBot.handleIncomingMessage({
       from,
       text,
       buttonPayload,
       userName,
+      mediaId,
+      mimeType,
+      base64Data,
       io: req.app.get('io'),
     });
     res.json({

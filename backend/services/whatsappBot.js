@@ -8,6 +8,7 @@ const {
   sendInteractiveList,
 } = require('./whatsapp');
 const adminBookingService = require('./adminBookingService');
+const receiptOcrService = require('./receiptOcrService');
 
 // In-memory session tracking for WhatsApp booking flow
 // Key: phone number -> { state, slotId, turfId, turfName, date, timeStr, price, userName, createdAt }
@@ -1039,9 +1040,23 @@ Once verified, you will automatically receive your official *Digital Entry Pass*
  * @param {string} [args.text] - Plain text content
  * @param {string} [args.buttonPayload] - ID of clicked interactive button
  * @param {string} [args.userName] - WhatsApp profile name
+ * @param {string} [args.messageId] - WhatsApp message identifier
+ * @param {string} [args.mediaId] - Meta media ID if image was sent
+ * @param {string} [args.mimeType] - MIME type of media
+ * @param {string} [args.base64Data] - Direct base64 image data (if available)
  * @param {Object} [args.io] - Socket.IO instance
  */
-async function handleIncomingMessage({ from, text = '', buttonPayload = '', userName = '', io = null }) {
+async function handleIncomingMessage({
+  from,
+  text = '',
+  buttonPayload = '',
+  messageId = '',
+  mediaId = null,
+  mimeType = null,
+  base64Data = null,
+  userName = '',
+  io = null,
+}) {
   const normalizedText = (text || '').trim().toLowerCase();
   const payload = buttonPayload || '';
 
@@ -1376,7 +1391,74 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
   // User is in AWAITING_PAYMENT state and sends message
   if (activeSession && activeSession.state === 'AWAITING_PAYMENT') {
-    // Check if message contains 4 or more numeric digits for UPI reference (or last 4 digits)
+    // 1. User uploaded a payment screenshot or media
+    if (mediaId || base64Data || text === 'PAYMENT_SCREENSHOT_UPLOADED') {
+      if (mediaId || base64Data) {
+        console.log(`[BOT OCR] Processing payment screenshot for ${from} (Slot: ${activeSession.slotId})...`);
+        const ocrResult = await receiptOcrService.processReceiptImage({
+          mediaId,
+          mimeType,
+          base64Data,
+        });
+
+        if (ocrResult.success && (ocrResult.last4 || ocrResult.utr)) {
+          // If 4-digit collided with older booking but 12-digit UTR is available, use 12-digit UTR
+          let chosenUtr = ocrResult.last4;
+          if (chosenUtr && ocrResult.utr && ocrResult.utr.length >= 10) {
+            const checkCollision = await pool.query(
+              "SELECT id FROM bookings WHERE utr_number = $1 AND status NOT IN ('cancelled', 'rejected')",
+              [chosenUtr]
+            );
+            if (checkCollision.rows.length > 0) {
+              chosenUtr = ocrResult.utr; // Auto-bypass 4-digit collision with full 12-digit UTR
+            }
+          }
+          if (!chosenUtr) {
+            chosenUtr = ocrResult.utr;
+          }
+
+          const displayDigits = ocrResult.last4 || chosenUtr.slice(-4);
+          const appInfo = ocrResult.app && ocrResult.app !== 'Unknown' ? ` via ${ocrResult.app}` : '';
+
+          await sendTextMessage({
+            to: from,
+            text: `📸 *Payment Screenshot Verified!* 🏏⚽\n\nDetected UPI Ref ID ending in *${displayDigits}*${appInfo}.\nSubmitting your booking for admin verification...`,
+          });
+
+          return handleUtrSubmission({
+            from,
+            utr: chosenUtr,
+            session: activeSession,
+            io,
+            userName,
+          });
+        }
+
+        // OCR could not detect UPI Ref ID from image (e.g. blurry image or not a receipt)
+        return sendInteractiveButtons({
+          to: from,
+          headerText: 'Payment Verification',
+          bodyText: `📸 We received your image, but couldn't clearly detect the UPI Ref ID.\n\nTo complete your booking for ${activeSession.turfName} (${activeSession.timeStr}), please type and send the *last 4 digits of your UPI Ref ID* from your receipt (e.g. \`8901\`).`,
+          buttons: [
+            { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+            { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
+          ],
+        });
+      }
+
+      // Fallback if text is PAYMENT_SCREENSHOT_UPLOADED without media data
+      return sendInteractiveButtons({
+        to: from,
+        headerText: 'Payment Received',
+        bodyText: `📸 Thank you! We received your payment confirmation.\n\nTo ensure instant verification with our bank, please type and send the *last 4 digits of your UPI Ref ID* from your receipt (e.g. \`8901\`).`,
+        buttons: [
+          { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+          { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel' },
+        ],
+      });
+    }
+
+    // 2. Check if message contains 4 or more numeric digits for UPI reference (or last 4 digits)
     const utrMatch = (text || '').match(/\b\d{4,18}\b/);
     if (utrMatch) {
       return handleUtrSubmission({
@@ -1388,8 +1470,8 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
       });
     }
 
-    // Check if user uploaded a screenshot without typed UTR
-    if (text === 'PAYMENT_SCREENSHOT_UPLOADED' || normalizedText.includes('screenshot') || normalizedText.includes('paid')) {
+    // Check if user texted about screenshot or paid
+    if (normalizedText.includes('screenshot') || normalizedText.includes('paid')) {
       return sendInteractiveButtons({
         to: from,
         headerText: 'Payment Received',
@@ -1405,9 +1487,23 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     return sendInteractiveButtons({
       to: from,
       headerText: 'Pending Payment',
-      bodyText: `⏳ We are holding your ${activeSession.turfName} slot (${activeSession.timeStr}) for ₹${activeSession.price}.\n\nTo complete your booking, please reply with the *last 4 digits of your UPI Ref ID* (e.g. \`8901\`).\n\nOr tap below to cancel:`,
+      bodyText: `⏳ We are holding your ${activeSession.turfName} slot (${activeSession.timeStr}) for ₹${activeSession.price}.\n\nTo complete your booking, please reply with the *last 4 digits of your UPI Ref ID* (e.g. \`8901\`) or upload your *payment screenshot*.\n\nOr tap below to cancel:`,
       buttons: [
         { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
+        { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+      ],
+    });
+  }
+
+  // Handle image upload when user has NO active booking session
+  if (mediaId || base64Data) {
+    return sendInteractiveButtons({
+      to: from,
+      headerText: 'Image Received',
+      bodyText: `📸 We received your image, but you don't have an active slot reservation waiting for payment.\n\nWould you like to check available slots or book now?`,
+      buttons: [
+        { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
+        { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
         { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
       ],
     });
@@ -1809,4 +1905,7 @@ module.exports = {
   initiateSlotBooking,
   handleUtrSubmission,
   handleIncomingMessage,
+  setBookingSession,
+  getBookingSession,
+  clearBookingSession,
 };
