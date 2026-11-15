@@ -6,6 +6,7 @@ const cache = require('../config/cache');
 const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
 const adminBookingService = require('../services/adminBookingService');
+const bankSmsMatchingService = require('../services/bankSmsMatchingService');
 const { normalizeTo10Digits } = require('../utils/phone');
 
 const cloudinary = require('../config/cloudinary');
@@ -417,34 +418,71 @@ router.post('/:id/register', async (req, res) => {
       return res.status(400).json({ error: 'This 12-digit UPI Ref ID has already been submitted for a registration' });
     }
 
-    // Create registration with pending_verification
+    // Check if bank SMS credit was already received for this tournament fee (Race condition: Bank SMS arrived first)
+    const entryFee = Number(tournamentRes.rows[0].entry_fee) || 0;
+    const cachedMatch = await bankSmsMatchingService.checkCachedBankCreditForUtr({
+      amount: entryFee,
+      utr: utr_number.trim(),
+    });
+    const isAutoApproved = cachedMatch.matched;
+    const initialPaymentMode = isAutoApproved ? 'bank_sms' : 'upi';
+
+    // Create registration
     const insertRes = await pool.query(
       `INSERT INTO tournament_registrations (tournament_id, team_name, captain_name, phone, email, utr_number, payment_mode, payment_status) 
-       VALUES ($1, $2, $3, $4, $5, $6, 'upi', 'pending_verification') RETURNING *`,
-      [req.params.id, team_name.trim(), captain_name.trim(), phone10, cleanEmail || null, utr_number.trim()]
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending_verification') RETURNING *`,
+      [req.params.id, team_name.trim(), captain_name.trim(), phone10, cleanEmail || null, utr_number.trim(), initialPaymentMode]
     );
 
-    // Send confirmation receipt email if email provided
-    if (cleanEmail) {
-      mailer.sendTournamentRegistrationReceived({
-        email: cleanEmail,
-        captainName: captain_name.trim(),
-        teamName: team_name.trim(),
-        tournamentName: tournamentRes.rows[0].name,
-        entryFee: tournamentRes.rows[0].entry_fee,
-        utrNumber: utr_number.trim(),
-        registrationId: insertRes.rows[0].id
-      }).catch(err => console.error('[TOURNAMENT RECEIPT EMAIL ERROR]', err));
-    }
+    if (isAutoApproved) {
+      // 1. Claim cached bank credit
+      await bankSmsMatchingService.claimCachedCreditForTournament(cachedMatch.credit.id, insertRes.rows[0].id);
 
-    // Send WhatsApp confirmation to Captain
-    const captainWaText = 
+      // 2. Auto-approve tournament registration (generates pass & notifies captain)
+      await adminBookingService.processTournamentRegistrationAction({
+        registrationId: insertRes.rows[0].id,
+        action: 'approve',
+        io: req.app.get('io'),
+        adminIdentifier: 'system_bank_sms',
+      });
+
+      // 3. Notify Admin's Personal WhatsApp in Real-Time
+      const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
+      const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
+      const adminAlert =
+`⚡ *TOURNAMENT REGISTRATION AUTO-APPROVED* 🏆🏦
+
+🏆 *Tournament:* ${tournamentRes.rows[0].name}
+🏏 *Team Name:* ${team_name.trim()}
+👤 *Captain:* ${captain_name.trim()} (+91 ${phone10})
+💰 *Entry Fee:* ₹${entryFee}
+💳 *Bank UTR:* ${cachedMatch.credit.utr_number}
+
+✅ Pre-cached Bank SMS matched! Team Match Pass issued automatically.`;
+
+      whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+    } else {
+      // Send confirmation receipt email if email provided
+      if (cleanEmail) {
+        mailer.sendTournamentRegistrationReceived({
+          email: cleanEmail,
+          captainName: captain_name.trim(),
+          teamName: team_name.trim(),
+          tournamentName: tournamentRes.rows[0].name,
+          entryFee: entryFee,
+          utrNumber: utr_number.trim(),
+          registrationId: insertRes.rows[0].id
+        }).catch(err => console.error('[TOURNAMENT RECEIPT EMAIL ERROR]', err));
+      }
+
+      // Send WhatsApp confirmation to Captain
+      const captainWaText = 
 `🏆 *TOURNAMENT REGISTRATION SUBMITTED!*
 
 🏟️ *Tournament:* ${tournamentRes.rows[0].name}
 👥 *Team:* ${team_name.trim()}
 👤 *Captain:* ${captain_name.trim()}
-💰 *Entry Fee:* ₹${tournamentRes.rows[0].entry_fee}
+💰 *Entry Fee:* ₹${entryFee}
 💳 *UPI Ref ID:* ${utr_number.trim()}
 
 ⏳ *Status:* *Pending Admin Verification*
@@ -453,19 +491,20 @@ Our club desk is verifying your payment with our bank. You will receive your off
 📞 *Helpline:* +91 9595153006
 Shri Trimurti Fitness Club`;
 
-    whatsappService.sendTextMessage({ to: cleanPhone, text: captainWaText }).catch(() => {});
+      whatsappService.sendTextMessage({ to: cleanPhone, text: captainWaText }).catch(() => {});
 
-    // Notify Admin's Personal WhatsApp in Real-Time via 3-Tier Cascade (Interactive -> Meta Template -> Plain Text)
-    adminBookingService.notifyAdminTournamentRegistration({
-      registrationId: insertRes.rows[0].id,
-      tournamentName: tournamentRes.rows[0].name,
-      teamName: team_name.trim(),
-      captainName: captain_name.trim(),
-      captainPhone: cleanPhone,
-      entryFee: tournamentRes.rows[0].entry_fee,
-      utrNumber: utr_number.trim(),
-      io: req.app.get('io'),
-    }).catch(err => console.error('[TOURNAMENT ADMIN NOTIFY ERROR]', err.message));
+      // Notify Admin's Personal WhatsApp in Real-Time via 3-Tier Cascade (Interactive -> Meta Template -> Plain Text)
+      adminBookingService.notifyAdminTournamentRegistration({
+        registrationId: insertRes.rows[0].id,
+        tournamentName: tournamentRes.rows[0].name,
+        teamName: team_name.trim(),
+        captainName: captain_name.trim(),
+        captainPhone: cleanPhone,
+        entryFee: entryFee,
+        utrNumber: utr_number.trim(),
+        io: req.app.get('io'),
+      }).catch(err => console.error('[TOURNAMENT ADMIN NOTIFY ERROR]', err.message));
+    }
 
     await cache.delPattern('tournaments:*');
     const io = req.app.get('io');
@@ -479,8 +518,11 @@ Shri Trimurti Fitness Club`;
     res.status(201).json({ 
       success: true, 
       id: insertRes.rows[0].id, 
+      autoApproved: isAutoApproved,
       registration: insertRes.rows[0],
-      message: 'Registration submitted successfully! Our tournament committee is verifying your payment.'
+      message: isAutoApproved
+        ? 'Payment verified instantly via Bank SMS! Your team registration is confirmed.'
+        : 'Registration submitted successfully! Our tournament committee is verifying your payment.'
     });
   } catch (err) {
     console.error("Registration initiation error:", err);

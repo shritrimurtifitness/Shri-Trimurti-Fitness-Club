@@ -7,7 +7,7 @@ import { format, parse, isAfter, isSameDay, startOfDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, XCircle, Plus, CheckCircle2, IndianRupee, Smartphone, Wallet, Banknote, ArrowUp, ArrowDown, Filter, User, Calendar, Check, Copy, AlertCircle, Clock, MessageSquare } from "lucide-react";
+import { Search, XCircle, Plus, CheckCircle2, IndianRupee, Smartphone, Wallet, Banknote, ArrowUp, ArrowDown, Filter, User, Calendar, Check, Copy, AlertCircle, Clock, MessageSquare, Zap } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -517,17 +517,25 @@ export default function AdminBookings() {
                       )}
                     </div>
                     {b.utrNumber && (
-                      <div className="mt-1 flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground w-fit">
-                        <span className="text-[9px] uppercase font-bold text-amber-500">UPI Ref ID:</span>
-                        <span className="font-semibold text-foreground select-all">{b.utrNumber}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.utrNumber); toast.success('UPI Ref ID copied to clipboard'); }}
-                          className="text-amber-500 hover:text-amber-400 ml-0.5"
-                          title="Copy UPI Ref ID"
-                        >
-                          <Copy className="w-2.5 h-2.5" />
-                        </button>
+                      <div className="mt-1 flex flex-col gap-1">
+                        <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground w-fit">
+                          <span className="text-[9px] uppercase font-bold text-amber-500">UPI Ref ID:</span>
+                          <span className="font-semibold text-foreground select-all">{b.utrNumber}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.utrNumber); toast.success('UPI Ref ID copied to clipboard'); }}
+                            className="text-amber-500 hover:text-amber-400 ml-0.5"
+                            title="Copy UPI Ref ID"
+                          >
+                            <Copy className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                        {b.paymentMode === 'bank_sms' && (
+                          <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded w-fit">
+                            <Zap className="w-2.5 h-2.5" />
+                            <span>Auto-Verified (Bank SMS)</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -656,19 +664,27 @@ export default function AdminBookings() {
               </div>
 
               {b.utrNumber && (
-                <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] uppercase font-bold text-amber-500">UPI Ref ID:</span>
-                    <span className="font-mono font-bold text-foreground tracking-wider select-all">{b.utrNumber}</span>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase font-bold text-amber-500">UPI Ref ID:</span>
+                      <span className="font-mono font-bold text-foreground tracking-wider select-all">{b.utrNumber}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.utrNumber); toast.success('UPI Ref ID copied'); }}
+                      className="text-amber-500 hover:text-amber-400 p-1"
+                      title="Copy UPI Ref ID"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.utrNumber); toast.success('UPI Ref ID copied'); }}
-                    className="text-amber-500 hover:text-amber-400 p-1"
-                    title="Copy UPI Ref ID"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
+                  {b.paymentMode === 'bank_sms' && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg w-fit">
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Auto-Verified via Bank SMS</span>
+                    </div>
+                  )}
                 </div>
               )}
 

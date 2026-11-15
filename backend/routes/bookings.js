@@ -8,6 +8,7 @@ const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
 const notificationScheduler = require('../services/notificationScheduler');
 const adminBookingService = require('../services/adminBookingService');
+const bankSmsMatchingService = require('../services/bankSmsMatchingService');
 const { normalizeTo10Digits, formatTime12h } = require('../utils/phone');
 
 router.post('/', bookingLimiter, async (req, res) => {
@@ -1058,6 +1059,14 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
 
     const finalPayable = Math.max(300, grandTotal - totalDiscount);
 
+    // Check if bank SMS credit was already received for this payment (Race condition: Bank SMS arrived first)
+    const cachedMatch = await bankSmsMatchingService.checkCachedBankCreditForUtr({
+      amount: finalPayable,
+      utr: cleanUtr,
+    });
+    const isAutoApproved = cachedMatch.matched;
+    const initialPaymentMode = isAutoApproved ? 'bank_sms' : 'upi_qr';
+
     for (let i = 0; i < slotsQuery.rows.length; i++) {
       const slot = slotsQuery.rows[i];
       const price = Number(slot.price) || 800;
@@ -1069,9 +1078,9 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
         INSERT INTO bookings (
           user_id, slot_id, status, payment_status, paid_amount, remaining_amount, 
           is_manual, payment_mode, utr_number, coupon_code, discount_amount
-        ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, 'upi_qr', $4, $5, $6)
+        ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, $4, $5, $6, $7)
         RETURNING *
-      `, [userId, slot.id, slotPaid, cleanUtr, appliedCoupon ? appliedCoupon.code : null, slotDiscount]);
+      `, [userId, slot.id, slotPaid, initialPaymentMode, cleanUtr, appliedCoupon ? appliedCoupon.code : null, slotDiscount]);
 
       createdBookings.push(bookingRes.rows[0]);
     }
@@ -1086,27 +1095,65 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       await pool.query('UPDATE coupons SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1', [appliedCoupon.id]);
     }
 
-    // Send email alert to customer
     const turfName = firstSlot.turf_name || firstSlot.facility_type || 'Sports Turf';
     const dateFormatted = typeof firstSlot.date === 'string' ? firstSlot.date.substring(0, 10) : new Date(firstSlot.date).toISOString().split('T')[0];
 
-    if (cleanEmail) {
-      mailer.sendBookingReceived({
-        email: cleanEmail,
-        name,
-        bookingId: createdBookings[0].id.substring(0, 8).toUpperCase(),
-        turfName,
-        date: dateFormatted,
-        slots: slotTimes,
-        totalAmount: finalPayable,
-        utrNumber: cleanUtr,
-      }).catch(err => console.error('[MAILER ERROR on booking received]', err));
-    }
+    if (isAutoApproved) {
+      // 1. Claim cached credit to prevent double usage
+      await bankSmsMatchingService.claimCachedCreditForBooking(cachedMatch.credit.id, createdBookings[0].id);
 
-    if (cleanPhone) {
-      const offerNote = totalDiscount > 0 ? `\n🏷️ *Offer Applied (${appliedCoupon.code}):* -₹${totalDiscount} (Original: ₹${grandTotal})` : '';
-      const waReceipt = `📋 *BOOKING SUBMITTED!* 🏏⚽\n\n*Booking ID:* #${createdBookings[0].id.substring(0, 8).toUpperCase()}\n*Turf:* ${turfName}\n*Date:* ${dateFormatted}\n*Slots:* ${slotTimes.join(', ')}${offerNote}\n*Amount Paid:* ₹${finalPayable}\n*UPI Ref ID:* ${cleanUtr}\n\n⏳ *Status:* Pending Admin Verification\nOur turf manager is verifying the payment in our bank account. Once verified, your official entry pass will be issued!`;
-      whatsappService.sendTextMessage({ to: cleanPhone, text: waReceipt }).catch(() => {});
+      // 2. Auto-approve all created slots
+      for (const cb of createdBookings) {
+        await adminBookingService.approveBookingById({
+          bookingId: cb.id,
+          io: req.app.get('io'),
+          adminIdentifier: 'system_bank_sms',
+        });
+      }
+
+      // 3. Notify Admin's personal WhatsApp in real-time
+      const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
+      const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
+      const adminAlert =
+`⚡ *AUTO-APPROVED BY BANK SMS* 🏦
+
+📋 *Booking ID:* #${createdBookings[0].id.substring(0, 8).toUpperCase()}
+🏟️ *Facility:* ${turfName}
+📅 *Date:* ${dateFormatted}
+⏰ *Time:* ${slotTimes.join(', ')}
+👤 *Player:* ${name} (+91 ${phone10})
+💰 *Amount:* ₹${finalPayable}
+💳 *Bank UTR:* ${cachedMatch.credit.utr_number}
+
+✅ Pre-cached Bank SMS matched! Official Entry Pass with QR code generated and sent to customer.`;
+
+      whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+    } else {
+      // Send standard pending verification email alert to customer
+      if (cleanEmail) {
+        mailer.sendBookingReceived({
+          email: cleanEmail,
+          name,
+          bookingId: createdBookings[0].id.substring(0, 8).toUpperCase(),
+          turfName,
+          date: dateFormatted,
+          slots: slotTimes,
+          totalAmount: finalPayable,
+          utrNumber: cleanUtr,
+        }).catch(err => console.error('[MAILER ERROR on booking received]', err));
+      }
+
+      if (cleanPhone) {
+        const offerNote = totalDiscount > 0 ? `\n🏷️ *Offer Applied (${appliedCoupon.code}):* -₹${totalDiscount} (Original: ₹${grandTotal})` : '';
+        const waReceipt = `📋 *BOOKING SUBMITTED!* 🏏⚽\n\n*Booking ID:* #${createdBookings[0].id.substring(0, 8).toUpperCase()}\n*Turf:* ${turfName}\n*Date:* ${dateFormatted}\n*Slots:* ${slotTimes.join(', ')}${offerNote}\n*Amount Paid:* ₹${finalPayable}\n*UPI Ref ID:* ${cleanUtr}\n\n⏳ *Status:* Pending Admin Verification\nOur turf manager is verifying the payment in our bank account. Once verified, your official entry pass will be issued!`;
+        whatsappService.sendTextMessage({ to: cleanPhone, text: waReceipt }).catch(() => {});
+      }
+
+      // Notify Admin's personal WhatsApp in real-time
+      adminBookingService.notifyAdminNewBooking({
+        bookingId: createdBookings[0].id,
+        io: req.app.get('io'),
+      }).catch(err => console.error('[NOTIFY ADMIN ON WEB BOOKING ERROR]', err));
     }
 
     await cache.delPattern('bookings:*');
@@ -1115,15 +1162,13 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
 
     req.app.get('io').emit('booking_updated');
 
-    // Notify Admin's personal WhatsApp in real-time
-    adminBookingService.notifyAdminNewBooking({
-      bookingId: createdBookings[0].id,
-      io: req.app.get('io'),
-    }).catch(err => console.error('[NOTIFY ADMIN ON WEB BOOKING ERROR]', err));
-
     res.status(201).json({
       success: true,
-      message: 'Booking submitted successfully! Awaiting arena payment verification.',
+      autoApproved: isAutoApproved,
+      status: isAutoApproved ? 'confirmed' : 'pending_verification',
+      message: isAutoApproved
+        ? 'Payment verified instantly via Bank SMS! Your booking is confirmed.'
+        : 'Booking submitted successfully! Awaiting arena payment verification.',
       bookings: createdBookings,
       totalAmount: grandTotal,
       finalPayable: finalPayable,

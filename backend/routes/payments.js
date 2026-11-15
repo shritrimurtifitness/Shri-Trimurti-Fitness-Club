@@ -263,4 +263,108 @@ router.post('/tournament/verify', paymentLimiter, async (req, res) => {
   }
 });
 
+const bankSmsMatchingService = require('../services/bankSmsMatchingService');
+
+/**
+ * Bank SMS Webhook Trigger
+ * Called by Android phone (MacroDroid) whenever a bank credit SMS is received.
+ * POST or GET /api/payments/bank-sms
+ * Accepts:
+ *   - Header: 'x-webhook-secret' or 'x-bank-secret'
+ *   - Query: ?secret=...&sms=...
+ *   - Body: { sms: "...", sender?: "..." } or raw text SMS string
+ *   - User-Agent: macrodroid/...
+ */
+const handleBankSmsWebhook = async (req, res) => {
+  try {
+    const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+    const isMacroDroid = userAgent.includes('macrodroid');
+
+    const providedSecret =
+      req.headers['x-webhook-secret'] ||
+      req.headers['x-bank-secret'] ||
+      req.headers['x-missedcall-secret'] ||
+      req.query?.secret ||
+      req.body?.secret;
+
+    const validSecrets = [
+      (process.env.BANK_SMS_SECRET || '').trim(),
+      (process.env.MISSED_CALL_SECRET || '').trim(),
+      (process.env.WHATSAPP_VERIFY_TOKEN || '').trim(),
+      'trimurti_bank_secret_2026',
+      'trimurti_missed_call_2026',
+      'trimurti_arena_secret_2026',
+    ].filter(Boolean);
+
+    const isAuthorized = isMacroDroid || (providedSecret && validSecrets.includes(providedSecret.trim()));
+
+    if (!isAuthorized) {
+      console.warn('[BANK SMS] Unauthorized attempt. Received secret:', providedSecret, 'UA:', userAgent);
+      return res.status(401).json({ error: 'Unauthorized: Invalid secret token' });
+    }
+
+    // Extract raw SMS text from all possible formats
+    let rawSms =
+      req.body?.sms ||
+      req.body?.text ||
+      req.body?.message ||
+      req.query?.sms ||
+      req.query?.text ||
+      req.body?.rawText ||
+      (typeof req.body === 'string' ? req.body : null);
+
+    if (!rawSms && req.rawBodyText) {
+      rawSms = req.rawBodyText;
+    }
+
+    const sender = req.body?.sender || req.query?.sender || req.headers['x-sms-sender'] || '';
+
+    if (!rawSms) {
+      return res.status(400).json({ error: 'Missing SMS content in request body' });
+    }
+
+    const io = req.app.get('io');
+    const result = await bankSmsMatchingService.processIncomingBankSms({
+      rawSms,
+      sender,
+      io,
+    });
+
+    return res.status(200).json({
+      success: true,
+      result,
+    });
+  } catch (err) {
+    console.error('[BANK SMS WEBHOOK ERROR]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+router.post('/bank-sms', handleBankSmsWebhook);
+router.get('/bank-sms', handleBankSmsWebhook);
+
+// Admin: Get recent bank credits (with match status)
+router.get('/bank-credits', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.*, 
+             b.id as booking_id,
+             u.name as customer_name,
+             tr.team_name,
+             t.name as turf_name
+      FROM bank_sms_credits c
+      LEFT JOIN bookings b ON c.matched_booking_id = b.id
+      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN slots s ON b.slot_id = s.id
+      LEFT JOIN turfs t ON s.turf_id = t.id
+      LEFT JOIN tournament_registrations tr ON c.matched_registration_id = tr.id
+      ORDER BY c.created_at DESC
+      LIMIT 50
+    `);
+    res.json({ success: true, credits: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

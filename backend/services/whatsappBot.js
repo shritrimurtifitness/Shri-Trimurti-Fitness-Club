@@ -9,6 +9,7 @@ const {
 } = require('./whatsapp');
 const adminBookingService = require('./adminBookingService');
 const receiptOcrService = require('./receiptOcrService');
+const bankSmsMatchingService = require('./bankSmsMatchingService');
 
 // In-memory session tracking for WhatsApp booking flow
 // Key: phone number -> { state, slotId, turfId, turfName, date, timeStr, price, userName, createdAt }
@@ -966,14 +967,22 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       userId = userRes.rows[0].id;
     }
 
-    // Insert booking into Neon DB with status = 'pending_verification'
+    // Check if bank SMS credit was already received for this payment (Race condition: Bank SMS arrived first)
+    const cachedMatch = await bankSmsMatchingService.checkCachedBankCreditForUtr({
+      amount: session.price,
+      utr: cleanUtr,
+    });
+    const isAutoApproved = cachedMatch.matched;
+    const initialPaymentMode = isAutoApproved ? 'bank_sms' : 'upi_qr';
+
+    // Insert booking into Neon DB
     const bookingRes = await pool.query(`
       INSERT INTO bookings (
         user_id, slot_id, status, payment_status, paid_amount, remaining_amount,
         is_manual, payment_mode, utr_number
-      ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, 'upi_qr', $4)
+      ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, $4, $5)
       RETURNING *
-    `, [userId, session.slotId, session.price, cleanUtr]);
+    `, [userId, session.slotId, session.price, initialPaymentMode, cleanUtr]);
 
     const createdBooking = bookingRes.rows[0];
     const bookingIdCode = createdBooking.id.substring(0, 8).toUpperCase();
@@ -990,7 +999,60 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       io.emit('booking_updated');
     }
 
-    // Notify Admin's personal WhatsApp in real-time
+    if (isAutoApproved) {
+      // 1. Claim cached credit to prevent double usage
+      await bankSmsMatchingService.claimCachedCreditForBooking(cachedMatch.credit.id, createdBooking.id);
+
+      // 2. Auto-approve the booking (generates Entry QR pass & delivers via WhatsApp)
+      await adminBookingService.approveBookingById({
+        bookingId: createdBooking.id,
+        io,
+        adminIdentifier: 'system_bank_sms',
+      });
+
+      // 3. Notify Admin's personal WhatsApp in real-time
+      const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
+      const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
+      const adminAlert =
+`⚡ *AUTO-APPROVED BY BANK SMS* 🏦
+
+📋 *Booking ID:* #${bookingIdCode}
+🏟️ *Facility:* ${session.turfName}
+📅 *Date:* ${session.date}
+⏰ *Time:* ${session.timeStr}
+👤 *Player:* ${session.userName || userName || 'WhatsApp Player'} (+91 ${customerPhone})
+💰 *Amount:* ₹${session.price}
+💳 *Bank UTR:* ${cachedMatch.credit.utr_number}
+
+✅ Pre-cached Bank SMS matched! Official Entry Pass with QR code generated and sent to customer.`;
+
+      sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+
+      const instantMsg =
+`⚡ *INSTANT BANK VERIFICATION CONFIRMED!* 🏏⚽
+
+📋 *Booking ID:* #${bookingIdCode}
+🏟️ *Facility:* ${session.turfName}
+📅 *Date:* ${session.date}
+⏰ *Time:* ${session.timeStr}
+💰 *Amount Verified:* ₹${session.price}
+💳 *Bank UTR:* ${cleanUtr}
+
+✅ Your UPI payment has been verified directly with our bank!
+Your official Gate Entry Pass with QR code is ready above. See you on the turf! 🔥`;
+
+      return sendInteractiveButtons({
+        to: from,
+        headerText: 'Booking Confirmed!',
+        bodyText: instantMsg,
+        buttons: [
+          { id: 'BTN_LOCATION', title: '📍 Directions' },
+          { id: 'BTN_STAFF', title: '📞 Call Manager' },
+        ],
+      });
+    }
+
+    // If not yet matched with bank SMS, proceed with standard pending flow
     adminBookingService.notifyAdminNewBooking({
       bookingId: bookingRes.rows[0].id,
       io,
