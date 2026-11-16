@@ -70,7 +70,7 @@ function formatDisplayDate(dateStr) {
   if (!dateStr) return '';
   const [y, m, d] = String(dateStr).substring(0, 10).split('-');
   const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
-  return dateObj.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  return dateObj.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /**
@@ -832,32 +832,28 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
     }
 
     const price = Number(slot.price) || 800;
-    const turfName = slot.turf_name || (slot.facility_type === 'football' ? 'Football Turf' : 'Cricket Turf');
+    const baseTurf = slot.turf_name || (slot.facility_type === 'football' ? 'Football' : 'Cricket');
+    const turfName = baseTurf.toLowerCase().includes('turf') ? baseTurf : `${baseTurf} Turf`;
     const timeStr = `${formatTime12h(slot.start_time)} - ${formatTime12h(slot.end_time)}`;
+    const displayDate = formatDisplayDate(slotDateStr) || slotDateStr;
 
-    // Check loyalty status for player
+    // Check loyalty status for player (Only show chip if spendable coins are ready to use now)
     let loyaltyNote = '';
     let hasSpendableCoins = false;
     let maxCoinsUsable = 0;
     try {
       const loyaltyStatus = await loyaltyService.getWalletStatus(from);
-      if (loyaltyStatus && loyaltyStatus.loyalty_enabled) {
-        if (loyaltyStatus.spendable_balance > 0) {
-          hasSpendableCoins = true;
-          maxCoinsUsable = Math.min(loyaltyStatus.spendable_balance, price);
-          const discountInr = maxCoinsUsable * loyaltyStatus.coin_value_inr;
-          loyaltyNote = `\n\n🪙 *Trimurti Coins:* You have *${loyaltyStatus.spendable_balance} spendable coins* (₹${loyaltyStatus.spendable_inr_value})!\n👉 Tap *🪙 Use Coins* below to deduct ₹${discountInr} from this match!`;
-        } else if (loyaltyStatus.vault_balance > 0) {
-          loyaltyNote = `\n\n🎯 *Vault Progress:* Match ${loyaltyStatus.current_cycle_bookings}/${loyaltyStatus.milestone_target} (${loyaltyStatus.progress_pct}%)\n🔒 *${loyaltyStatus.vault_balance} Trimurti Coins* in Vault. Play ${loyaltyStatus.remaining_for_unlock} more matches to unlock your ₹${loyaltyStatus.milestone_target * loyaltyStatus.coins_per_slot} reward!`;
-        } else {
-          loyaltyNote = `\n\n🪙 *Trimurti Rewards:* Complete this match to earn +${loyaltyStatus.coins_per_slot} Trimurti Coins in your vault! (Vault unlocks at ${loyaltyStatus.milestone_target} matches).`;
-        }
+      if (loyaltyStatus && loyaltyStatus.loyalty_enabled && loyaltyStatus.spendable_balance > 0) {
+        hasSpendableCoins = true;
+        maxCoinsUsable = Math.min(loyaltyStatus.spendable_balance, price);
+        const discountInr = maxCoinsUsable * loyaltyStatus.coin_value_inr;
+        loyaltyNote = `\n\n🪙 *Trimurti Coins:* You have ${loyaltyStatus.spendable_balance} Coins (₹${discountInr} OFF) — Tap '🪙 Use Coins' below`;
       }
     } catch (lErr) {
       console.error('[LOYALTY CHECK IN BOOKING ERROR]', lErr.message);
     }
 
-    // Check available coupon offers for player
+    // Check available coupon offers for player (Dynamic from couponService)
     let promoNote = '';
     try {
       const offerResult = await couponService.getAvailableOffersForPhone({ phone: from, amount: price });
@@ -866,7 +862,7 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
         const discStr = topOffer.discount_type === 'percent'
           ? `${topOffer.discount_value}% OFF`
           : `₹${topOffer.discount_value} OFF`;
-        promoNote = `\n\n🎉 *Available Offer:* Use code *${topOffer.code}* for *${discStr}*!\n👉 Reply with *${topOffer.code}* (or your secret VIP code) to apply discount!`;
+        promoNote = `\n\n🎉 *Offer:* Reply *${topOffer.code}* (or VIP code) for *${discStr}*!`;
       }
     } catch (cErr) {
       console.error('[COUPON CHECK IN BOOKING ERROR]', cErr.message);
@@ -897,27 +893,21 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
     await sendImageMessage({
       to: from,
       imageUrl: qrUrl,
-      caption: `📲 Scan to Pay ₹${price} for ${turfName}\n⏰ Slot: ${timeStr} (${slotDateStr})`,
+      caption: `📲 Scan to Pay ₹${price} for ${turfName}\n⏰ Slot: ${timeStr} (${displayDate})`,
     });
 
     // 2. Send clean, single-screen mobile-optimized payment instructions
     const paymentInstructions =
 `📋 *SLOT RESERVED (15 MINS)*
 🏟️ *Turf:* ${turfName}
-📅 *Date:* ${slotDateStr}
+📅 *Date:* ${displayDate}
 ⏰ *Time:* ${timeStr}
 💰 *Amount Due:* *₹${price}*${promoNote}${loyaltyNote}
 
-📲 *Pay via UPI:*
+📲 *1-Tap Pay:* ${upiPayLink}
 👉 *UPI ID:* \`${upiId}\`
-👉 *1-Tap Pay:* ${upiPayLink}
 
-⚡ *ACTION REQUIRED TO CONFIRM:*
-Reply here with the *last 4 digits of your UPI Ref ID*:
-👉 Example: \`8901\`
-*(Or upload your payment screenshot)*
-
-_Tap Cancel below if you change your mind._`;
+⚡ *To Confirm:* Reply with *last 4 digits of UPI Ref ID* (e.g. \`8901\`) or send payment screenshot.`;
 
     const paymentButtons = [];
     if (hasSpendableCoins && maxCoinsUsable > 0) {
