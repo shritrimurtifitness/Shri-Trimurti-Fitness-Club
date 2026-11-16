@@ -543,15 +543,6 @@ router.delete('/:id/whitelist/:phone', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Failed to remove member from whitelist' });
   }
 });
-      return res.status(404).json({ error: 'Coupon not found' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('[ADMIN UPDATE COUPON ERROR]', err);
-    res.status(500).json({ error: 'Failed to update coupon' });
-  }
-});
 
 /**
  * ADMIN: Delete coupon
