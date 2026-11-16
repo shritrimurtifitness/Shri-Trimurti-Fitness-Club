@@ -517,7 +517,7 @@ export default function BookingPage() {
     try {
       const basePrice = selectedSlotGroup?.price || 0;
       const maxRedeemableCoins = loyaltyStatus?.can_redeem && loyaltyStatus.spendable_balance > 0
-        ? Math.min(loyaltyStatus.spendable_balance, Math.max(0, basePrice - couponDiscount))
+        ? Math.min(loyaltyStatus.spendable_balance, Math.max(0, (basePrice - couponDiscount) - 300))
         : 0;
 
       const res = await api.post('/bookings/submit-upi', {
@@ -999,7 +999,7 @@ export default function BookingPage() {
             {step === "confirm" && selectedSlot && selectedDate && (() => {
               const basePrice = selectedSlotGroup?.price || 0;
               const maxRedeemableCoins = loyaltyStatus?.can_redeem && loyaltyStatus.spendable_balance > 0
-                ? Math.min(loyaltyStatus.spendable_balance, Math.max(0, basePrice - couponDiscount))
+                ? Math.min(loyaltyStatus.spendable_balance, Math.max(0, (basePrice - couponDiscount) - 300))
                 : 0;
               const coinsDiscount = redeemCoins ? maxRedeemableCoins * (loyaltyStatus?.coin_value_inr || 1.0) : 0;
               const finalPayable = Math.max(300, basePrice - couponDiscount - coinsDiscount);
@@ -1207,20 +1207,28 @@ export default function BookingPage() {
                             </div>
 
                             <div className="pt-2.5 flex items-center justify-between">
-                              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                                <input
-                                  type="checkbox"
-                                  checked={redeemCoins}
-                                  onChange={(e) => setRedeemCoins(e.target.checked)}
-                                  className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-secondary border-border cursor-pointer accent-[#39FF14]"
-                                />
-                                <span className="text-xs font-semibold text-foreground">
-                                  Redeem {maxRedeemableCoins} Trimurti Coins
-                                </span>
-                              </label>
-                              <span className="text-xs font-bold text-emerald-400 font-mono">
-                                Save ₹{maxRedeemableCoins * (loyaltyStatus.coin_value_inr || 1)}
-                              </span>
+                              {maxRedeemableCoins > 0 ? (
+                                <>
+                                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={redeemCoins}
+                                      onChange={(e) => setRedeemCoins(e.target.checked)}
+                                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-secondary border-border cursor-pointer accent-[#39FF14]"
+                                    />
+                                    <span className="text-xs font-semibold text-foreground">
+                                      Redeem {maxRedeemableCoins} Trimurti Coins
+                                    </span>
+                                  </label>
+                                  <span className="text-xs font-bold text-emerald-400 font-mono">
+                                    Save ₹{maxRedeemableCoins * (loyaltyStatus.coin_value_inr || 1)}
+                                  </span>
+                                </>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground italic">
+                                  ✨ Minimum slot rate (₹300) reached with {appliedCoupon?.code}. Your {loyaltyStatus.spendable_balance} coins are preserved for your next match!
+                                </p>
+                              )}
                             </div>
                           </div>
                         ) : loyaltyStatus.is_vault_locked ? (
@@ -1282,7 +1290,7 @@ export default function BookingPage() {
                       <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-600 mb-2">Scan with GPay / PhonePe / Paytm / BHIM</p>
                       <div className="w-56 h-56 rounded-xl overflow-hidden flex items-center justify-center bg-white p-2">
                         <img
-                          src={couponDiscount > 0 ? qrCodeUrl : upiSettings.upi_qr_url}
+                          src={(couponDiscount > 0 || coinsDiscount > 0 || finalPayable !== basePrice) ? qrCodeUrl : upiSettings.upi_qr_url}
                           alt="Arena UPI QR"
                           className="w-full h-full object-contain"
                         />

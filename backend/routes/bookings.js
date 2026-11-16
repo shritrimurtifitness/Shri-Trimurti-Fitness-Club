@@ -1020,7 +1020,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
 
     // Process coupon validation & discount calculation using unified couponService
     let appliedCoupon = null;
-    let totalDiscount = 0;
+    let couponDiscount = 0;
 
     if (coupon_code && typeof coupon_code === 'string' && coupon_code.trim()) {
       const couponValidation = await couponService.validateCouponCode({
@@ -1031,7 +1031,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
 
       if (couponValidation.valid) {
         appliedCoupon = couponValidation.coupon;
-        totalDiscount = couponValidation.discount_amount;
+        couponDiscount = couponValidation.discount_amount;
       }
     }
 
@@ -1042,12 +1042,12 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       try {
         const preview = await loyaltyService.previewRedemption({
           phone: phone10,
-          slotPrice: Math.max(0, grandTotal - totalDiscount),
+          slotPrice: Math.max(0, grandTotal - couponDiscount),
         });
         if (preview.canRedeem && preview.maxRedeemableCoins > 0) {
-          coinsToRedeem = Math.min(coinsToRedeem, preview.maxRedeemableCoins);
+          const maxAllowedCoins = Math.max(0, (grandTotal - couponDiscount) - 300);
+          coinsToRedeem = Math.min(coinsToRedeem, preview.maxRedeemableCoins, maxAllowedCoins);
           coinsDiscount = coinsToRedeem * (preview.coinValueInr || 1.0);
-          totalDiscount += coinsDiscount;
         } else {
           coinsToRedeem = 0;
         }
@@ -1057,6 +1057,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       }
     }
 
+    const totalDiscount = couponDiscount + coinsDiscount;
     const finalPayable = Math.max(300, grandTotal - totalDiscount);
 
     // Check if bank SMS credit was already received for this payment (Race condition: Bank SMS arrived first)
@@ -1070,9 +1071,8 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
     for (let i = 0; i < slotsQuery.rows.length; i++) {
       const slot = slotsQuery.rows[i];
       const price = Number(slot.price) || 800;
-      // Allocate discount to the first slot
-      const slotDiscount = i === 0 ? totalDiscount : 0;
-      const slotPaid = Math.max(0, price - slotDiscount);
+      // Allocate discount to the first slot, respecting the ₹300 minimum floor
+      const slotPaid = i === 0 ? Math.max(300, price - totalDiscount) : price;
 
       const bookingRes = await pool.query(`
         INSERT INTO bookings (
@@ -1083,7 +1083,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
         RETURNING *
       `, [
         userId, slot.id, slotPaid, initialPaymentMode, cleanUtr,
-        appliedCoupon ? appliedCoupon.code : null, slotDiscount,
+        appliedCoupon ? appliedCoupon.code : null, i === 0 ? couponDiscount : 0,
         i === 0 ? coinsToRedeem : 0,
         i === 0 ? coinsDiscount : 0,
         i === 0 && coinsToRedeem > 0 ? 'redeemed' : 'none'
@@ -1098,7 +1098,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
         couponId: appliedCoupon.id,
         bookingId: createdBookings[0].id,
         phone: phone10,
-        discountAmount: totalDiscount,
+        discountAmount: couponDiscount,
         finalPaidAmount: finalPayable,
       });
     }

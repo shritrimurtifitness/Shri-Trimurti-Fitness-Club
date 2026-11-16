@@ -171,14 +171,14 @@ async function previewRedemption({ phone, slotPrice }) {
   }
 
   const coinVal = status.coin_value_inr;
-  const maxPossibleDiscount = Number(slotPrice);
+  const maxPossibleDiscount = Math.max(0, Number(slotPrice) - 300);
   const maxCoinsUsable = Math.min(
     status.spendable_balance,
     Math.floor(maxPossibleDiscount / coinVal)
   );
 
   const discountAmount = Math.round(maxCoinsUsable * coinVal);
-  const finalPrice = Math.max(0, Number(slotPrice) - discountAmount);
+  const finalPrice = Math.max(300, Number(slotPrice) - discountAmount);
 
   return {
     canRedeem: maxCoinsUsable > 0,

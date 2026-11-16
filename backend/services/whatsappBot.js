@@ -845,9 +845,12 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
       const loyaltyStatus = await loyaltyService.getWalletStatus(from);
       if (loyaltyStatus && loyaltyStatus.loyalty_enabled && loyaltyStatus.spendable_balance > 0) {
         hasSpendableCoins = true;
-        maxCoinsUsable = Math.min(loyaltyStatus.spendable_balance, price);
-        const discountInr = maxCoinsUsable * loyaltyStatus.coin_value_inr;
-        loyaltyNote = `\n\n🪙 *Trimurti Coins:* You have ${loyaltyStatus.spendable_balance} Coins (₹${discountInr} OFF) — Tap '🪙 Use Coins' below`;
+        // Respect 300 price floor
+        maxCoinsUsable = Math.min(loyaltyStatus.spendable_balance, Math.max(0, price - 300));
+        const discountInr = maxCoinsUsable * (loyaltyStatus.coin_value_inr || 1.0);
+        if (maxCoinsUsable > 0) {
+          loyaltyNote = `\n\n🪙 *Trimurti Coins:* You have ${loyaltyStatus.spendable_balance} Coins (₹${discountInr} OFF) — Tap '🪙 Use Coins' below`;
+        }
       }
     } catch (lErr) {
       console.error('[LOYALTY CHECK IN BOOKING ERROR]', lErr.message);
@@ -1107,6 +1110,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
       const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
       const couponNote = couponCode ? `\n🎟️ *Coupon Applied:* ${couponCode} (-₹${couponDiscount})` : '';
+      const coinsNote = coinsRedeemed > 0 ? `\n🪙 *Trimurti Coins:* ${coinsRedeemed} TC (-₹${coinsDiscountAmount})` : '';
       const adminAlert =
 `⚡ *AUTO-APPROVED BY BANK SMS* 🏦
 
@@ -1115,7 +1119,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 📅 *Date:* ${session.date}
 ⏰ *Time:* ${session.timeStr}
 👤 *Player:* ${session.userName || userName || 'WhatsApp Player'} (+91 ${customerPhone})
-💰 *Amount:* ₹${session.price}${couponNote}
+💰 *Amount:* ₹${session.price}${couponNote}${coinsNote}
 💳 *Bank UTR:* ${cachedMatch.credit.utr_number}
 
 ✅ Pre-cached Bank SMS matched! Official Entry Pass with QR code generated and sent to customer.`;
@@ -1129,7 +1133,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 🏟️ *Facility:* ${session.turfName}
 📅 *Date:* ${session.date}
 ⏰ *Time:* ${session.timeStr}
-💰 *Amount Verified:* ₹${session.price}${couponNote}
+💰 *Amount Verified:* ₹${session.price}${couponNote}${coinsNote}
 💳 *Bank UTR:* ${cleanUtr}
 
 ✅ Your UPI payment has been verified directly with our bank!
@@ -1159,7 +1163,7 @@ Your official Gate Entry Pass with QR code is ready above. See you on the turf! 
 🏟️ *Facility:* ${session.turfName}
 📅 *Date:* ${session.date}
 ⏰ *Time:* ${session.timeStr}
-💰 *Amount Paid:* ₹${session.price}${couponCode ? `\n🎟️ *Coupon Applied:* ${couponCode} (-₹${couponDiscount})` : ''}
+💰 *Amount Paid:* ₹${session.price}${couponCode ? `\n🎟️ *Coupon Applied:* ${couponCode} (-₹${couponDiscount})` : ''}${coinsRedeemed > 0 ? `\n🪙 *Trimurti Coins:* ${coinsRedeemed} TC (-₹${coinsDiscountAmount})` : ''}
 💳 *UPI Ref ID:* ${cleanUtr}
 
 🔒 *YOUR SLOT IS TEMPORARILY LOCKED:*
@@ -1555,7 +1559,10 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
     if (
       payload === 'BTN_USE_LOYALTY_COINS' ||
       normalizedText.includes('use coin') ||
-      normalizedText.includes('redeem')
+      normalizedText.includes('redeem coin') ||
+      normalizedText === 'redeem' ||
+      normalizedText === 'use coins' ||
+      normalizedText === 'coins use'
     ) {
       try {
         const loyaltyStatus = await loyaltyService.getWalletStatus(from);
@@ -1567,9 +1574,20 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
         }
 
         const basePrice = activeSession.originalPrice || activeSession.price;
-        const coinsToUse = Math.min(loyaltyStatus.spendable_balance, basePrice);
-        const discountVal = coinsToUse * loyaltyStatus.coin_value_inr;
-        const discountedPrice = Math.max(0, basePrice - discountVal);
+        const couponDiscount = activeSession.couponDiscount || 0;
+        const currentPayable = Math.max(300, basePrice - couponDiscount);
+        const maxCoinsAllowed = Math.max(0, currentPayable - 300);
+
+        if (maxCoinsAllowed <= 0) {
+          return sendTextMessage({
+            to: from,
+            text: `⚠️ Your slot payable is already at the minimum allowed rate of ₹300. Trimurti Coins cannot be used below ₹300.`,
+          });
+        }
+
+        const coinsToUse = Math.min(loyaltyStatus.spendable_balance, maxCoinsAllowed);
+        const discountVal = coinsToUse * (loyaltyStatus.coin_value_inr || 1.0);
+        const discountedPrice = Math.max(300, basePrice - couponDiscount - discountVal);
 
         activeSession.originalPrice = basePrice;
         activeSession.price = discountedPrice;
@@ -1579,31 +1597,116 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
         const { upi_id: upiId } = await getLiveUpiSettings();
         const upiPayLink = `upi://pay?pa=${upiId}&am=${discountedPrice}&pn=Trimurti`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(upiPayLink)}`;
 
-        const appliedMsg =
-`✅ *TRIMURTI COINS REDEEMED!* 🪙
+        // Send updated QR code image
+        await sendImageMessage({
+          to: from,
+          imageUrl: qrUrl,
+          caption: `📲 Scan to Pay ₹${discountedPrice} for ${activeSession.turfName}\n⏰ Slot: ${activeSession.timeStr}`,
+        });
 
-Deducted *${coinsToUse} Trimurti Coins* (₹${discountVal} OFF)!
-💰 *New Amount Due:* *₹${discountedPrice}*
+        let appliedMsg = '';
+        const buttons = [];
+
+        if (activeSession.couponCode && couponDiscount > 0) {
+          appliedMsg =
+`✅ *COUPON & COINS APPLIED!* 🪙
+
+🌟 *Coupon (${activeSession.couponCode}):* -₹${couponDiscount}
+🪙 *Trimurti Coins (${coinsToUse} TC):* -₹${discountVal}
+💰 *Total Savings:* -₹${couponDiscount + discountVal}
+🔥 *New Amount Due:* *₹${discountedPrice}* _(was ₹${basePrice})_
 🏟️ *Turf:* ${activeSession.turfName} (${activeSession.timeStr})
 
-📲 *Pay via UPI:*
+📲 *1-Tap Pay:* ${upiPayLink}
 👉 *UPI ID:* \`${upiId}\`
-👉 *1-Tap Pay:* ${upiPayLink}
 
-⚡ Reply with the *last 4 digits of your UPI Ref ID* (e.g. \`8901\`) to complete your discounted booking!`;
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (e.g. \`8901\`) or send payment screenshot to confirm!`;
+
+          buttons.push({ id: 'BTN_REMOVE_COINS', title: '🗑️ Remove Coins' });
+          buttons.push({ id: 'BTN_REMOVE_COUPON', title: '🗑️ Remove Coupon' });
+          buttons.push({ id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' });
+        } else {
+          appliedMsg =
+`✅ *TRIMURTI COINS REDEEMED!* 🪙
+
+🪙 Deducted *${coinsToUse} Trimurti Coins* (₹${discountVal} OFF)!
+💰 *New Amount Due:* *₹${discountedPrice}* _(was ₹${basePrice})_
+🏟️ *Turf:* ${activeSession.turfName} (${activeSession.timeStr})
+
+🎉 *Have a coupon too?* Reply with your coupon code (e.g. *WELCOME100* or VIP code) to stack even more discount!
+
+📲 *1-Tap Pay:* ${upiPayLink}
+👉 *UPI ID:* \`${upiId}\`
+
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (e.g. \`8901\`) or send payment screenshot to confirm!`;
+
+          buttons.push({ id: 'BTN_REMOVE_COINS', title: '🗑️ Remove Coins' });
+          buttons.push({ id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' });
+          buttons.push({ id: 'BTN_STAFF', title: '👤 Talk to Desk' });
+        }
 
         return sendInteractiveButtons({
           to: from,
           headerText: 'Discount Applied!',
           bodyText: appliedMsg,
-          buttons: [
-            { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
-            { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
-          ],
+          buttons,
         });
       } catch (applyErr) {
         console.error('[APPLY COINS WA ERROR]', applyErr.message);
+      }
+    }
+
+    // 0a. User requests to remove Trimurti Coins discount
+    if (
+      payload === 'BTN_REMOVE_COINS' ||
+      normalizedText.includes('remove coin') ||
+      normalizedText.includes('cancel coin') ||
+      normalizedText.includes('remove points')
+    ) {
+      if (activeSession.coinsRedeemed > 0) {
+        const basePrice = activeSession.originalPrice || activeSession.price;
+        const couponDiscount = activeSession.couponDiscount || 0;
+        const revertedPrice = Math.max(300, basePrice - couponDiscount);
+
+        activeSession.price = revertedPrice;
+        activeSession.coinsRedeemed = 0;
+        activeSession.coinsDiscountAmount = 0;
+        setBookingSession(from, activeSession);
+
+        const { upi_id: upiId } = await getLiveUpiSettings();
+        const upiPayLink = `upi://pay?pa=${upiId}&am=${revertedPrice}&pn=Trimurti`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(upiPayLink)}`;
+
+        await sendImageMessage({
+          to: from,
+          imageUrl: qrUrl,
+          caption: `📲 Scan to Pay ₹${revertedPrice} for ${activeSession.turfName}\n⏰ Slot: ${activeSession.timeStr}`,
+        });
+
+        const removedMsg =
+`🗑️ *Trimurti Coins Removed.*
+Amount due is now *₹${revertedPrice}*.${couponDiscount > 0 ? `\n(Coupon *${activeSession.couponCode}* is still active: -₹${couponDiscount})` : ''}
+
+📲 *1-Tap Pay:* ${upiPayLink}
+👉 *UPI ID:* \`${upiId}\`
+
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (or share payment screenshot) to complete your booking!`;
+
+        const buttons = [];
+        buttons.push({ id: 'BTN_USE_LOYALTY_COINS', title: '🪙 Re-Apply Coins' });
+        if (activeSession.couponCode) {
+          buttons.push({ id: 'BTN_REMOVE_COUPON', title: '🗑️ Remove Coupon' });
+        }
+        buttons.push({ id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' });
+
+        return sendInteractiveButtons({
+          to: from,
+          headerText: 'Coins Removed',
+          bodyText: removedMsg,
+          buttons: buttons.slice(0, 3),
+        });
       }
     }
 
@@ -1626,25 +1729,37 @@ Deducted *${coinsToUse} Trimurti Coins* (₹${discountVal} OFF)!
 
         const { upi_id: upiId } = await getLiveUpiSettings();
         const upiPayLink = `upi://pay?pa=${upiId}&am=${revertedPrice}&pn=Trimurti`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(upiPayLink)}`;
+
+        await sendImageMessage({
+          to: from,
+          imageUrl: qrUrl,
+          caption: `📲 Scan to Pay ₹${revertedPrice} for ${activeSession.turfName}\n⏰ Slot: ${activeSession.timeStr}`,
+        });
 
         const removedMsg =
 `🗑️ *Coupon Removed.*
-Amount due is now *₹${revertedPrice}*.
+Amount due is now *₹${revertedPrice}*.${coinsDiscount > 0 ? `\n(Trimurti Coins are still active: -₹${coinsDiscount})` : ''}
 
-📲 *Pay via UPI:*
+📲 *1-Tap Pay:* ${upiPayLink}
 👉 *UPI ID:* \`${upiId}\`
-👉 *1-Tap Pay:* ${upiPayLink}
 
-⚡ Reply with the *last 4 digits of your UPI Ref ID* (or share your payment screenshot) to complete your booking!`;
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (or share payment screenshot) to complete your booking!`;
+
+        const buttons = [];
+        if (coinsDiscount > 0) {
+          buttons.push({ id: 'BTN_REMOVE_COINS', title: '🗑️ Remove Coins' });
+        } else {
+          buttons.push({ id: 'BTN_USE_LOYALTY_COINS', title: '🪙 Use Coins' });
+        }
+        buttons.push({ id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' });
+        buttons.push({ id: 'BTN_STAFF', title: '👤 Talk to Desk' });
 
         return sendInteractiveButtons({
           to: from,
           headerText: 'Coupon Removed',
           bodyText: removedMsg,
-          buttons: [
-            { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
-            { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
-          ],
+          buttons: buttons.slice(0, 3),
         });
       }
     }
@@ -1682,7 +1797,18 @@ Amount due is now *₹${revertedPrice}*.
 
         if (valResult.valid) {
           const couponDiscount = valResult.discount_amount;
-          const coinsDiscount = activeSession.coinsDiscountAmount || 0;
+          let coinsDiscount = activeSession.coinsDiscountAmount || 0;
+          let coinsRedeemed = activeSession.coinsRedeemed || 0;
+
+          // If coins were already redeemed, re-verify they fit within the 300 price floor with this new coupon
+          if (coinsRedeemed > 0) {
+            const maxCoinsAllowed = Math.max(0, (basePrice - couponDiscount) - 300);
+            coinsRedeemed = Math.min(coinsRedeemed, maxCoinsAllowed);
+            coinsDiscount = coinsRedeemed; // 1 coin = ₹1
+            activeSession.coinsRedeemed = coinsRedeemed;
+            activeSession.coinsDiscountAmount = coinsDiscount;
+          }
+
           const discountedPrice = Math.max(300, basePrice - couponDiscount - coinsDiscount);
 
           activeSession.originalPrice = basePrice;
@@ -1694,29 +1820,93 @@ Amount due is now *₹${revertedPrice}*.
 
           const { upi_id: upiId } = await getLiveUpiSettings();
           const upiPayLink = `upi://pay?pa=${upiId}&am=${discountedPrice}&pn=Trimurti`;
+          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(upiPayLink)}`;
 
-          const couponAppliedMsg =
+          // Send updated QR code image
+          await sendImageMessage({
+            to: from,
+            imageUrl: qrUrl,
+            caption: `📲 Scan to Pay ₹${discountedPrice} for ${activeSession.turfName}\n⏰ Slot: ${activeSession.timeStr}`,
+          });
+
+          // Check if player has spendable coins ready to use (if not yet redeemed)
+          let hasSpendableCoins = false;
+          let spendableBalance = 0;
+          if (coinsRedeemed === 0) {
+            try {
+              const lStatus = await loyaltyService.getWalletStatus(from);
+              if (lStatus && lStatus.loyalty_enabled && lStatus.spendable_balance > 0) {
+                const maxUsable = Math.min(lStatus.spendable_balance, Math.max(0, (basePrice - couponDiscount) - 300));
+                if (maxUsable > 0) {
+                  hasSpendableCoins = true;
+                  spendableBalance = maxUsable;
+                }
+              }
+            } catch {}
+          }
+
+          let couponAppliedMsg = '';
+          const buttons = [];
+
+          if (coinsRedeemed > 0) {
+            couponAppliedMsg =
+`🎉 *COUPON & COINS APPLIED!* 🪙
+
+🌟 *Coupon (${valResult.coupon.code}):* -₹${couponDiscount}
+🪙 *Trimurti Coins (${coinsRedeemed} TC):* -₹${coinsDiscount}
+💰 *Total Savings:* -₹${couponDiscount + coinsDiscount}
+🔥 *New Amount Due:* *₹${discountedPrice}* _(was ₹${basePrice})_
+🏟️ *Turf:* ${activeSession.turfName} (${activeSession.timeStr})
+
+📲 *1-Tap Pay:* ${upiPayLink}
+👉 *UPI ID:* \`${upiId}\`
+
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (or share payment screenshot) to complete your discounted booking!`;
+
+            buttons.push({ id: 'BTN_REMOVE_COUPON', title: '🗑️ Remove Coupon' });
+            buttons.push({ id: 'BTN_REMOVE_COINS', title: '🗑️ Remove Coins' });
+            buttons.push({ id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' });
+          } else if (hasSpendableCoins) {
+            couponAppliedMsg =
 `🎉 *COUPON ${valResult.coupon.code} APPLIED!*
 
 💸 *Discount:* -₹${couponDiscount}
 💰 *New Amount Due:* *₹${discountedPrice}* _(was ₹${basePrice})_
 🏟️ *Turf:* ${activeSession.turfName} (${activeSession.timeStr})
 
-📲 *Pay via UPI:*
+🪙 *Bonus:* You have ${spendableBalance} Spendable Coins! Tap *🪙 Use Coins* below to stack an extra ₹${spendableBalance} OFF!
+
+📲 *1-Tap Pay:* ${upiPayLink}
 👉 *UPI ID:* \`${upiId}\`
-👉 *1-Tap Pay:* ${upiPayLink}
 
 ⚡ Reply with the *last 4 digits of your UPI Ref ID* (or share payment screenshot) to complete your discounted booking!`;
+
+            buttons.push({ id: 'BTN_USE_LOYALTY_COINS', title: `🪙 Use ${spendableBalance} Coins` });
+            buttons.push({ id: 'BTN_REMOVE_COUPON', title: '🗑️ Remove Coupon' });
+            buttons.push({ id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' });
+          } else {
+            couponAppliedMsg =
+`🎉 *COUPON ${valResult.coupon.code} APPLIED!*
+
+💸 *Discount:* -₹${couponDiscount}
+💰 *New Amount Due:* *₹${discountedPrice}* _(was ₹${basePrice})_
+🏟️ *Turf:* ${activeSession.turfName} (${activeSession.timeStr})
+
+📲 *1-Tap Pay:* ${upiPayLink}
+👉 *UPI ID:* \`${upiId}\`
+
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (or share payment screenshot) to complete your discounted booking!`;
+
+            buttons.push({ id: 'BTN_REMOVE_COUPON', title: '🗑️ Remove Coupon' });
+            buttons.push({ id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' });
+            buttons.push({ id: 'BTN_STAFF', title: '👤 Talk to Desk' });
+          }
 
           return sendInteractiveButtons({
             to: from,
             headerText: 'Coupon Applied!',
             bodyText: couponAppliedMsg,
-            buttons: [
-              { id: 'BTN_REMOVE_COUPON', title: '🗑️ Remove Coupon' },
-              { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
-              { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
-            ],
+            buttons,
           });
         } else if (isExplicitPrefix || valResult.status === 404) {
           const { upi_id: upiId } = await getLiveUpiSettings();
