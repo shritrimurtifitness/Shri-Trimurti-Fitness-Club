@@ -1146,38 +1146,66 @@ export default function AdminCoupons() {
                 <p className="text-[11px] mt-1">This code has not been redeemed by any players yet.</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs uppercase font-bold">Player Mobile</TableHead>
-                    <TableHead className="text-xs uppercase font-bold">Customer</TableHead>
-                    <TableHead className="text-xs uppercase font-bold">Discount</TableHead>
-                    <TableHead className="text-xs uppercase font-bold">Paid</TableHead>
-                    <TableHead className="text-xs uppercase font-bold text-right">Redeemed At</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                {/* Mobile View: Cards */}
+                <div className="sm:hidden space-y-2">
                   {redemptions.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono font-bold text-xs text-foreground">
-                        {r.customer_phone}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {r.customer_name || "Guest Player"}
-                      </TableCell>
-                      <TableCell className="font-bold text-xs text-emerald-400">
-                        -₹{Number(r.discount_amount)}
-                      </TableCell>
-                      <TableCell className="font-bold text-xs text-foreground">
-                        ₹{Number(r.final_paid_amount)}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
+                    <div key={r.id} className="p-3 space-y-1.5 bg-secondary/20 rounded-xl border border-border/60">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-xs text-foreground">+91 {r.customer_phone}</span>
+                        <span className="font-bold text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                          -₹{Number(r.discount_amount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">{r.customer_name || "Guest Player"}</span>
+                        <span className="text-muted-foreground">
+                          Paid: <strong className="text-foreground">₹{Number(r.final_paid_amount)}</strong>
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/30 text-right">
                         {r.redeemed_at ? format(new Date(r.redeemed_at), "dd MMM yyyy, hh:mm a") : "-"}
-                      </TableCell>
-                    </TableRow>
+                      </p>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+
+                {/* Desktop View: Table */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs uppercase font-bold">Player Mobile</TableHead>
+                        <TableHead className="text-xs uppercase font-bold">Customer</TableHead>
+                        <TableHead className="text-xs uppercase font-bold">Discount</TableHead>
+                        <TableHead className="text-xs uppercase font-bold">Paid</TableHead>
+                        <TableHead className="text-xs uppercase font-bold text-right">Redeemed At</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {redemptions.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-mono font-bold text-xs text-foreground">
+                            {r.customer_phone}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {r.customer_name || "Guest Player"}
+                          </TableCell>
+                          <TableCell className="font-bold text-xs text-emerald-400">
+                            -₹{Number(r.discount_amount)}
+                          </TableCell>
+                          <TableCell className="font-bold text-xs text-foreground">
+                            ₹{Number(r.final_paid_amount)}
+                          </TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground">
+                            {r.redeemed_at ? format(new Date(r.redeemed_at), "dd MMM yyyy, hh:mm a") : "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </div>
 
