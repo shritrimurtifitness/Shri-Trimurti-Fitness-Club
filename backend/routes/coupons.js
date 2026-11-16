@@ -77,6 +77,106 @@ router.get('/check-first-time', async (req, res) => {
 });
 
 /**
+ * PUBLIC: Fetch all available public offers
+ * If phone is provided:
+ *   - Checks if phone is first-time booker (0 prior non-cancelled bookings & 0 redemptions)
+ *   - If first-time booker, includes BOTH is_first_booking_only=true AND general public coupons
+ *   - If existing booker, includes ONLY general public coupons (is_first_booking_only=false)
+ *   - Filters out coupons already exhausted by this user (per_user_limit reached)
+ * Strictly excludes private VIP coupons (is_private=true).
+ */
+router.get('/public-offers', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    let isFirstTime = false;
+    let phone10 = null;
+
+    if (phone) {
+      phone10 = normalizeTo10Digits(phone);
+      if (phone10 && phone10.length === 10) {
+        // 1. Check prior non-cancelled bookings
+        const priorBookings = await pool.query(`
+          SELECT b.id FROM bookings b
+          JOIN users u ON u.id = b.user_id
+          WHERE u.phone = $1 AND b.status NOT IN ('cancelled', 'rejected')
+          LIMIT 1
+        `, [phone10]);
+
+        // 2. Check coupon redemptions
+        const priorRedemptions = await pool.query(
+          'SELECT id FROM coupon_redemptions WHERE customer_phone = $1 LIMIT 1',
+          [phone10]
+        );
+
+        if (priorBookings.rows.length === 0 && priorRedemptions.rows.length === 0) {
+          isFirstTime = true;
+        }
+      }
+    }
+
+    // Query active, non-private, valid public coupons
+    const query = `
+      SELECT 
+        c.id,
+        c.code,
+        c.title,
+        c.description,
+        c.discount_type,
+        c.discount_value,
+        c.min_booking_amount,
+        c.max_discount,
+        c.is_first_booking_only,
+        c.per_user_limit,
+        c.total_usage_limit,
+        c.used_count
+      FROM coupons c
+      WHERE c.is_active = true
+        AND (c.is_private IS FALSE OR c.is_private IS NULL)
+        AND c.valid_from <= NOW()
+        AND (c.valid_until IS NULL OR c.valid_until >= NOW())
+        AND (c.total_usage_limit IS NULL OR c.used_count < c.total_usage_limit)
+        ${!isFirstTime ? 'AND (c.is_first_booking_only IS FALSE OR c.is_first_booking_only IS NULL)' : ''}
+      ORDER BY c.is_first_booking_only DESC, c.discount_value DESC
+    `;
+
+    const result = await pool.query(query);
+
+    let eligibleOffers = result.rows;
+    if (phone10) {
+      const redemptionsRes = await pool.query(
+        'SELECT coupon_id, COUNT(*)::int as count FROM coupon_redemptions WHERE customer_phone = $1 GROUP BY coupon_id',
+        [phone10]
+      );
+      const usageMap = new Map();
+      redemptionsRes.rows.forEach(r => usageMap.set(r.coupon_id, r.count));
+
+      eligibleOffers = eligibleOffers.filter(c => {
+        const used = usageMap.get(c.id) || 0;
+        const limit = c.per_user_limit || 1;
+        return used < limit;
+      });
+    }
+
+    const offers = eligibleOffers.map(c => ({
+      id: c.id,
+      code: c.code,
+      title: c.title,
+      description: c.description,
+      discount_type: c.discount_type,
+      discount_value: Number(c.discount_value),
+      max_discount: c.max_discount ? Number(c.max_discount) : null,
+      min_booking_amount: Number(c.min_booking_amount || 0),
+      is_first_booking_only: Boolean(c.is_first_booking_only)
+    }));
+
+    return res.json({ offers, is_first_time: isFirstTime });
+  } catch (err) {
+    console.error('[GET PUBLIC OFFERS ERROR]', err);
+    res.status(500).json({ error: 'Failed to fetch public offers' });
+  }
+});
+
+/**
  * PUBLIC: Validate Promo Code against Phone & Booking Amount
  */
 router.post('/validate', async (req, res) => {

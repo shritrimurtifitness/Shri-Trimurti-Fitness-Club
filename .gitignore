@@ -11,6 +11,7 @@ frontend/dist/
 dist-ssr/
 build/
 *.local
+scratch/
 
 # Environment Variables & Secrets
 .env

@@ -76,6 +76,8 @@ export default function BookingPage() {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [firstTimeOffer, setFirstTimeOffer] = useState<any | null>(null);
   const [checkingFirstTime, setCheckingFirstTime] = useState(false);
+  const [availableOffers, setAvailableOffers] = useState<any[]>([]);
+  const [isLoadingOffers, setIsLoadingOffers] = useState(false);
   const [loyaltyStatus, setLoyaltyStatus] = useState<any | null>(null);
   const [redeemCoins, setRedeemCoins] = useState<boolean>(false);
 
@@ -403,9 +405,29 @@ export default function BookingPage() {
     }
     if (cleanPhone) {
       checkFirstTimeEligibility(cleanPhone);
+      fetchAvailableOffers(cleanPhone);
       fetchLoyaltyStatus(cleanPhone);
     }
     setStep("confirm");
+  };
+
+  const fetchAvailableOffers = async (phoneNumber?: string) => {
+    const clean = (phoneNumber || phone).replace(/\D/g, '').slice(-10);
+    try {
+      setIsLoadingOffers(true);
+      const params = clean ? `?phone=${clean}` : '';
+      const res = await api.get(`/coupons/public-offers${params}`);
+      if (res.data?.offers) {
+        setAvailableOffers(res.data.offers);
+      } else {
+        setAvailableOffers([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch available offers", err);
+      setAvailableOffers([]);
+    } finally {
+      setIsLoadingOffers(false);
+    }
   };
 
   const fetchLoyaltyStatus = async (phoneNumber: string) => {
@@ -587,6 +609,7 @@ export default function BookingPage() {
     setAppliedCoupon(null);
     setCouponDiscount(0);
     setFirstTimeOffer(null);
+    setAvailableOffers([]);
     setRequiresFullUtr(false);
   };
 
@@ -994,46 +1017,109 @@ export default function BookingPage() {
                   </div>
 
                   <div className="rounded-2xl bg-card border border-border p-5 space-y-4 mb-6 shadow-xl">
-                    {/* First Time Welcome Offer Ticket Card */}
-                    {firstTimeOffer && !appliedCoupon && (
-                      <div className="relative overflow-hidden rounded-xl border border-dashed border-[#39FF14]/40 bg-gradient-to-br from-[#39FF14]/10 via-zinc-900/80 to-zinc-950 p-3.5 shadow-sm text-left">
-                        {/* Top row: Badge, Code & Apply CTA */}
-                        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#39FF14]/20">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="w-6 h-6 rounded-md bg-[#39FF14]/20 text-[#39FF14] flex items-center justify-center shrink-0">
-                              <Gift className="w-3.5 h-3.5" />
-                            </div>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#39FF14]">
-                              Welcome Offer
-                            </span>
-                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 uppercase tracking-wider">
-                              {firstTimeOffer.code}
-                            </span>
-                          </div>
-
-                          <Button
-                            size="sm"
-                            onClick={() => applyCoupon(firstTimeOffer.code)}
-                            disabled={isApplyingCoupon}
-                            className="h-7 px-3 text-xs font-extrabold bg-[#39FF14] text-black hover:bg-[#32e010] shadow-[0_2px_8px_rgba(57,255,20,0.25)] rounded-lg shrink-0"
-                          >
-                            {isApplyingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
-                          </Button>
+                    {/* Available Public Offers & First-Time Offer Cards */}
+                    {availableOffers.length > 0 && (
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#39FF14]" /> Available Offers ({availableOffers.length})
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">Select one coupon to apply</span>
                         </div>
 
-                        {/* Bottom row: Value Highlight & Description */}
-                        <div className="pt-2">
-                          <div className="text-sm font-extrabold text-foreground tracking-tight">
-                            {firstTimeOffer.discount_type === 'percent'
-                              ? `Get ${firstTimeOffer.discount_value}% OFF`
-                              : `Flat ₹${firstTimeOffer.discount_value} OFF`}
-                            <span className="text-xs font-normal text-muted-foreground ml-1.5">
-                              on your first match
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                            {firstTimeOffer.description || "Special welcome discount applied on your first match!"}
-                          </p>
+                        <div className="space-y-2">
+                          {availableOffers.map((offer) => {
+                            const isApplied = appliedCoupon?.code?.toUpperCase() === offer.code.toUpperCase();
+                            const basePrice = selectedSlotGroup?.price || 0;
+                            const meetsMinAmount = !offer.min_booking_amount || basePrice >= offer.min_booking_amount;
+
+                            return (
+                              <div
+                                key={offer.id || offer.code}
+                                className={`relative overflow-hidden rounded-xl p-3 border transition-all text-left ${
+                                  isApplied
+                                    ? "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                                    : offer.is_first_booking_only
+                                    ? "border-dashed border-[#39FF14]/40 bg-gradient-to-br from-[#39FF14]/10 via-zinc-900/80 to-zinc-950"
+                                    : "border-border/70 bg-zinc-900/60 hover:bg-zinc-900/90"
+                                }`}
+                              >
+                                {/* Top Row: Badge, Code & Apply CTA */}
+                                <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/30">
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                                    {offer.is_first_booking_only ? (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#39FF14]/20 text-[#39FF14] border border-[#39FF14]/30">
+                                        <Gift className="w-3 h-3" /> Welcome 1st Match
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
+                                        <Tag className="w-3 h-3" /> Public Offer
+                                      </span>
+                                    )}
+                                    <span className="font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 uppercase tracking-wider">
+                                      {offer.code}
+                                    </span>
+                                  </div>
+
+                                  {isApplied ? (
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-extrabold text-[11px] border border-emerald-500/40">
+                                        <Check className="w-3 h-3" /> Applied
+                                      </span>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={removeCoupon}
+                                        className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded"
+                                      >
+                                        Remove
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => applyCoupon(offer.code)}
+                                      disabled={isApplyingCoupon || !meetsMinAmount}
+                                      className={`h-7 px-3 text-xs font-bold rounded-lg shrink-0 ${
+                                        offer.is_first_booking_only
+                                          ? "bg-[#39FF14] text-black hover:bg-[#32e010] shadow-[0_2px_8px_rgba(57,255,20,0.25)]"
+                                          : "bg-primary text-primary-foreground hover:opacity-90"
+                                      }`}
+                                    >
+                                      {isApplyingCoupon && couponCode === offer.code ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : !meetsMinAmount ? (
+                                        `Min ₹${offer.min_booking_amount}`
+                                      ) : (
+                                        "Apply"
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+
+                                {/* Bottom Row: Value Highlight & Description */}
+                                <div className="pt-2 flex items-center justify-between text-xs">
+                                  <div className="min-w-0 pr-2">
+                                    <div className="font-extrabold text-foreground tracking-tight">
+                                      {offer.discount_type === 'percent'
+                                        ? `Get ${offer.discount_value}% OFF`
+                                        : `Flat ₹${offer.discount_value} OFF`}
+                                      {offer.min_booking_amount > 0 && (
+                                        <span className="text-[11px] font-normal text-muted-foreground ml-1.5">
+                                          (Min booking ₹{offer.min_booking_amount})
+                                        </span>
+                                      )}
+                                    </div>
+                                    {offer.description && (
+                                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                        {offer.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1042,7 +1128,7 @@ export default function BookingPage() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Tag className="w-3.5 h-3.5 text-primary" /> {firstTimeOffer && !appliedCoupon ? "Have another Promo Code?" : "Promo Code / Voucher"}
+                          <Tag className="w-3.5 h-3.5 text-primary" /> {availableOffers.length > 0 ? "Have a private code / voucher?" : "Promo Code / Voucher"}
                         </label>
                         {appliedCoupon && (
                           <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
