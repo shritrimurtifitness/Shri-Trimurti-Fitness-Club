@@ -41,11 +41,12 @@ router.get('/check-first-time', async (req, res) => {
       return res.json({ eligible: false });
     }
 
-    // 3. Find active Welcome Offer
+    // 3. Find active Welcome Offer (Public Only - never show private coupons)
     const welcomeCoupon = await pool.query(`
       SELECT * FROM coupons
       WHERE is_first_booking_only = true
         AND is_active = true
+        AND (is_private IS FALSE OR is_private IS NULL)
         AND valid_from <= NOW()
         AND (valid_until IS NULL OR valid_until >= NOW())
         AND (total_usage_limit IS NULL OR used_count < total_usage_limit)
@@ -105,10 +106,28 @@ router.post('/validate', async (req, res) => {
     );
 
     if (cRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Invalid or non-existent coupon code' });
+      return res.status(404).json({ error: 'Invalid coupon code' });
     }
 
     const coupon = cRes.rows[0];
+
+    // Check private closed-group whitelist (Stealth check: Outsiders receive exact 404 'Invalid coupon code')
+    if (coupon.is_private) {
+      const wlRes = await pool.query(
+        'SELECT * FROM coupon_whitelist WHERE coupon_id = $1 AND phone = $2',
+        [coupon.id, phone10]
+      );
+      if (wlRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Invalid coupon code' });
+      }
+
+      const wlMember = wlRes.rows[0];
+      if (wlMember.max_uses !== null && wlMember.max_uses !== undefined && wlMember.max_uses > 0) {
+        if (wlMember.used_count >= wlMember.max_uses) {
+          return res.status(400).json({ error: 'You have already reached the redemption limit for this exclusive coupon' });
+        }
+      }
+    }
 
     // Check active
     if (!coupon.is_active) {
@@ -203,11 +222,10 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT c.*,
-        COALESCE(COUNT(r.id), 0)::int as total_redemptions,
-        COALESCE(SUM(r.discount_amount), 0)::numeric as total_discount_given
+        COALESCE((SELECT COUNT(*)::int FROM coupon_redemptions r WHERE r.coupon_id = c.id), 0) as total_redemptions,
+        COALESCE((SELECT SUM(r.discount_amount)::numeric FROM coupon_redemptions r WHERE r.coupon_id = c.id), 0) as total_discount_given,
+        COALESCE((SELECT COUNT(*)::int FROM coupon_whitelist w WHERE w.coupon_id = c.id), 0) as whitelisted_count
       FROM coupons c
-      LEFT JOIN coupon_redemptions r ON c.id = r.coupon_id
-      GROUP BY c.id
       ORDER BY c.created_at DESC
     `);
     res.json(result.rows);
@@ -231,6 +249,8 @@ router.post('/', authMiddleware, async (req, res) => {
       max_discount,
       min_booking_amount = 0,
       is_first_booking_only = false,
+      is_private = false,
+      whitelist_members = [],
       total_usage_limit,
       per_user_limit = 1,
       valid_from,
@@ -253,9 +273,9 @@ router.post('/', authMiddleware, async (req, res) => {
     const result = await pool.query(`
       INSERT INTO coupons (
         code, title, description, discount_type, discount_value, max_discount,
-        min_booking_amount, is_first_booking_only, total_usage_limit, per_user_limit,
+        min_booking_amount, is_first_booking_only, is_private, total_usage_limit, per_user_limit,
         valid_from, valid_until, is_active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11, NOW()), $12, $13)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, NOW()), $13, $14)
       RETURNING *
     `, [
       cleanCode,
@@ -266,6 +286,7 @@ router.post('/', authMiddleware, async (req, res) => {
       max_discount ? Number(max_discount) : null,
       Number(min_booking_amount) || 0,
       Boolean(is_first_booking_only),
+      Boolean(is_private),
       total_usage_limit ? parseInt(total_usage_limit, 10) : null,
       parseInt(per_user_limit, 10) || 1,
       valid_from || null,
@@ -273,7 +294,27 @@ router.post('/', authMiddleware, async (req, res) => {
       is_active !== undefined ? Boolean(is_active) : true
     ]);
 
-    res.status(201).json(result.rows[0]);
+    const newCoupon = result.rows[0];
+
+    // If private and initial whitelist members provided, insert them
+    if (Boolean(is_private) && Array.isArray(whitelist_members) && whitelist_members.length > 0) {
+      for (const m of whitelist_members) {
+        const phone10 = normalizeTo10Digits(m.phone);
+        if (phone10 && phone10.length === 10) {
+          const maxUses = m.max_uses !== undefined && m.max_uses !== '' && m.max_uses !== null ? parseInt(m.max_uses, 10) : 1;
+          await pool.query(`
+            INSERT INTO coupon_whitelist (coupon_id, phone, member_name, max_uses)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (coupon_id, phone) DO UPDATE SET
+              member_name = COALESCE(EXCLUDED.member_name, coupon_whitelist.member_name),
+              max_uses = EXCLUDED.max_uses,
+              updated_at = NOW()
+          `, [newCoupon.id, phone10, m.member_name ? m.member_name.trim() : null, isNaN(maxUses) ? 1 : maxUses]);
+        }
+      }
+    }
+
+    res.status(201).json(newCoupon);
   } catch (err) {
     console.error('[ADMIN CREATE COUPON ERROR]', err);
     res.status(500).json({ error: 'Failed to create coupon: ' + err.message });
@@ -318,6 +359,7 @@ router.patch('/:id', authMiddleware, async (req, res) => {
       max_discount,
       min_booking_amount,
       is_first_booking_only,
+      is_private,
       total_usage_limit,
       per_user_limit,
       valid_from,
@@ -334,13 +376,14 @@ router.patch('/:id', authMiddleware, async (req, res) => {
         max_discount = $5,
         min_booking_amount = COALESCE($6, min_booking_amount),
         is_first_booking_only = COALESCE($7, is_first_booking_only),
-        total_usage_limit = $8,
-        per_user_limit = COALESCE($9, per_user_limit),
-        valid_from = COALESCE($10, valid_from),
-        valid_until = $11,
-        is_active = COALESCE($12, is_active),
+        is_private = COALESCE($8, is_private),
+        total_usage_limit = $9,
+        per_user_limit = COALESCE($10, per_user_limit),
+        valid_from = COALESCE($11, valid_from),
+        valid_until = $12,
+        is_active = COALESCE($13, is_active),
         updated_at = NOW()
-      WHERE id = $13
+      WHERE id = $14
       RETURNING *
     `, [
       title ? title.trim() : null,
@@ -350,6 +393,7 @@ router.patch('/:id', authMiddleware, async (req, res) => {
       max_discount !== undefined && max_discount !== '' ? Number(max_discount) : null,
       min_booking_amount !== undefined ? Number(min_booking_amount) : null,
       is_first_booking_only !== undefined ? Boolean(is_first_booking_only) : null,
+      is_private !== undefined ? Boolean(is_private) : null,
       total_usage_limit !== undefined && total_usage_limit !== '' ? parseInt(total_usage_limit, 10) : null,
       per_user_limit !== undefined ? parseInt(per_user_limit, 10) : null,
       valid_from || null,
@@ -359,6 +403,146 @@ router.patch('/:id', authMiddleware, async (req, res) => {
     ]);
 
     if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Coupon not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('[ADMIN UPDATE COUPON ERROR]', err);
+    res.status(500).json({ error: 'Failed to update coupon' });
+  }
+});
+
+/**
+ * ADMIN: Get whitelisted members for a private coupon
+ */
+router.get('/:id/whitelist', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`
+      SELECT id, coupon_id, phone, member_name, max_uses, used_count, created_at, updated_at
+      FROM coupon_whitelist
+      WHERE coupon_id = $1
+      ORDER BY created_at DESC
+    `, [id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[ADMIN GET WHITELIST ERROR]', err);
+    res.status(500).json({ error: 'Failed to fetch coupon whitelist' });
+  }
+});
+
+/**
+ * ADMIN: Add member(s) to coupon whitelist
+ */
+router.post('/:id/whitelist', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { phone, member_name, max_uses = 1, members } = req.body;
+
+    const couponCheck = await pool.query('SELECT id, is_private FROM coupons WHERE id = $1', [id]);
+    if (couponCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Coupon not found' });
+    }
+
+    // Auto-mark coupon as private if adding whitelisted members
+    if (!couponCheck.rows[0].is_private) {
+      await pool.query('UPDATE coupons SET is_private = true, updated_at = NOW() WHERE id = $1', [id]);
+    }
+
+    const itemsToAdd = [];
+    if (Array.isArray(members) && members.length > 0) {
+      itemsToAdd.push(...members);
+    } else if (phone) {
+      itemsToAdd.push({ phone, member_name, max_uses });
+    }
+
+    if (itemsToAdd.length === 0) {
+      return res.status(400).json({ error: 'Please provide at least one phone number' });
+    }
+
+    const inserted = [];
+    for (const item of itemsToAdd) {
+      const p10 = normalizeTo10Digits(item.phone);
+      if (!p10 || p10.length !== 10) continue;
+      const mUses = item.max_uses !== undefined && item.max_uses !== '' && item.max_uses !== null ? parseInt(item.max_uses, 10) : 1;
+      const row = await pool.query(`
+        INSERT INTO coupon_whitelist (coupon_id, phone, member_name, max_uses)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (coupon_id, phone) DO UPDATE SET
+          member_name = COALESCE(EXCLUDED.member_name, coupon_whitelist.member_name),
+          max_uses = EXCLUDED.max_uses,
+          updated_at = NOW()
+        RETURNING *
+      `, [id, p10, item.member_name ? item.member_name.trim() : null, isNaN(mUses) ? 1 : mUses]);
+      inserted.push(row.rows[0]);
+    }
+
+    res.status(201).json({ success: true, count: inserted.length, members: inserted });
+  } catch (err) {
+    console.error('[ADMIN ADD WHITELIST ERROR]', err);
+    res.status(500).json({ error: 'Failed to add whitelisted members' });
+  }
+});
+
+/**
+ * ADMIN: Update a specific whitelisted member
+ */
+router.patch('/:id/whitelist/:phone', authMiddleware, async (req, res) => {
+  try {
+    const { id, phone } = req.params;
+    const { member_name, max_uses } = req.body;
+    const p10 = normalizeTo10Digits(phone);
+
+    const mUses = max_uses !== undefined && max_uses !== '' && max_uses !== null ? parseInt(max_uses, 10) : null;
+
+    const result = await pool.query(`
+      UPDATE coupon_whitelist SET
+        member_name = COALESCE($1, member_name),
+        max_uses = COALESCE($2, max_uses),
+        updated_at = NOW()
+      WHERE coupon_id = $3 AND phone = $4
+      RETURNING *
+    `, [
+      member_name !== undefined ? (member_name ? member_name.trim() : null) : null,
+      mUses,
+      id,
+      p10
+    ]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Whitelisted member not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('[ADMIN UPDATE WHITELIST MEMBER ERROR]', err);
+    res.status(500).json({ error: 'Failed to update member' });
+  }
+});
+
+/**
+ * ADMIN: Remove member from whitelist
+ */
+router.delete('/:id/whitelist/:phone', authMiddleware, async (req, res) => {
+  try {
+    const { id, phone } = req.params;
+    const p10 = normalizeTo10Digits(phone);
+    const result = await pool.query(
+      'DELETE FROM coupon_whitelist WHERE coupon_id = $1 AND phone = $2 RETURNING id',
+      [id, p10]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Whitelisted member not found' });
+    }
+
+    res.json({ success: true, message: 'Member removed from whitelist' });
+  } catch (err) {
+    console.error('[ADMIN DELETE WHITELIST MEMBER ERROR]', err);
+    res.status(500).json({ error: 'Failed to remove member from whitelist' });
+  }
+});
       return res.status(404).json({ error: 'Coupon not found' });
     }
 

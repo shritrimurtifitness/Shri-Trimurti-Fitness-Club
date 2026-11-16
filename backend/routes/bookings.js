@@ -1053,6 +1053,28 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
             }
           }
 
+          // Check private closed-group whitelist restriction
+          if (eligible && c.is_private) {
+            if (!phone10) {
+              eligible = false;
+            } else {
+              const wl = await pool.query(
+                'SELECT * FROM coupon_whitelist WHERE coupon_id = $1 AND phone = $2',
+                [c.id, phone10]
+              );
+              if (wl.rows.length === 0) {
+                eligible = false;
+              } else {
+                const member = wl.rows[0];
+                if (member.max_uses !== null && member.max_uses !== undefined && member.max_uses > 0) {
+                  if (member.used_count >= member.max_uses) {
+                    eligible = false;
+                  }
+                }
+              }
+            }
+          }
+
           // Check minimum booking amount
           if (eligible && grandTotal >= Number(c.min_booking_amount || 0)) {
             let disc = 0;
@@ -1144,6 +1166,14 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       `, [appliedCoupon.id, createdBookings[0].id, phone10, totalDiscount, finalPayable]);
 
       await pool.query('UPDATE coupons SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1', [appliedCoupon.id]);
+
+      if (appliedCoupon.is_private) {
+        await pool.query(`
+          UPDATE coupon_whitelist
+          SET used_count = used_count + 1, updated_at = NOW()
+          WHERE coupon_id = $1 AND phone = $2
+        `, [appliedCoupon.id, phone10]);
+      }
     }
 
     // Record loyalty coins deduction atomically in ledger
