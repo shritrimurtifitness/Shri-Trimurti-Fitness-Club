@@ -10,6 +10,7 @@ const notificationScheduler = require('../services/notificationScheduler');
 const adminBookingService = require('../services/adminBookingService');
 const bankSmsMatchingService = require('../services/bankSmsMatchingService');
 const loyaltyService = require('../services/loyaltyService');
+const couponService = require('../services/couponService');
 const { normalizeTo10Digits, formatTime12h } = require('../utils/phone');
 
 router.post('/', bookingLimiter, async (req, res) => {
@@ -1017,87 +1018,20 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       slotTimes.push(`${slot.start_time.substring(0, 5)} - ${slot.end_time.substring(0, 5)}`);
     }
 
-    // Process coupon validation & discount calculation
+    // Process coupon validation & discount calculation using unified couponService
     let appliedCoupon = null;
     let totalDiscount = 0;
 
     if (coupon_code && typeof coupon_code === 'string' && coupon_code.trim()) {
-      const cleanCode = coupon_code.trim().toUpperCase();
-      const cRes = await pool.query('SELECT * FROM coupons WHERE UPPER(code) = $1', [cleanCode]);
+      const couponValidation = await couponService.validateCouponCode({
+        code: coupon_code,
+        phone: phone10,
+        amount: grandTotal,
+      });
 
-      if (cRes.rows.length > 0) {
-        const c = cRes.rows[0];
-        const now = new Date();
-        const isValidDate = (!c.valid_from || new Date(c.valid_from) <= now) && (!c.valid_until || new Date(c.valid_until) >= now);
-        const hasUsageLeft = !c.total_usage_limit || c.used_count < c.total_usage_limit;
-
-        if (c.is_active && isValidDate && hasUsageLeft) {
-          let eligible = true;
-          // Check first-time restriction
-          if (c.is_first_booking_only && phone10) {
-            const pb = await pool.query(
-              "SELECT b.id FROM bookings b JOIN users u ON u.id = b.user_id WHERE u.phone = $1 AND b.status NOT IN ('cancelled', 'rejected') LIMIT 1",
-              [phone10]
-            );
-            if (pb.rows.length > 0) eligible = false;
-          }
-
-          // Check per-user limit
-          if (eligible && phone10) {
-            const ur = await pool.query(
-              'SELECT COUNT(*) FROM coupon_redemptions WHERE coupon_id = $1 AND customer_phone = $2',
-              [c.id, phone10]
-            );
-            if (parseInt(ur.rows[0].count, 10) >= (c.per_user_limit || 1)) {
-              eligible = false;
-            }
-          }
-
-          // Check private closed-group whitelist restriction
-          if (eligible && c.is_private) {
-            if (!phone10) {
-              eligible = false;
-            } else {
-              const wl = await pool.query(
-                'SELECT * FROM coupon_whitelist WHERE coupon_id = $1 AND phone = $2',
-                [c.id, phone10]
-              );
-              if (wl.rows.length === 0) {
-                eligible = false;
-              } else {
-                const member = wl.rows[0];
-                if (member.max_uses !== null && member.max_uses !== undefined && member.max_uses > 0) {
-                  if (member.used_count >= member.max_uses) {
-                    eligible = false;
-                  }
-                }
-              }
-            }
-          }
-
-          // Check minimum booking amount
-          if (eligible && grandTotal >= Number(c.min_booking_amount || 0)) {
-            let disc = 0;
-            if (c.discount_type === 'flat') {
-              disc = Number(c.discount_value);
-            } else if (c.discount_type === 'percent') {
-              disc = (grandTotal * Number(c.discount_value)) / 100;
-              if (c.max_discount && disc > Number(c.max_discount)) {
-                disc = Number(c.max_discount);
-              }
-            }
-
-            // Floor rule: protect arena from going below ₹300 minimum
-            const maxAllowedDiscount = Math.max(0, grandTotal - 300);
-            disc = Math.min(disc, maxAllowedDiscount);
-            disc = Math.round(disc);
-
-            if (disc > 0) {
-              appliedCoupon = c;
-              totalDiscount = disc;
-            }
-          }
-        }
+      if (couponValidation.valid) {
+        appliedCoupon = couponValidation.coupon;
+        totalDiscount = couponValidation.discount_amount;
       }
     }
 
@@ -1160,20 +1094,13 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
 
     // Record coupon redemption if applied
     if (appliedCoupon && createdBookings.length > 0 && phone10) {
-      await pool.query(`
-        INSERT INTO coupon_redemptions (coupon_id, booking_id, customer_phone, discount_amount, final_paid_amount)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [appliedCoupon.id, createdBookings[0].id, phone10, totalDiscount, finalPayable]);
-
-      await pool.query('UPDATE coupons SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1', [appliedCoupon.id]);
-
-      if (appliedCoupon.is_private) {
-        await pool.query(`
-          UPDATE coupon_whitelist
-          SET used_count = used_count + 1, updated_at = NOW()
-          WHERE coupon_id = $1 AND phone = $2
-        `, [appliedCoupon.id, phone10]);
-      }
+      await couponService.recordRedemptionInTransaction(pool, {
+        couponId: appliedCoupon.id,
+        bookingId: createdBookings[0].id,
+        phone: phone10,
+        discountAmount: totalDiscount,
+        finalPaidAmount: finalPayable,
+      });
     }
 
     // Record loyalty coins deduction atomically in ledger

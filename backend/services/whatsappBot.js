@@ -11,6 +11,7 @@ const adminBookingService = require('./adminBookingService');
 const receiptOcrService = require('./receiptOcrService');
 const bankSmsMatchingService = require('./bankSmsMatchingService');
 const loyaltyService = require('./loyaltyService');
+const couponService = require('./couponService');
 
 // In-memory session tracking for WhatsApp booking flow
 // Key: phone number -> { state, slotId, turfId, turfName, date, timeStr, price, userName, createdAt }
@@ -856,6 +857,21 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
       console.error('[LOYALTY CHECK IN BOOKING ERROR]', lErr.message);
     }
 
+    // Check available coupon offers for player
+    let promoNote = '';
+    try {
+      const offerResult = await couponService.getAvailableOffersForPhone({ phone: from, amount: price });
+      if (offerResult.offers && offerResult.offers.length > 0) {
+        const topOffer = offerResult.offers[0];
+        const discStr = topOffer.discount_type === 'percent'
+          ? `${topOffer.discount_value}% OFF`
+          : `₹${topOffer.discount_value} OFF`;
+        promoNote = `\n\n🎉 *Available Offer:* Use code *${topOffer.code}* for *${discStr}*!\n👉 Reply with *${topOffer.code}* (or your secret VIP code) to apply discount!`;
+      }
+    } catch (cErr) {
+      console.error('[COUPON CHECK IN BOOKING ERROR]', cErr.message);
+    }
+
     // Save active session
     setBookingSession(from, {
       state: 'AWAITING_PAYMENT',
@@ -866,6 +882,11 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
       timeStr,
       price,
       originalPrice: price,
+      couponCode: null,
+      couponDiscount: 0,
+      couponId: null,
+      coinsRedeemed: 0,
+      coinsDiscountAmount: 0,
       userName: userName || '',
     });
 
@@ -885,7 +906,7 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
 🏟️ *Turf:* ${turfName}
 📅 *Date:* ${slotDateStr}
 ⏰ *Time:* ${timeStr}
-💰 *Amount Due:* *₹${price}*${loyaltyNote}
+💰 *Amount Due:* *₹${price}*${promoNote}${loyaltyNote}
 
 📲 *Pay via UPI:*
 👉 *UPI ID:* \`${upiId}\`
@@ -1006,13 +1027,16 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 
     const coinsRedeemed = session.coinsRedeemed || 0;
     const coinsDiscountAmount = session.coinsDiscountAmount || 0;
+    const couponCode = session.couponCode || null;
+    const couponDiscount = session.couponDiscount || 0;
 
     // Insert booking into Neon DB
     const bookingRes = await pool.query(`
       INSERT INTO bookings (
         user_id, slot_id, status, payment_status, paid_amount, remaining_amount,
-        is_manual, payment_mode, utr_number, coins_redeemed, coins_discount_amount, loyalty_status
-      ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, $4, $5, $6, $7, $8)
+        is_manual, payment_mode, utr_number, coupon_code, discount_amount,
+        coins_redeemed, coins_discount_amount, loyalty_status
+      ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `, [
       userId,
@@ -1020,6 +1044,8 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       session.price,
       initialPaymentMode,
       cleanUtr,
+      couponCode,
+      couponDiscount,
       coinsRedeemed,
       coinsDiscountAmount,
       coinsRedeemed > 0 ? 'redeemed' : 'none'
@@ -1027,6 +1053,28 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 
     const createdBooking = bookingRes.rows[0];
     const bookingIdCode = createdBooking.id.substring(0, 8).toUpperCase();
+
+    // Record coupon redemption if applied
+    if (couponCode) {
+      try {
+        let cId = session.couponId;
+        if (!cId) {
+          const cLookup = await pool.query('SELECT id FROM coupons WHERE UPPER(code) = $1', [couponCode.toUpperCase()]);
+          if (cLookup.rows.length > 0) cId = cLookup.rows[0].id;
+        }
+        if (cId) {
+          await couponService.recordRedemptionInTransaction(pool, {
+            couponId: cId,
+            bookingId: createdBooking.id,
+            phone: customerPhone,
+            discountAmount: couponDiscount,
+            finalPaidAmount: session.price,
+          });
+        }
+      } catch (cErr) {
+        console.error('[COUPON REDEMPTION ON WA BOOKING ERROR]', cErr.message);
+      }
+    }
 
     // Deduct redeemed coins from wallet atomically
     if (coinsRedeemed > 0) {
@@ -1068,6 +1116,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       // 3. Notify Admin's personal WhatsApp in real-time
       const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
       const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
+      const couponNote = couponCode ? `\n🎟️ *Coupon Applied:* ${couponCode} (-₹${couponDiscount})` : '';
       const adminAlert =
 `⚡ *AUTO-APPROVED BY BANK SMS* 🏦
 
@@ -1076,7 +1125,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 📅 *Date:* ${session.date}
 ⏰ *Time:* ${session.timeStr}
 👤 *Player:* ${session.userName || userName || 'WhatsApp Player'} (+91 ${customerPhone})
-💰 *Amount:* ₹${session.price}
+💰 *Amount:* ₹${session.price}${couponNote}
 💳 *Bank UTR:* ${cachedMatch.credit.utr_number}
 
 ✅ Pre-cached Bank SMS matched! Official Entry Pass with QR code generated and sent to customer.`;
@@ -1090,7 +1139,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 🏟️ *Facility:* ${session.turfName}
 📅 *Date:* ${session.date}
 ⏰ *Time:* ${session.timeStr}
-💰 *Amount Verified:* ₹${session.price}
+💰 *Amount Verified:* ₹${session.price}${couponNote}
 💳 *Bank UTR:* ${cleanUtr}
 
 ✅ Your UPI payment has been verified directly with our bank!
@@ -1120,7 +1169,7 @@ Your official Gate Entry Pass with QR code is ready above. See you on the turf! 
 🏟️ *Facility:* ${session.turfName}
 📅 *Date:* ${session.date}
 ⏰ *Time:* ${session.timeStr}
-💰 *Amount Paid:* ₹${session.price}
+💰 *Amount Paid:* ₹${session.price}${couponCode ? `\n🎟️ *Coupon Applied:* ${couponCode} (-₹${couponDiscount})` : ''}
 💳 *UPI Ref ID:* ${cleanUtr}
 
 🔒 *YOUR SLOT IS TEMPORARILY LOCKED:*
@@ -1565,6 +1614,144 @@ Deducted *${coinsToUse} Trimurti Coins* (₹${discountVal} OFF)!
         });
       } catch (applyErr) {
         console.error('[APPLY COINS WA ERROR]', applyErr.message);
+      }
+    }
+
+    // 0b. User requests to remove coupon discount
+    if (
+      payload === 'BTN_REMOVE_COUPON' ||
+      normalizedText.includes('remove coupon') ||
+      normalizedText.includes('cancel coupon')
+    ) {
+      if (activeSession.couponCode) {
+        const basePrice = activeSession.originalPrice || activeSession.price;
+        const coinsDiscount = activeSession.coinsDiscountAmount || 0;
+        const revertedPrice = Math.max(300, basePrice - coinsDiscount);
+
+        activeSession.price = revertedPrice;
+        activeSession.couponCode = null;
+        activeSession.couponDiscount = 0;
+        activeSession.couponId = null;
+        setBookingSession(from, activeSession);
+
+        const { upi_id: upiId } = await getLiveUpiSettings();
+        const upiPayLink = `upi://pay?pa=${upiId}&am=${revertedPrice}&pn=Trimurti`;
+
+        const removedMsg =
+`🗑️ *Coupon Removed.*
+Amount due is now *₹${revertedPrice}*.
+
+📲 *Pay via UPI:*
+👉 *UPI ID:* \`${upiId}\`
+👉 *1-Tap Pay:* ${upiPayLink}
+
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (or share your payment screenshot) to complete your booking!`;
+
+        return sendInteractiveButtons({
+          to: from,
+          headerText: 'Coupon Removed',
+          bodyText: removedMsg,
+          buttons: [
+            { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
+            { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+          ],
+        });
+      }
+    }
+
+    // 0c. User sends a coupon code (e.g. WELCOME100, HARSH100, apply WELCOME100)
+    const rawTrimmed = (text || '').trim();
+    const explicitCouponMatch = rawTrimmed.match(/^(?:apply|code|coupon|use|promo)\s+([A-Za-z0-9_-]{2,20})$/i);
+    const isAlphanumericCandidate = !/^\d+$/.test(rawTrimmed) && /^[A-Za-z0-9_-]{3,20}$/.test(rawTrimmed);
+
+    let couponToTry = null;
+    let isExplicitPrefix = false;
+
+    if (explicitCouponMatch) {
+      couponToTry = explicitCouponMatch[1].toUpperCase();
+      isExplicitPrefix = true;
+    } else if (isAlphanumericCandidate) {
+      try {
+        const cCheck = await pool.query('SELECT id FROM coupons WHERE UPPER(code) = $1', [rawTrimmed.toUpperCase()]);
+        if (cCheck.rows.length > 0) {
+          couponToTry = rawTrimmed.toUpperCase();
+        }
+      } catch (checkErr) {
+        // ignore and continue
+      }
+    }
+
+    if (couponToTry) {
+      try {
+        const basePrice = activeSession.originalPrice || activeSession.price;
+        const valResult = await couponService.validateCouponCode({
+          code: couponToTry,
+          phone: from,
+          amount: basePrice,
+        });
+
+        if (valResult.valid) {
+          const couponDiscount = valResult.discount_amount;
+          const coinsDiscount = activeSession.coinsDiscountAmount || 0;
+          const discountedPrice = Math.max(300, basePrice - couponDiscount - coinsDiscount);
+
+          activeSession.originalPrice = basePrice;
+          activeSession.price = discountedPrice;
+          activeSession.couponCode = valResult.coupon.code;
+          activeSession.couponDiscount = couponDiscount;
+          activeSession.couponId = valResult.coupon.id;
+          setBookingSession(from, activeSession);
+
+          const { upi_id: upiId } = await getLiveUpiSettings();
+          const upiPayLink = `upi://pay?pa=${upiId}&am=${discountedPrice}&pn=Trimurti`;
+
+          const couponAppliedMsg =
+`🎉 *COUPON ${valResult.coupon.code} APPLIED!*
+
+💸 *Discount:* -₹${couponDiscount}
+💰 *New Amount Due:* *₹${discountedPrice}* _(was ₹${basePrice})_
+🏟️ *Turf:* ${activeSession.turfName} (${activeSession.timeStr})
+
+📲 *Pay via UPI:*
+👉 *UPI ID:* \`${upiId}\`
+👉 *1-Tap Pay:* ${upiPayLink}
+
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (or share payment screenshot) to complete your discounted booking!`;
+
+          return sendInteractiveButtons({
+            to: from,
+            headerText: 'Coupon Applied!',
+            bodyText: couponAppliedMsg,
+            buttons: [
+              { id: 'BTN_REMOVE_COUPON', title: '🗑️ Remove Coupon' },
+              { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
+              { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+            ],
+          });
+        } else if (isExplicitPrefix || valResult.status === 404) {
+          const { upi_id: upiId } = await getLiveUpiSettings();
+          const upiPayLink = `upi://pay?pa=${upiId}&am=${activeSession.price}&pn=Trimurti`;
+
+          const errorMsg =
+`⚠️ *${valResult.error || 'Invalid coupon code.'}*
+Please check the spelling or proceed with payment of *₹${activeSession.price}*.
+
+📲 *1-Tap Pay:* ${upiPayLink}
+
+⚡ Reply with your *4-digit UPI Ref ID* (or share payment screenshot) to complete booking.`;
+
+          return sendInteractiveButtons({
+            to: from,
+            headerText: 'Coupon Error',
+            bodyText: errorMsg,
+            buttons: [
+              { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
+              { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+            ],
+          });
+        }
+      } catch (valErr) {
+        console.error('[COUPON VALIDATION IN BOT ERROR]', valErr.message);
       }
     }
 
