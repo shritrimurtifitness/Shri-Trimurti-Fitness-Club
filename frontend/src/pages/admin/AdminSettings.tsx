@@ -948,8 +948,98 @@ export default function AdminSettings() {
                   </div>
                 </div>
 
-                {/* Wallets Table */}
-                <div className="overflow-x-auto rounded-xl border border-border">
+                {/* Mobile View: Vertical Cards (< md) */}
+                <div className="md:hidden space-y-3">
+                  {loadingWallets ? (
+                    <div className="py-8 text-center text-muted-foreground bg-card rounded-xl border border-border">
+                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+                      Loading player wallets...
+                    </div>
+                  ) : loyaltyWallets.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground text-xs bg-secondary/20 rounded-xl border border-dashed border-border p-6">
+                      No player loyalty wallets found.
+                    </div>
+                  ) : (
+                    loyaltyWallets.map((w) => {
+                      const progressPct = loyaltyMilestoneTarget > 0 
+                        ? Math.min(100, Math.round((w.current_cycle_bookings / loyaltyMilestoneTarget) * 100))
+                        : 100;
+
+                      return (
+                        <div key={w.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm text-left">
+                          {/* Top Row: Player Info + Milestones Tag */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h4 className="font-bold text-sm text-foreground">{w.customer_name || 'Arena Player'}</h4>
+                              <p className="text-xs text-muted-foreground font-mono mt-0.5">+91 {w.phone}</p>
+                            </div>
+                            {w.completed_milestones > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                🏆 {w.completed_milestones} Milestone{w.completed_milestones === 1 ? '' : 's'}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border shrink-0">
+                                In Progress
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Middle Stats Grid */}
+                          <div className="grid grid-cols-3 gap-2 bg-secondary/40 rounded-lg p-2.5 text-center">
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] text-muted-foreground uppercase font-semibold">Matches</span>
+                              <p className="text-sm font-bold text-foreground">{w.lifetime_bookings_count}</p>
+                            </div>
+                            <div className="space-y-0.5 border-x border-border/50">
+                              <span className="text-[10px] text-amber-400 uppercase font-semibold">Locked Vault</span>
+                              <p className="text-sm font-bold text-amber-300 font-mono">{Math.round(w.vault_balance)} TC</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] text-emerald-400 uppercase font-semibold">Spendable</span>
+                              <p className="text-sm font-bold text-emerald-300 font-mono">{Math.round(w.spendable_balance)} TC</p>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar in Current Cycle */}
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[11px]">
+                              <span className="text-muted-foreground">Cycle Progress</span>
+                              <span className="font-mono font-bold text-amber-400">
+                                {w.current_cycle_bookings} / {loyaltyMilestoneTarget} Matches ({progressPct}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-300"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="pt-2 border-t border-border/40">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAdjustingPhone(w.phone);
+                                setAdjustCoins("50");
+                                setAdjustType("admin_bonus");
+                                setAdjustReason("");
+                              }}
+                              className="w-full h-8 text-xs font-semibold gap-1.5"
+                            >
+                              <Gift className="w-3.5 h-3.5 text-amber-400" /> Gift / Adjust Coins
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Desktop View: Full Table (>= md) */}
+                <div className="hidden md:block overflow-x-auto rounded-xl border border-border">
                   <table className="w-full text-xs text-left">
                     <thead className="bg-secondary/50 uppercase text-[10px] text-muted-foreground tracking-wider border-b border-border">
                       <tr>
