@@ -108,27 +108,27 @@ export default function AdminRetention() {
   const convertedCount = logs.filter((l) => l.status === "converted").length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Squad Retention & Churn Predictor</h1>
-            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20 flex items-center gap-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5 min-w-0">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Squad Retention & Churn Predictor</h1>
+            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20 flex items-center gap-1 shrink-0">
               <Sparkles className="w-3 h-3" />
               <span>AI & SQL Powered</span>
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Detects regular teams inactive for 10–14 days, checks upcoming weekend slot availability, and generates 1-tap WhatsApp invites.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <Button
             onClick={runAnalysis}
             disabled={analyzing}
-            className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md"
+            className="w-full sm:w-auto gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md text-xs sm:text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${analyzing ? "animate-spin" : ""}`} />
             <span>{analyzing ? "Analyzing Database..." : "Run Live Churn Check"}</span>
@@ -191,40 +191,42 @@ export default function AdminRetention() {
         </Card>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 border-b border-border/40 pb-2">
-        <Button
-          size="sm"
-          variant={filterStatus === "all" ? "default" : "outline"}
-          onClick={() => setFilterStatus("all")}
-          className="text-xs h-7"
-        >
-          All ({logs.length})
-        </Button>
-        <Button
-          size="sm"
-          variant={filterStatus === "drafted" ? "default" : "outline"}
-          onClick={() => setFilterStatus("drafted")}
-          className="text-xs h-7"
-        >
-          Needs Outreach ({atRiskCount})
-        </Button>
-        <Button
-          size="sm"
-          variant={filterStatus === "sent" ? "default" : "outline"}
-          onClick={() => setFilterStatus("sent")}
-          className="text-xs h-7"
-        >
-          Sent ({sentCount})
-        </Button>
-        <Button
-          size="sm"
-          variant={filterStatus === "converted" ? "default" : "outline"}
-          onClick={() => setFilterStatus("converted")}
-          className="text-xs h-7 text-emerald-500"
-        >
-          Converted ({convertedCount})
-        </Button>
+      {/* Filter Tabs - horizontally scrollable on mobile without causing page overflow */}
+      <div className="w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
+        <div className="flex items-center gap-1.5 sm:gap-2 border-b border-border/40 pb-2 w-max min-w-full">
+          <Button
+            size="sm"
+            variant={filterStatus === "all" ? "default" : "outline"}
+            onClick={() => setFilterStatus("all")}
+            className="text-xs h-7 shrink-0 whitespace-nowrap"
+          >
+            All ({logs.length})
+          </Button>
+          <Button
+            size="sm"
+            variant={filterStatus === "drafted" ? "default" : "outline"}
+            onClick={() => setFilterStatus("drafted")}
+            className="text-xs h-7 shrink-0 whitespace-nowrap"
+          >
+            Needs Outreach ({atRiskCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={filterStatus === "sent" ? "default" : "outline"}
+            onClick={() => setFilterStatus("sent")}
+            className="text-xs h-7 shrink-0 whitespace-nowrap"
+          >
+            Sent ({sentCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={filterStatus === "converted" ? "default" : "outline"}
+            onClick={() => setFilterStatus("converted")}
+            className="text-xs h-7 text-emerald-500 shrink-0 whitespace-nowrap"
+          >
+            Converted ({convertedCount})
+          </Button>
+        </div>
       </div>
 
       {/* Records List */}
@@ -292,14 +294,14 @@ export default function AdminRetention() {
                       </Badge>
                     </div>
 
-                    <div className="text-xs text-muted-foreground flex items-center gap-3">
+                    <div className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap">
                       <span>Usual Routine: <strong>{dayName} around {log.preferred_time?.substring(0, 5)}</strong></span>
                       {log.turf_name && <span>• Facility: <strong>{log.turf_name}</strong></span>}
                       {log.target_date && <span>• Target: <strong>{log.target_date}</strong></span>}
                     </div>
 
                     {/* AI Message Preview */}
-                    <div className="mt-2.5 bg-muted/40 rounded-lg p-3 border border-border/40 text-xs font-sans text-foreground/90 whitespace-pre-wrap">
+                    <div className="mt-2.5 bg-muted/40 rounded-lg p-3 border border-border/40 text-xs font-sans text-foreground/90 whitespace-pre-wrap break-words overflow-hidden">
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary mb-1 uppercase tracking-wide">
                         <MessageSquare className="w-3 h-3" />
                         <span>Personalized WhatsApp Draft</span>

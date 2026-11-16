@@ -172,17 +172,17 @@ export default function AdminLayout() {
 
       {sidebarOpen && <div className="fixed inset-0 z-40 bg-background/80 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-16 border-b border-border flex items-center px-4 lg:px-8 gap-4">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+        <header className="h-16 border-b border-border flex items-center px-4 lg:px-8 gap-4 min-w-0">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted-foreground"><Menu size={20} /></button>
-          <h2 className="font-heading font-semibold text-foreground">
+          <h2 className="font-heading font-semibold text-foreground truncate">
             {allSidebarLinks.find((l) => l.path === location.pathname)?.name || "Dashboard"}
           </h2>
-          <div className="ml-auto">
+          <div className="ml-auto shrink-0">
             <SportsThemeToggle />
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
+        <main className="flex-1 p-4 lg:p-8 overflow-y-auto overflow-x-hidden min-w-0">
           {isBlocked ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Shield className="w-12 h-12 text-destructive mb-4" />
