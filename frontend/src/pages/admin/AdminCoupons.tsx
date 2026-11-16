@@ -565,192 +565,194 @@ export default function AdminCoupons() {
 
       {/* Create / Edit Coupon Modal */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-lg bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <Tag className="w-5 h-5 text-primary" />
-              {editingCoupon ? `Edit Coupon: ${editingCoupon.code}` : "Create New Coupon Code"}
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg max-h-[90dvh] flex flex-col p-4 sm:p-6 bg-card border-border overflow-hidden rounded-2xl">
+          <DialogHeader className="shrink-0 pb-1">
+            <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
+              <Tag className="w-5 h-5 text-primary shrink-0" />
+              <span className="truncate">{editingCoupon ? `Edit Coupon: ${editingCoupon.code}` : "Create New Coupon Code"}</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
               Configure promo codes, welcome discounts, and redemption limitations.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSaveCoupon} className="space-y-4 py-2">
-            {/* Code & Title */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider">Coupon Code *</Label>
-                <Input
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })}
-                  placeholder="e.g. DIWALI100"
-                  disabled={!!editingCoupon}
-                  maxLength={25}
-                  required
-                  className="font-mono uppercase font-bold text-sm bg-background border-border"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider">Offer Title *</Label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="e.g. Diwali Dhamaka Offer"
-                  required
-                  className="text-xs bg-background border-border"
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase tracking-wider">Description (Optional)</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief explanation shown on checkout..."
-                rows={2}
-                className="text-xs bg-background border-border resize-none"
-              />
-            </div>
-
-            {/* Discount Type & Value */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider">Type *</Label>
-                <Select
-                  value={formData.discount_type}
-                  onValueChange={(val: "flat" | "percent") => setFormData({ ...formData, discount_type: val })}
-                >
-                  <SelectTrigger className="text-xs bg-background border-border h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="flat">Flat ₹ (Rupees)</SelectItem>
-                    <SelectItem value="percent">Percentage %</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider">
-                  {formData.discount_type === 'flat' ? 'Discount (₹) *' : 'Discount (%) *'}
-                </Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max={formData.discount_type === 'percent' ? 90 : 2000}
-                  value={formData.discount_value}
-                  onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
-                  required
-                  className="text-xs font-bold bg-background border-border h-9"
-                />
-              </div>
-
-              {formData.discount_type === 'percent' && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold uppercase tracking-wider">Max Cap (₹)</Label>
+          <form onSubmit={handleSaveCoupon} className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <div className="flex-1 overflow-y-auto overscroll-contain pr-1 space-y-3.5 py-2 scrollbar-thin">
+              {/* Code & Title */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold uppercase tracking-wider">Coupon Code *</Label>
                   <Input
-                    type="number"
-                    min="1"
-                    value={formData.max_discount}
-                    onChange={(e) => setFormData({ ...formData, max_discount: e.target.value })}
-                    placeholder="e.g. 200"
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })}
+                    placeholder="e.g. DIWALI100"
+                    disabled={!!editingCoupon}
+                    maxLength={25}
+                    required
+                    className="font-mono uppercase font-bold text-xs bg-background border-border h-9"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold uppercase tracking-wider">Offer Title *</Label>
+                  <Input
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="e.g. Diwali Dhamaka Offer"
+                    required
                     className="text-xs bg-background border-border h-9"
                   />
                 </div>
-              )}
+              </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider">Min Booking (₹)</Label>
+              {/* Description */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-bold uppercase tracking-wider">Description (Optional)</Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Brief explanation shown on checkout..."
+                  rows={2}
+                  className="text-xs bg-background border-border resize-none"
+                />
+              </div>
+
+              {/* Discount Type & Value */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold uppercase tracking-wider">Type *</Label>
+                  <Select
+                    value={formData.discount_type}
+                    onValueChange={(val: "flat" | "percent") => setFormData({ ...formData, discount_type: val })}
+                  >
+                    <SelectTrigger className="text-xs bg-background border-border h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="flat">Flat ₹ (Rupees)</SelectItem>
+                      <SelectItem value="percent">Percentage %</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold uppercase tracking-wider">
+                    {formData.discount_type === 'flat' ? 'Discount (₹) *' : 'Discount (%) *'}
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max={formData.discount_type === 'percent' ? 90 : 2000}
+                    value={formData.discount_value}
+                    onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
+                    required
+                    className="text-xs font-bold bg-background border-border h-9"
+                  />
+                </div>
+
+                {formData.discount_type === 'percent' && (
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-bold uppercase tracking-wider">Max Cap (₹)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.max_discount}
+                      onChange={(e) => setFormData({ ...formData, max_discount: e.target.value })}
+                      placeholder="e.g. 200"
+                      className="text-xs bg-background border-border h-9"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold uppercase tracking-wider">Min Booking (₹)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={formData.min_booking_amount}
+                    onChange={(e) => setFormData({ ...formData, min_booking_amount: e.target.value })}
+                    placeholder="e.g. 600"
+                    className="text-xs bg-background border-border h-9"
+                  />
+                </div>
+              </div>
+
+              {/* Limits */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold uppercase tracking-wider">Total Usage Limit</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.total_usage_limit}
+                    onChange={(e) => setFormData({ ...formData, total_usage_limit: e.target.value })}
+                    placeholder="Blank for unlimited"
+                    className="text-xs bg-background border-border h-9"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold uppercase tracking-wider">Per User Limit</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.per_user_limit}
+                    onChange={(e) => setFormData({ ...formData, per_user_limit: e.target.value })}
+                    placeholder="1 per number"
+                    className="text-xs bg-background border-border h-9"
+                  />
+                </div>
+              </div>
+
+              {/* Expiry Date */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-bold uppercase tracking-wider">Valid Until (Optional)</Label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="50"
-                  value={formData.min_booking_amount}
-                  onChange={(e) => setFormData({ ...formData, min_booking_amount: e.target.value })}
-                  placeholder="e.g. 600"
+                  type="date"
+                  value={formData.valid_until}
+                  onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
                   className="text-xs bg-background border-border h-9"
+                />
+              </div>
+
+              {/* Checkbox: First Booking Only */}
+              <div className="p-2.5 rounded-xl bg-secondary/30 border border-border flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Gift className="w-3.5 h-3.5 text-[#39FF14]" /> First-Time Booking Only
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Valid only for new players with 0 prior turf bookings.
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.is_first_booking_only}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_first_booking_only: checked })}
+                />
+              </div>
+
+              {/* Checkbox: Active */}
+              <div className="p-2.5 rounded-xl bg-secondary/30 border border-border flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-foreground">Active Status</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Allow players to redeem this coupon immediately.</p>
+                </div>
+                <Switch
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
               </div>
             </div>
 
-            {/* Limits & First-Time Toggle */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider">Total Usage Limit</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.total_usage_limit}
-                  onChange={(e) => setFormData({ ...formData, total_usage_limit: e.target.value })}
-                  placeholder="Blank for unlimited"
-                  className="text-xs bg-background border-border h-9"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider">Per User Limit</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.per_user_limit}
-                  onChange={(e) => setFormData({ ...formData, per_user_limit: e.target.value })}
-                  placeholder="1 per mobile number"
-                  className="text-xs bg-background border-border h-9"
-                />
-              </div>
-            </div>
-
-            {/* Expiry Date */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase tracking-wider">Valid Until (Optional)</Label>
-              <Input
-                type="date"
-                value={formData.valid_until}
-                onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
-                className="text-xs bg-background border-border h-9"
-              />
-            </div>
-
-            {/* Checkbox: First Booking Only */}
-            <div className="p-3 rounded-xl bg-secondary/30 border border-border flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Gift className="w-4 h-4 text-[#39FF14]" /> First-Time Booking Only
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Valid only for new players with 0 prior turf bookings (tied strictly to mobile number).
-                </p>
-              </div>
-              <Switch
-                checked={formData.is_first_booking_only}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_first_booking_only: checked })}
-              />
-            </div>
-
-            {/* Checkbox: Active */}
-            <div className="p-3 rounded-xl bg-secondary/30 border border-border flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-foreground">Active Status</p>
-                <p className="text-[11px] text-muted-foreground">Allow players to redeem this coupon immediately.</p>
-              </div>
-              <Switch
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="text-xs">
+            <DialogFooter className="pt-3 border-t border-border/50 shrink-0 flex-row justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="text-xs h-9">
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-gradient-turf text-primary-foreground font-bold text-xs"
+                className="bg-gradient-turf text-primary-foreground font-bold text-xs h-9 px-4"
               >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
                 {editingCoupon ? "Save Changes" : "Create Coupon"}
@@ -762,18 +764,18 @@ export default function AdminCoupons() {
 
       {/* Redemptions History Dialog */}
       <Dialog open={isRedemptionsOpen} onOpenChange={setIsRedemptionsOpen}>
-        <DialogContent className="max-w-2xl bg-card border-border">
-          <DialogHeader>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] flex flex-col p-4 sm:p-6 bg-card border-border overflow-hidden rounded-2xl">
+          <DialogHeader className="shrink-0 pb-1">
             <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              Redemptions for: <span className="font-mono text-primary">{selectedCouponForRedemptions?.code}</span>
+              <Users className="w-5 h-5 text-primary shrink-0" />
+              <span className="truncate">Redemptions for: <span className="font-mono text-primary">{selectedCouponForRedemptions?.code}</span></span>
             </DialogTitle>
             <DialogDescription className="text-xs">
               History of all players who applied this coupon code at checkout.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain scrollbar-thin">
             {loadingRedemptions ? (
               <div className="py-12 text-center">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
