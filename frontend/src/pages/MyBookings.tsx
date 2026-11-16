@@ -15,6 +15,7 @@ export default function MyBookings() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<{ active: any[], history: any[] } | null>(null);
+  const [loyalty, setLoyalty] = useState<any | null>(null);
   const [searched, setSearched] = useState(false);
 
   const handlePhoneChange = (val: string) => {
@@ -39,8 +40,16 @@ export default function MyBookings() {
 
     setLoading(true);
     try {
-      const res = await api.get(`/bookings/my-bookings/${cleanPhone}`);
-      setData(res.data);
+      const [bookingsRes, loyaltyRes] = await Promise.all([
+        api.get(`/bookings/my-bookings/${cleanPhone}`),
+        api.get(`/loyalty/status/${cleanPhone}`).catch(() => null),
+      ]);
+      setData(bookingsRes.data);
+      if (loyaltyRes?.data) {
+        setLoyalty(loyaltyRes.data);
+      } else {
+        setLoyalty(null);
+      }
       setSearched(true);
     } catch (error) {
       toast.error("Failed to fetch bookings. Please try again.");
@@ -143,6 +152,65 @@ export default function MyBookings() {
             </Button>
           </form>
         </div>
+
+        {/* Digital Trimurti Loyalty Rewards Pass */}
+        {searched && loyalty && loyalty.loyalty_enabled && (
+          <div className="mb-8 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-zinc-900 via-card to-zinc-950 p-6 shadow-xl relative overflow-hidden text-left">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-turf text-primary-foreground flex items-center justify-center text-2xl shadow-turf shrink-0">
+                  🪙
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-heading font-bold text-xl text-foreground">Trimurti Rewards Pass</h3>
+                    {loyalty.completed_milestones > 0 ? (
+                      <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">
+                        VIP ELITE &bull; {loyalty.completed_milestones} MILESTONE{loyalty.completed_milestones === 1 ? '' : 'S'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">
+                        CLUB ATHLETE
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">+91 {loyalty.phone} &bull; {loyalty.lifetime_bookings_count} Lifetime Matches Played</p>
+                </div>
+              </div>
+              <div className="text-left sm:text-right">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Spendable Coins</span>
+                <p className="text-2xl font-black text-emerald-400 font-mono">{loyalty.spendable_balance} TC</p>
+                <p className="text-[10px] text-muted-foreground font-semibold">₹{loyalty.spendable_inr_value} Discount Value</p>
+              </div>
+            </div>
+
+            <div className="pt-4">
+              <div className="flex justify-between items-center mb-1.5 text-xs">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <span>🔒</span> Milestone Vault: Match {loyalty.current_cycle_bookings} / {loyalty.milestone_target}
+                </span>
+                <span className="font-mono font-bold text-amber-400">
+                  {loyalty.vault_balance} TC Locked
+                </span>
+              </div>
+              <div className="w-full bg-secondary/80 h-2.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-amber-500 to-[#39FF14] h-full rounded-full transition-all duration-500"
+                  style={{ width: `${loyalty.progress_pct}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center mt-2 text-[11px] text-muted-foreground">
+                <span>
+                  {loyalty.remaining_for_unlock > 0
+                    ? `Play ${loyalty.remaining_for_unlock} more match${loyalty.remaining_for_unlock === 1 ? '' : 'es'} to unlock ₹${loyalty.milestone_target * loyalty.coins_per_slot} reward into your wallet!`
+                    : "🎉 Milestone reached! Spendable coins are unlocked."}
+                </span>
+                <span className="font-bold text-foreground font-mono">{loyalty.progress_pct}%</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {searched && data && (
           <Tabs defaultValue="active" className="w-full">

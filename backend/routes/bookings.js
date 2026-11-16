@@ -9,6 +9,7 @@ const whatsappService = require('../services/whatsapp');
 const notificationScheduler = require('../services/notificationScheduler');
 const adminBookingService = require('../services/adminBookingService');
 const bankSmsMatchingService = require('../services/bankSmsMatchingService');
+const loyaltyService = require('../services/loyaltyService');
 const { normalizeTo10Digits, formatTime12h } = require('../utils/phone');
 
 router.post('/', bookingLimiter, async (req, res) => {
@@ -210,6 +211,16 @@ router.post('/', bookingLimiter, async (req, res) => {
           totalAmount: totalAmount,
           qrToken: booking.rows[0].qr_token,
         }).catch(err => console.error('[MANUAL BOOKING MAILER ERROR]', err.message));
+      }
+
+      // 4. Loyalty points accrual (Trimurti Coins & Milestone Check)
+      try {
+        await loyaltyService.accrueCoinsForBooking({
+          bookingId: booking.rows[0].id,
+          io: req.app.get('io'),
+        });
+      } catch (loyaltyErr) {
+        console.error('[LOYALTY ACCRUAL ERROR on manual booking]', loyaltyErr.message);
       }
     }
 
@@ -660,6 +671,13 @@ router.patch('/:id/cancel', authMiddleware, async (req, res) => {
 
     notificationScheduler.cancelBookingNotifications(id);
 
+    // Rollback any redeemed coins or accrued points
+    try {
+      await loyaltyService.rollbackCoinsForBooking({ bookingId: id });
+    } catch (loyaltyErr) {
+      console.error('[LOYALTY ROLLBACK ERROR on cancel]', loyaltyErr.message);
+    }
+
     // Broadcast websocket event
     req.app.get('io').emit('booking_updated');
 
@@ -864,7 +882,7 @@ router.post('/verify-otp', async (req, res) => {
 // 3. Submit Booking with UPI UTR (0% Gateway Fee)
 router.post('/submit-upi', bookingLimiter, async (req, res) => {
   try {
-    const { name, phone, email, slot_id, slot_ids, utr_number, coupon_code } = req.body;
+    const { name, phone, email, slot_id, slot_ids, utr_number, coupon_code, coins_redeemed } = req.body;
 
     if (!name || (!phone && !email) || (!slot_id && (!slot_ids || slot_ids.length === 0)) || !utr_number) {
       return res.status(400).json({ error: 'Name, contact info (mobile number or email), slots, and UPI Ref ID are required' });
@@ -1061,6 +1079,28 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       }
     }
 
+    // Process Trimurti Coins loyalty redemption if requested
+    let coinsToRedeem = Number(coins_redeemed) || 0;
+    let coinsDiscount = 0;
+    if (coinsToRedeem > 0 && phone10) {
+      try {
+        const preview = await loyaltyService.previewRedemption({
+          phone: phone10,
+          slotPrice: Math.max(0, grandTotal - totalDiscount),
+        });
+        if (preview.canRedeem && preview.maxRedeemableCoins > 0) {
+          coinsToRedeem = Math.min(coinsToRedeem, preview.maxRedeemableCoins);
+          coinsDiscount = coinsToRedeem * (preview.coinValueInr || 1.0);
+          totalDiscount += coinsDiscount;
+        } else {
+          coinsToRedeem = 0;
+        }
+      } catch (err) {
+        console.error('[LOYALTY REDEEM PREVIEW ERROR]', err.message);
+        coinsToRedeem = 0;
+      }
+    }
+
     const finalPayable = Math.max(300, grandTotal - totalDiscount);
 
     // Check if bank SMS credit was already received for this payment (Race condition: Bank SMS arrived first)
@@ -1081,10 +1121,17 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       const bookingRes = await pool.query(`
         INSERT INTO bookings (
           user_id, slot_id, status, payment_status, paid_amount, remaining_amount, 
-          is_manual, payment_mode, utr_number, coupon_code, discount_amount
-        ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, $4, $5, $6, $7)
+          is_manual, payment_mode, utr_number, coupon_code, discount_amount,
+          coins_redeemed, coins_discount_amount, loyalty_status
+        ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
-      `, [userId, slot.id, slotPaid, initialPaymentMode, cleanUtr, appliedCoupon ? appliedCoupon.code : null, slotDiscount]);
+      `, [
+        userId, slot.id, slotPaid, initialPaymentMode, cleanUtr,
+        appliedCoupon ? appliedCoupon.code : null, slotDiscount,
+        i === 0 ? coinsToRedeem : 0,
+        i === 0 ? coinsDiscount : 0,
+        i === 0 && coinsToRedeem > 0 ? 'redeemed' : 'none'
+      ]);
 
       createdBookings.push(bookingRes.rows[0]);
     }
@@ -1097,6 +1144,20 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       `, [appliedCoupon.id, createdBookings[0].id, phone10, totalDiscount, finalPayable]);
 
       await pool.query('UPDATE coupons SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1', [appliedCoupon.id]);
+    }
+
+    // Record loyalty coins deduction atomically in ledger
+    if (coinsToRedeem > 0 && createdBookings.length > 0 && phone10) {
+      try {
+        await loyaltyService.applyRedemptionInTransaction(pool, {
+          bookingId: createdBookings[0].id,
+          phone: phone10,
+          coinsToRedeem,
+          channel: 'web',
+        });
+      } catch (coinDeductErr) {
+        console.error('[LOYALTY DEDUCT ERROR on submit-upi]', coinDeductErr.message);
+      }
     }
 
     const turfName = firstSlot.turf_name || firstSlot.facility_type || 'Sports Turf';

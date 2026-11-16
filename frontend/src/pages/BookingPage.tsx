@@ -76,6 +76,8 @@ export default function BookingPage() {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [firstTimeOffer, setFirstTimeOffer] = useState<any | null>(null);
   const [checkingFirstTime, setCheckingFirstTime] = useState(false);
+  const [loyaltyStatus, setLoyaltyStatus] = useState<any | null>(null);
+  const [redeemCoins, setRedeemCoins] = useState<boolean>(false);
 
   const loadUpiAndFeeSettings = () => {
     api.get('/settings/contact').then(res => {
@@ -401,8 +403,21 @@ export default function BookingPage() {
     }
     if (cleanPhone) {
       checkFirstTimeEligibility(cleanPhone);
+      fetchLoyaltyStatus(cleanPhone);
     }
     setStep("confirm");
+  };
+
+  const fetchLoyaltyStatus = async (phoneNumber: string) => {
+    const clean = phoneNumber.replace(/\D/g, '').slice(-10);
+    if (clean.length !== 10) return;
+    try {
+      const res = await api.get(`/loyalty/status/${clean}`);
+      setLoyaltyStatus(res.data);
+    } catch (err) {
+      console.error("Failed to fetch loyalty status", err);
+      setLoyaltyStatus(null);
+    }
   };
 
   const checkFirstTimeEligibility = async (phoneNumber: string) => {
@@ -478,6 +493,11 @@ export default function BookingPage() {
     setIsSubmitting(true);
 
     try {
+      const basePrice = selectedSlotGroup?.price || 0;
+      const maxRedeemableCoins = loyaltyStatus?.can_redeem && loyaltyStatus.spendable_balance > 0
+        ? Math.min(loyaltyStatus.spendable_balance, Math.max(0, basePrice - couponDiscount))
+        : 0;
+
       const res = await api.post('/bookings/submit-upi', {
         name,
         phone,
@@ -485,6 +505,7 @@ export default function BookingPage() {
         slot_id: selectedSlot.id,
         utr_number: utrNumber.trim(),
         coupon_code: appliedCoupon ? appliedCoupon.code : undefined,
+        coins_redeemed: (redeemCoins && maxRedeemableCoins > 0) ? maxRedeemableCoins : 0,
       });
 
       if (res.data.success) {
@@ -954,7 +975,11 @@ export default function BookingPage() {
             {/* Step 5: Direct UPI QR Payment (0% Gateway Fees) */}
             {step === "confirm" && selectedSlot && selectedDate && (() => {
               const basePrice = selectedSlotGroup?.price || 0;
-              const finalPayable = Math.max(300, basePrice - couponDiscount);
+              const maxRedeemableCoins = loyaltyStatus?.can_redeem && loyaltyStatus.spendable_balance > 0
+                ? Math.min(loyaltyStatus.spendable_balance, Math.max(0, basePrice - couponDiscount))
+                : 0;
+              const coinsDiscount = redeemCoins ? maxRedeemableCoins * (loyaltyStatus?.coin_value_inr || 1.0) : 0;
+              const finalPayable = Math.max(300, basePrice - couponDiscount - coinsDiscount);
               const upiPayUrl = `upi://pay?pa=${encodeURIComponent(upiSettings.upi_id)}&pn=${encodeURIComponent("SHRI TRIMURTI FITNESS CLUB")}&am=${finalPayable}&cu=INR`;
               const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(upiPayUrl)}`;
 
@@ -1075,6 +1100,73 @@ export default function BookingPage() {
                       )}
                     </div>
 
+                    {/* Trimurti Coins Loyalty & Milestone Reward Widget */}
+                    {loyaltyStatus && loyaltyStatus.loyalty_enabled && (
+                      <div className="space-y-2">
+                        {loyaltyStatus.can_redeem && loyaltyStatus.spendable_balance > 0 ? (
+                          <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-card to-zinc-950 p-3.5 shadow-sm text-left">
+                            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-emerald-500/20">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xl">🪙</span>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Trimurti Vault Unlocked</h4>
+                                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-semibold">VIP REWARDS</span>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    You have <strong className="text-foreground">{loyaltyStatus.spendable_balance} Spendable Coins</strong> (₹{loyaltyStatus.spendable_inr_value} value)
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="pt-2.5 flex items-center justify-between">
+                              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={redeemCoins}
+                                  onChange={(e) => setRedeemCoins(e.target.checked)}
+                                  className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-secondary border-border cursor-pointer accent-[#39FF14]"
+                                />
+                                <span className="text-xs font-semibold text-foreground">
+                                  Redeem {maxRedeemableCoins} Trimurti Coins
+                                </span>
+                              </label>
+                              <span className="text-xs font-bold text-emerald-400 font-mono">
+                                Save ₹{maxRedeemableCoins * (loyaltyStatus.coin_value_inr || 1)}
+                              </span>
+                            </div>
+                          </div>
+                        ) : loyaltyStatus.is_vault_locked ? (
+                          <div className="rounded-xl border border-amber-500/30 bg-card/60 p-3.5 shadow-sm text-left">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">🔒</span>
+                                <div>
+                                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">Trimurti Rewards Vault</h4>
+                                  <p className="text-[11px] text-muted-foreground">Match {loyaltyStatus.current_cycle_bookings} of {loyaltyStatus.milestone_target} completed</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-xs font-black text-amber-300 font-mono">{loyaltyStatus.vault_balance} TC</span>
+                                <p className="text-[10px] text-muted-foreground">Locked in Vault</p>
+                              </div>
+                            </div>
+                            <div className="w-full bg-secondary/80 h-2 rounded-full overflow-hidden mt-1.5 mb-2">
+                              <div
+                                className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${loyaltyStatus.progress_pct}%` }}
+                              />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground flex items-center justify-between">
+                              <span>Complete {loyaltyStatus.remaining_for_unlock} more match{loyaltyStatus.remaining_for_unlock === 1 ? '' : 'es'} to unlock ₹{loyaltyStatus.milestone_target * loyaltyStatus.coins_per_slot} reward!</span>
+                              <span className="font-bold text-amber-400 font-mono">{loyaltyStatus.progress_pct}%</span>
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
                     {/* Booking Mini Summary */}
                     <div className="bg-secondary/30 rounded-xl p-3 text-xs space-y-1.5">
                       <div className="flex justify-between"><span className="text-muted-foreground">Sport:</span><span className="font-bold text-foreground">{facilityName}</span></div>
@@ -1085,6 +1177,12 @@ export default function BookingPage() {
                         <div className="flex justify-between text-emerald-400 font-bold">
                           <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> Offer Discount ({appliedCoupon?.code}):</span>
                           <span>-₹{couponDiscount}</span>
+                        </div>
+                      )}
+                      {coinsDiscount > 0 && (
+                        <div className="flex justify-between text-amber-400 font-bold">
+                          <span className="flex items-center gap-1">🪙 Trimurti Coins Redeemed ({maxRedeemableCoins} TC):</span>
+                          <span>-₹{coinsDiscount}</span>
                         </div>
                       )}
                       <div className="flex justify-between pt-1 border-t border-border/50 font-bold text-sm">

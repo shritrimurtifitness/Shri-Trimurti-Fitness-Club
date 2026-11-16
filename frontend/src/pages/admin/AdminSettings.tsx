@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { User, Mail, Lock, ShieldAlert, Download, LogOut, ShieldCheck, Trash2, AlertTriangle, KeyRound, MapPin, Phone, Clock, Globe, MessageSquare, QrCode, IndianRupee, Check, Sparkles, Upload, Loader2, CheckCircle2 } from "lucide-react";
+import { User, Mail, Lock, ShieldAlert, Download, LogOut, ShieldCheck, Trash2, AlertTriangle, KeyRound, MapPin, Phone, Clock, Globe, MessageSquare, QrCode, IndianRupee, Check, Sparkles, Upload, Loader2, CheckCircle2, Coins, Award, Trophy, Search, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -18,12 +18,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-type SettingsTab = "account" | "website" | "financials" | "system";
+type SettingsTab = "account" | "website" | "financials" | "loyalty" | "system";
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: "account", label: "Account", icon: <User className="w-4 h-4" /> },
   { id: "website", label: "Website", icon: <Globe className="w-4 h-4" /> },
   { id: "financials", label: "Financials", icon: <ShieldCheck className="w-4 h-4" /> },
+  { id: "loyalty", label: "Loyalty & Coins", icon: <Coins className="w-4 h-4 text-amber-400" /> },
   { id: "system", label: "System", icon: <ShieldAlert className="w-4 h-4" /> },
 ];
 
@@ -62,6 +63,22 @@ export default function AdminSettings() {
 
   const [savingContact, setSavingContact] = useState(false);
 
+  // Loyalty Settings State
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(true);
+  const [loyaltyCoinsPerSlot, setLoyaltyCoinsPerSlot] = useState(10);
+  const [loyaltyMilestoneTarget, setLoyaltyMilestoneTarget] = useState(20);
+  const [loyaltyCoinValueInr, setLoyaltyCoinValueInr] = useState(1.0);
+  const [savingLoyalty, setSavingLoyalty] = useState(false);
+  const [loyaltyOverview, setLoyaltyOverview] = useState<any>(null);
+  const [loyaltyWallets, setLoyaltyWallets] = useState<any[]>([]);
+  const [walletSearch, setWalletSearch] = useState("");
+  const [loadingWallets, setLoadingWallets] = useState(false);
+  const [adjustingPhone, setAdjustingPhone] = useState<string | null>(null);
+  const [adjustCoins, setAdjustCoins] = useState("");
+  const [adjustType, setAdjustType] = useState<"admin_bonus" | "admin_deduct">("admin_bonus");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [savingAdjust, setSavingAdjust] = useState(false);
+
   const loadSettings = () => {
     api.get('/settings/contact').then(res => {
       setContactAddress(res.data.address || "");
@@ -77,7 +94,74 @@ export default function AdminSettings() {
       setUpiId(res.data.upi_id || "harshvardhanp@slc");
       setUpiQrUrl(res.data.upi_qr_url || "https://res.cloudinary.com/dvie6djfw/image/upload/v1794394762/shri-trimurti-fitness-club/upi-qr/active_upi_qr.png");
       setShowTestimonials(res.data.show_testimonials === true);
+      setLoyaltyEnabled(res.data.loyalty_enabled ?? true);
+      setLoyaltyCoinsPerSlot(Number(res.data.loyalty_coins_per_slot) || 10);
+      setLoyaltyMilestoneTarget(Number(res.data.loyalty_milestone_target) || 20);
+      setLoyaltyCoinValueInr(Number(res.data.loyalty_coin_value_inr) || 1.0);
     }).catch(() => { });
+  };
+
+  const loadLoyaltyData = async () => {
+    try {
+      setLoadingWallets(true);
+      const [overviewRes, walletsRes] = await Promise.all([
+        api.get('/loyalty/admin/overview').catch(() => null),
+        api.get(`/loyalty/admin/wallets${walletSearch ? `?search=${encodeURIComponent(walletSearch)}` : ''}`).catch(() => null),
+      ]);
+      if (overviewRes?.data) setLoyaltyOverview(overviewRes.data);
+      if (walletsRes?.data) setLoyaltyWallets(walletsRes.data);
+    } catch (err) {
+      console.error("Failed to load loyalty data", err);
+    } finally {
+      setLoadingWallets(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "loyalty") {
+      loadLoyaltyData();
+    }
+  }, [activeTab]);
+
+  const handleSaveLoyalty = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setSavingLoyalty(true);
+    try {
+      await api.put('/settings/loyalty', {
+        loyalty_enabled: loyaltyEnabled,
+        loyalty_coins_per_slot: Number(loyaltyCoinsPerSlot),
+        loyalty_milestone_target: Number(loyaltyMilestoneTarget),
+        loyalty_coin_value_inr: Number(loyaltyCoinValueInr),
+      });
+      toast.success("Loyalty settings updated successfully!");
+      loadLoyaltyData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to update loyalty settings");
+    } finally {
+      setSavingLoyalty(false);
+    }
+  };
+
+  const handleManualAdjust = async () => {
+    if (!adjustingPhone || !adjustCoins) return;
+    setSavingAdjust(true);
+    try {
+      await api.post('/loyalty/admin/adjust', {
+        phone: adjustingPhone,
+        coins: Number(adjustCoins),
+        type: adjustType,
+        reason: adjustReason,
+      });
+      toast.success(`Successfully ${adjustType === 'admin_bonus' ? 'granted' : 'deducted'} ${adjustCoins} coins!`);
+      setAdjustingPhone(null);
+      setAdjustCoins("");
+      setAdjustReason("");
+      loadLoyaltyData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Adjustment failed");
+    } finally {
+      setSavingAdjust(false);
+    }
   };
 
   useEffect(() => {
@@ -716,6 +800,301 @@ export default function AdminSettings() {
                   </div>
                 </form>
               </section>
+            </div>
+          )}
+
+          {/* ============ LOYALTY TAB ============ */}
+          {activeTab === "loyalty" && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Program Overview Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Active Wallets</span>
+                  <p className="text-2xl font-black text-foreground mt-1">{loyaltyOverview?.stats?.total_wallets || 0}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Total registered players</p>
+                </div>
+                <div className="bg-card border border-amber-500/30 rounded-xl p-4">
+                  <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Locked in Vaults</span>
+                  <p className="text-2xl font-black text-amber-300 mt-1 font-mono">{Math.round(loyaltyOverview?.stats?.total_coins_in_vaults || 0)} TC</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Pre-milestone locked</p>
+                </div>
+                <div className="bg-card border border-emerald-500/30 rounded-xl p-4">
+                  <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Spendable Coins</span>
+                  <p className="text-2xl font-black text-emerald-300 mt-1 font-mono">{Math.round(loyaltyOverview?.stats?.total_spendable_coins || 0)} TC</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Ready for redemption</p>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Total Redeemed</span>
+                  <p className="text-2xl font-black text-foreground mt-1 font-mono">₹{Math.round(loyaltyOverview?.stats?.total_coins_redeemed || 0)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Lifetime discount given</p>
+                </div>
+                <div className="bg-card border border-primary/30 rounded-xl p-4 col-span-2 lg:col-span-1">
+                  <span className="text-[11px] font-bold text-primary uppercase tracking-wider">Milestone VIPs</span>
+                  <p className="text-2xl font-black text-primary mt-1">{loyaltyOverview?.stats?.milestone_achievers || 0}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Completed 20+ matches</p>
+                </div>
+              </div>
+
+              {/* Main Loyalty Settings Form */}
+              <section className="bg-card border border-border rounded-2xl p-6 space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-5 h-5 text-amber-400" />
+                    <div>
+                      <h3 className="font-heading font-bold text-lg">Trimurti Coins & Milestone Rules</h3>
+                      <p className="text-xs text-muted-foreground">Configure the reward rate, milestone unlock threshold, and coin values across Web & WhatsApp.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-muted-foreground">Program Status:</span>
+                    <Switch
+                      checked={loyaltyEnabled}
+                      onCheckedChange={(val) => setLoyaltyEnabled(val)}
+                    />
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveLoyalty} className="space-y-6">
+                  <div className="grid sm:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Coins Per Slot Booking</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={500}
+                          value={loyaltyCoinsPerSlot}
+                          onChange={(e) => setLoyaltyCoinsPerSlot(parseInt(e.target.value) || 0)}
+                          className="bg-background font-bold text-lg"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs">TC</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Default: 10 Coins awarded into vault for each confirmed match.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Milestone Unlock Target</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={loyaltyMilestoneTarget}
+                          onChange={(e) => setLoyaltyMilestoneTarget(parseInt(e.target.value) || 0)}
+                          className="bg-background font-bold text-lg"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs">Matches</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Default: 20 matches. Coins remain locked in vault until threshold is reached.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Coin Conversion Value (INR)</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min={0.1}
+                          max={10}
+                          value={loyaltyCoinValueInr}
+                          onChange={(e) => setLoyaltyCoinValueInr(parseFloat(e.target.value) || 1.0)}
+                          className="bg-background font-bold text-lg"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs">₹/Coin</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Default: ₹1.00 per Trimurti Coin redeemed.</p>
+                    </div>
+                  </div>
+
+                  {/* Gamification Cycle Formula Explainer */}
+                  <div className="bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-transparent border border-amber-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Trophy className="w-4 h-4 text-amber-400" /> Milestone Reward Cycle Calculation
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Completing <strong className="text-foreground">{loyaltyMilestoneTarget} matches</strong> unlocks <strong className="text-emerald-400 font-mono">{loyaltyMilestoneTarget * loyaltyCoinsPerSlot} Trimurti Coins</strong> (Worth <strong className="text-emerald-400">₹{loyaltyMilestoneTarget * loyaltyCoinsPerSlot * loyaltyCoinValueInr}</strong> discount)!
+                      </p>
+                    </div>
+                    <Button type="submit" disabled={savingLoyalty} className="bg-primary hover:bg-primary/90 text-white font-bold px-6 shrink-0">
+                      {savingLoyalty ? "Saving..." : "Save Loyalty Settings"}
+                    </Button>
+                  </div>
+                </form>
+              </section>
+
+              {/* Player Loyalty Explorer */}
+              <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-heading font-bold text-lg">Customer Loyalty Wallets</h3>
+                    <p className="text-xs text-muted-foreground">Search and inspect any player's vault progress, spendable balance, and completed milestone cycles.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative w-full sm:w-64">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="Search by phone or name..."
+                        value={walletSearch}
+                        onChange={(e) => setWalletSearch(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') loadLoyaltyData(); }}
+                        className="pl-9 h-9 text-xs"
+                      />
+                    </div>
+                    <Button size="sm" onClick={() => loadLoyaltyData()} variant="outline" className="h-9 text-xs">
+                      Search
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Wallets Table */}
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-secondary/50 uppercase text-[10px] text-muted-foreground tracking-wider border-b border-border">
+                      <tr>
+                        <th className="py-3 px-4">Player</th>
+                        <th className="py-3 px-4">Lifetime Matches</th>
+                        <th className="py-3 px-4">Current Cycle</th>
+                        <th className="py-3 px-4">Locked Vault</th>
+                        <th className="py-3 px-4">Spendable Coins</th>
+                        <th className="py-3 px-4">Milestones</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {loadingWallets ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                            <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+                            Loading player wallets...
+                          </td>
+                        </tr>
+                      ) : loyaltyWallets.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                            No player loyalty wallets found.
+                          </td>
+                        </tr>
+                      ) : (
+                        loyaltyWallets.map((w) => (
+                          <tr key={w.id} className="hover:bg-secondary/30 transition-colors">
+                            <td className="py-3 px-4">
+                              <p className="font-bold text-foreground">{w.customer_name || 'Arena Player'}</p>
+                              <p className="text-[11px] text-muted-foreground font-mono">+91 {w.phone}</p>
+                            </td>
+                            <td className="py-3 px-4 font-bold text-foreground">
+                              {w.lifetime_bookings_count}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-mono font-bold text-amber-400">
+                                {w.current_cycle_bookings} / {loyaltyMilestoneTarget}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 font-mono font-bold text-amber-300">
+                              {Math.round(w.vault_balance)} TC
+                            </td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-400">
+                              {Math.round(w.spendable_balance)} TC
+                            </td>
+                            <td className="py-3 px-4">
+                              {w.completed_milestones > 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  🏆 {w.completed_milestones} Done
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-[10px]">In Progress</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setAdjustingPhone(w.phone);
+                                  setAdjustCoins("50");
+                                  setAdjustType("admin_bonus");
+                                  setAdjustReason("");
+                                }}
+                                className="h-7 text-[11px] gap-1 px-2.5"
+                              >
+                                <Gift className="w-3 h-3 text-amber-400" /> Gift / Adjust
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* Adjust Modal / Drawer */}
+              {adjustingPhone && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+                    <div className="flex items-center justify-between pb-3 border-b border-border">
+                      <div className="flex items-center gap-2">
+                        <Gift className="w-5 h-5 text-amber-400" />
+                        <h4 className="font-heading font-bold text-lg">Adjust Player Coins</h4>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => setAdjustingPhone(null)} className="h-7 w-7 p-0">✕</Button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase">Player Mobile</label>
+                        <Input value={`+91 ${adjustingPhone}`} disabled className="bg-secondary/50 font-mono mt-1" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase">Adjustment Type</label>
+                          <select
+                            value={adjustType}
+                            onChange={(e) => setAdjustType(e.target.value as any)}
+                            className="w-full h-10 px-3 rounded-lg bg-background border border-border text-xs font-semibold mt-1"
+                          >
+                            <option value="admin_bonus">🎁 Grant Bonus</option>
+                            <option value="admin_deduct">🔻 Deduct Coins</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase">Coins</label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={adjustCoins}
+                            onChange={(e) => setAdjustCoins(e.target.value)}
+                            className="mt-1 font-bold font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase">Reason / Note</label>
+                        <Input
+                          placeholder="e.g. Tournament winner bonus, courtesy credit"
+                          value={adjustReason}
+                          onChange={(e) => setAdjustReason(e.target.value)}
+                          className="mt-1 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                      <Button variant="ghost" onClick={() => setAdjustingPhone(null)} className="text-xs">Cancel</Button>
+                      <Button
+                        onClick={handleManualAdjust}
+                        disabled={savingAdjust || !adjustCoins}
+                        className="bg-primary hover:bg-primary/90 text-white font-bold text-xs"
+                      >
+                        {savingAdjust ? "Processing..." : `Confirm ${adjustType === 'admin_bonus' ? 'Grant' : 'Deduction'}`}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

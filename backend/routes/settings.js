@@ -226,4 +226,42 @@ router.get('/export', authMiddleware, async (req, res) => {
   }
 });
 
+// Admin: Update Trimurti Coins loyalty settings
+router.put('/loyalty', authMiddleware, async (req, res) => {
+  const {
+    loyalty_enabled,
+    loyalty_coins_per_slot,
+    loyalty_milestone_target,
+    loyalty_coin_value_inr,
+  } = req.body;
+
+  try {
+    const query = `
+      UPDATE site_settings
+      SET loyalty_enabled = COALESCE($1, loyalty_enabled),
+          loyalty_coins_per_slot = COALESCE($2, loyalty_coins_per_slot),
+          loyalty_milestone_target = COALESCE($3, loyalty_milestone_target),
+          loyalty_coin_value_inr = COALESCE($4, loyalty_coin_value_inr),
+          updated_at = NOW()
+      WHERE id = 1
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      typeof loyalty_enabled === 'boolean' ? loyalty_enabled : null,
+      loyalty_coins_per_slot !== undefined ? Number(loyalty_coins_per_slot) : null,
+      loyalty_milestone_target !== undefined ? Number(loyalty_milestone_target) : null,
+      loyalty_coin_value_inr !== undefined ? Number(loyalty_coin_value_inr) : null,
+    ]);
+
+    await cache.del('site:settings');
+    await cache.del('site_settings:loyalty');
+    await logAction(req.user.id, 'UPDATE_LOYALTY_SETTINGS', `Updated Trimurti Coins settings: ${loyalty_coins_per_slot || 10} coins/slot, ${loyalty_milestone_target || 20} milestone threshold`);
+    req.app.get('io').emit('settings_updated');
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error('Error updating loyalty settings:', err);
+    res.status(500).json({ error: 'Failed to update loyalty settings' });
+  }
+});
+
 module.exports = router;

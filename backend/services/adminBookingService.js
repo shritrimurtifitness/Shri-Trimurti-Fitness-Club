@@ -4,6 +4,7 @@ const cache = require('../config/cache');
 const mailer = require('../utils/mailer');
 const whatsappService = require('./whatsapp');
 const notificationScheduler = require('./notificationScheduler');
+const loyaltyService = require('./loyaltyService');
 
 const DEFAULT_ADMIN_PHONE = '917083738373';
 
@@ -270,6 +271,13 @@ async function approveBookingById({ bookingId, io, adminIdentifier = 'admin' }) 
       feedback_sent_at: b.feedback_sent_at,
     });
 
+    // 5b. Loyalty Accrual (Trimurti Coins & Milestone Check)
+    try {
+      await loyaltyService.accrueCoinsForBooking({ bookingId: b.id, io });
+    } catch (loyaltyErr) {
+      console.error('[LOYALTY ACCRUAL ERROR on approve]', loyaltyErr.message);
+    }
+
     // 6. Clear Redis Cache & Notify Web Sockets
     await cache.delPattern('bookings:*');
     await cache.delPattern('slots:*');
@@ -341,6 +349,13 @@ async function rejectBookingById({ bookingId, io, adminIdentifier = 'admin', rea
     `, [b.id]);
 
     notificationScheduler.cancelBookingNotifications(b.id);
+
+    // Rollback any redeemed coins or accrued points
+    try {
+      await loyaltyService.rollbackCoinsForBooking({ bookingId: b.id });
+    } catch (loyaltyErr) {
+      console.error('[LOYALTY ROLLBACK ERROR on reject]', loyaltyErr.message);
+    }
 
     // 2. Notify customer via WhatsApp
     if (b.customer_phone) {

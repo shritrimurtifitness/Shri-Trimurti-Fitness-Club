@@ -144,6 +144,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/retention', require('./routes/retention'));
+app.use('/api/loyalty', require('./routes/loyalty'));
 
 // 1-Tap Admin Quick Verification Short Links
 if (bookingsRoutes.handleQuickVerify) {

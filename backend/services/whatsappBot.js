@@ -10,6 +10,7 @@ const {
 const adminBookingService = require('./adminBookingService');
 const receiptOcrService = require('./receiptOcrService');
 const bankSmsMatchingService = require('./bankSmsMatchingService');
+const loyaltyService = require('./loyaltyService');
 
 // In-memory session tracking for WhatsApp booking flow
 // Key: phone number -> { state, slotId, turfId, turfName, date, timeStr, price, userName, createdAt }
@@ -833,6 +834,28 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
     const turfName = slot.turf_name || (slot.facility_type === 'football' ? 'Football Turf' : 'Cricket Turf');
     const timeStr = `${formatTime12h(slot.start_time)} - ${formatTime12h(slot.end_time)}`;
 
+    // Check loyalty status for player
+    let loyaltyNote = '';
+    let hasSpendableCoins = false;
+    let maxCoinsUsable = 0;
+    try {
+      const loyaltyStatus = await loyaltyService.getWalletStatus(from);
+      if (loyaltyStatus && loyaltyStatus.loyalty_enabled) {
+        if (loyaltyStatus.spendable_balance > 0) {
+          hasSpendableCoins = true;
+          maxCoinsUsable = Math.min(loyaltyStatus.spendable_balance, price);
+          const discountInr = maxCoinsUsable * loyaltyStatus.coin_value_inr;
+          loyaltyNote = `\n\n🪙 *Trimurti Coins:* You have *${loyaltyStatus.spendable_balance} spendable coins* (₹${loyaltyStatus.spendable_inr_value})!\n👉 Tap *🪙 Use Coins* below to deduct ₹${discountInr} from this match!`;
+        } else if (loyaltyStatus.vault_balance > 0) {
+          loyaltyNote = `\n\n🎯 *Vault Progress:* Match ${loyaltyStatus.current_cycle_bookings}/${loyaltyStatus.milestone_target} (${loyaltyStatus.progress_pct}%)\n🔒 *${loyaltyStatus.vault_balance} Trimurti Coins* in Vault. Play ${loyaltyStatus.remaining_for_unlock} more matches to unlock your ₹${loyaltyStatus.milestone_target * loyaltyStatus.coins_per_slot} reward!`;
+        } else {
+          loyaltyNote = `\n\n🪙 *Trimurti Rewards:* Complete this match to earn +${loyaltyStatus.coins_per_slot} Trimurti Coins in your vault! (Vault unlocks at ${loyaltyStatus.milestone_target} matches).`;
+        }
+      }
+    } catch (lErr) {
+      console.error('[LOYALTY CHECK IN BOOKING ERROR]', lErr.message);
+    }
+
     // Save active session
     setBookingSession(from, {
       state: 'AWAITING_PAYMENT',
@@ -842,6 +865,7 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
       date: slotDateStr,
       timeStr,
       price,
+      originalPrice: price,
       userName: userName || '',
     });
 
@@ -861,7 +885,7 @@ async function initiateSlotBooking({ from, slotId, userName = '' }) {
 🏟️ *Turf:* ${turfName}
 📅 *Date:* ${slotDateStr}
 ⏰ *Time:* ${timeStr}
-💰 *Amount Due:* *₹${price}*
+💰 *Amount Due:* *₹${price}*${loyaltyNote}
 
 📲 *Pay via UPI:*
 👉 *UPI ID:* \`${upiId}\`
@@ -874,14 +898,18 @@ Reply here with the *last 4 digits of your UPI Ref ID*:
 
 _Tap Cancel below if you change your mind._`;
 
+    const paymentButtons = [];
+    if (hasSpendableCoins && maxCoinsUsable > 0) {
+      paymentButtons.push({ id: 'BTN_USE_LOYALTY_COINS', title: `🪙 Use ${maxCoinsUsable} Coins` });
+    }
+    paymentButtons.push({ id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' });
+    paymentButtons.push({ id: 'BTN_STAFF', title: '👤 Talk to Desk' });
+
     return sendInteractiveButtons({
       to: from,
       headerText: 'Payment Details',
       bodyText: paymentInstructions,
-      buttons: [
-        { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
-        { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
-      ],
+      buttons: paymentButtons,
     });
   } catch (err) {
     console.error('[INITIATE BOOKING ERROR]', err);
@@ -976,17 +1004,43 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
     const isAutoApproved = cachedMatch.matched;
     const initialPaymentMode = isAutoApproved ? 'bank_sms' : 'upi_qr';
 
+    const coinsRedeemed = session.coinsRedeemed || 0;
+    const coinsDiscountAmount = session.coinsDiscountAmount || 0;
+
     // Insert booking into Neon DB
     const bookingRes = await pool.query(`
       INSERT INTO bookings (
         user_id, slot_id, status, payment_status, paid_amount, remaining_amount,
-        is_manual, payment_mode, utr_number
-      ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, $4, $5)
+        is_manual, payment_mode, utr_number, coins_redeemed, coins_discount_amount, loyalty_status
+      ) VALUES ($1, $2, 'pending_verification', 'pending', $3, 0, false, $4, $5, $6, $7, $8)
       RETURNING *
-    `, [userId, session.slotId, session.price, initialPaymentMode, cleanUtr]);
+    `, [
+      userId,
+      session.slotId,
+      session.price,
+      initialPaymentMode,
+      cleanUtr,
+      coinsRedeemed,
+      coinsDiscountAmount,
+      coinsRedeemed > 0 ? 'redeemed' : 'none'
+    ]);
 
     const createdBooking = bookingRes.rows[0];
     const bookingIdCode = createdBooking.id.substring(0, 8).toUpperCase();
+
+    // Deduct redeemed coins from wallet atomically
+    if (coinsRedeemed > 0) {
+      try {
+        await loyaltyService.applyRedemptionInTransaction(pool, {
+          bookingId: createdBooking.id,
+          phone: customerPhone,
+          coinsToRedeem: coinsRedeemed,
+          channel: 'whatsapp',
+        });
+      } catch (lErr) {
+        console.error('[LOYALTY DEDUCT ON WA BOOKING ERROR]', lErr.message);
+      }
+    }
 
     // Clear session
     clearBookingSession(from);
@@ -1458,6 +1512,62 @@ Our turf manager is also reachable directly at 📞 +91 9595153006.`;
 
   // User is in AWAITING_PAYMENT state and sends message
   if (activeSession && activeSession.state === 'AWAITING_PAYMENT') {
+    // 0. User requests to apply Trimurti Coins discount
+    if (
+      payload === 'BTN_USE_LOYALTY_COINS' ||
+      normalizedText.includes('use coin') ||
+      normalizedText.includes('redeem')
+    ) {
+      try {
+        const loyaltyStatus = await loyaltyService.getWalletStatus(from);
+        if (!loyaltyStatus || loyaltyStatus.spendable_balance <= 0) {
+          return sendTextMessage({
+            to: from,
+            text: `⚠️ You do not have spendable Trimurti Coins right now. Complete your current milestone to unlock your vault!`,
+          });
+        }
+
+        const basePrice = activeSession.originalPrice || activeSession.price;
+        const coinsToUse = Math.min(loyaltyStatus.spendable_balance, basePrice);
+        const discountVal = coinsToUse * loyaltyStatus.coin_value_inr;
+        const discountedPrice = Math.max(0, basePrice - discountVal);
+
+        activeSession.originalPrice = basePrice;
+        activeSession.price = discountedPrice;
+        activeSession.coinsRedeemed = coinsToUse;
+        activeSession.coinsDiscountAmount = discountVal;
+        setBookingSession(from, activeSession);
+
+        const { upi_id: upiId } = await getLiveUpiSettings();
+        const upiPayLink = `upi://pay?pa=${upiId}&am=${discountedPrice}&pn=Trimurti`;
+
+        const appliedMsg =
+`✅ *TRIMURTI COINS REDEEMED!* 🪙
+
+Deducted *${coinsToUse} Trimurti Coins* (₹${discountVal} OFF)!
+💰 *New Amount Due:* *₹${discountedPrice}*
+🏟️ *Turf:* ${activeSession.turfName} (${activeSession.timeStr})
+
+📲 *Pay via UPI:*
+👉 *UPI ID:* \`${upiId}\`
+👉 *1-Tap Pay:* ${upiPayLink}
+
+⚡ Reply with the *last 4 digits of your UPI Ref ID* (e.g. \`8901\`) to complete your discounted booking!`;
+
+        return sendInteractiveButtons({
+          to: from,
+          headerText: 'Discount Applied!',
+          bodyText: appliedMsg,
+          buttons: [
+            { id: 'BTN_CANCEL_BOOKING', title: '❌ Cancel Booking' },
+            { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+          ],
+        });
+      } catch (applyErr) {
+        console.error('[APPLY COINS WA ERROR]', applyErr.message);
+      }
+    }
+
     // 1. User uploaded a payment screenshot or media
     if (mediaId || base64Data || text === 'PAYMENT_SCREENSHOT_UPLOADED') {
       if (mediaId || base64Data) {
@@ -1653,6 +1763,55 @@ We have locked your favorite slot:
       }
     } catch (reEngageErr) {
       console.error('[RE-ENGAGE HOOK ERROR]', reEngageErr.message);
+    }
+  }
+
+  // ----------------------------------------------------
+  // A1. Loyalty Points & Vault Inquiry (e.g. "COINS", "POINTS", "WALLET")
+  // ----------------------------------------------------
+  if (
+    payload === 'BTN_MY_COINS' ||
+    ['coins', 'coin', 'points', 'point', 'rewards', 'reward', 'wallet', 'vault', 'balance'].includes(normalizedText)
+  ) {
+    try {
+      const customerPhone = normalizeTo10Digits(from);
+      const loyaltyStatus = await loyaltyService.getWalletStatus(from);
+      if (!loyaltyStatus) {
+        return sendTextMessage({
+          to: from,
+          text: `⚠️ Could not locate your rewards wallet. Book your first match to start accumulating Trimurti Coins!`,
+        });
+      }
+
+      const walletMsg =
+`🪙 *SHRI TRIMURTI REWARDS WALLET* 🏆
+
+👤 *Captain:* ${userName || 'Player'} (+91 ${customerPhone})
+📊 *Lifetime Matches:* ${loyaltyStatus.lifetime_bookings_count} Matches
+
+${loyaltyStatus.spendable_balance > 0 ? `🔓 *SPENDABLE BALANCE:* *${loyaltyStatus.spendable_balance} TC* (Worth ₹${loyaltyStatus.spendable_inr_value})\n✅ Ready to redeem on your next Cricket Turf or Football Turf match!` : `💳 *Spendable Balance:* 0 Trimurti Coins`}
+
+📦 *LOCKED VAULT PROGRESS:*
+Cycle: Milestone ${loyaltyStatus.completed_milestones + 1} (Goal: ${loyaltyStatus.milestone_target} matches)
+Progress: ${loyaltyStatus.current_cycle_bookings} / ${loyaltyStatus.milestone_target} Matches (${loyaltyStatus.progress_pct}%)
+🔒 *Locked Coins:* ${loyaltyStatus.vault_balance} Trimurti Coins
+
+🎯 *The Goal:* Complete ${loyaltyStatus.remaining_for_unlock} more matches to unlock ₹${loyaltyStatus.milestone_target * loyaltyStatus.coins_per_slot} in your wallet!
+
+💡 _Every slot played adds +${loyaltyStatus.coins_per_slot} Trimurti Coins to your vault!_`;
+
+      return sendInteractiveButtons({
+        to: from,
+        headerText: 'Trimurti Coins & Vault',
+        bodyText: walletMsg,
+        buttons: [
+          { id: 'BTN_CRICKET_SLOTS', title: '🏏 Cricket Slots' },
+          { id: 'BTN_FOOTBALL_SLOTS', title: '⚽ Football Slots' },
+          { id: 'BTN_STAFF', title: '👤 Talk to Desk' },
+        ],
+      });
+    } catch (waLoyaltyErr) {
+      console.error('[WHATSAPP LOYALTY CARD ERROR]', waLoyaltyErr.message);
     }
   }
 
