@@ -16,8 +16,11 @@ import {
   XCircle,
   ShieldCheck,
   Activity,
-  Sliders,
   Filter,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Calendar,
 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -29,6 +32,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
+
+const ITEMS_PER_PAGE = 25;
 
 interface GateConfig {
   secretKey: string;
@@ -62,6 +67,7 @@ export default function AdminGate() {
   const [showKey, setShowKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -71,7 +77,7 @@ export default function AdminGate() {
       setLoading(true);
       const [configRes, logsRes] = await Promise.all([
         api.get("/gate/config"),
-        api.get("/gate/logs?limit=50"),
+        api.get("/gate/logs?limit=250"),
       ]);
 
       if (configRes.data.success && configRes.data.config) {
@@ -110,7 +116,7 @@ export default function AdminGate() {
       scanned_at: eventData.timestamp || new Date().toISOString(),
     };
 
-    setLogs((prev) => [newLog, ...prev.slice(0, 49)]);
+    setLogs((prev) => [newLog, ...prev.slice(0, 249)]);
 
     if (eventData.status === "granted" || eventData.status === "re_entry") {
       toast.success(
@@ -165,7 +171,6 @@ export default function AdminGate() {
       if (res.data.success) {
         startCountdown(unlockDuration);
         toast.success(res.data.message || `Gate unlocked for ${unlockDuration} seconds!`);
-        // Refresh logs after brief delay
         setTimeout(fetchGateData, 1000);
       }
     } catch (err: any) {
@@ -214,30 +219,42 @@ export default function AdminGate() {
     return true;
   });
 
+  // Reset to page 1 whenever filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus]);
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / ITEMS_PER_PAGE));
+  const paginatedLogs = filteredLogs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
       case "granted":
         return (
-          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 flex items-center gap-1 font-semibold">
+          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 flex items-center gap-1 font-semibold text-[11px] px-2 py-0.5">
             <CheckCircle2 className="w-3.5 h-3.5" /> GRANTED
           </Badge>
         );
       case "re_entry":
         return (
-          <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 flex items-center gap-1 font-semibold">
+          <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 flex items-center gap-1 font-semibold text-[11px] px-2 py-0.5">
             <RefreshCw className="w-3.5 h-3.5" /> RE-ENTRY
           </Badge>
         );
       case "manual_override":
         return (
-          <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 flex items-center gap-1 font-semibold">
+          <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 flex items-center gap-1 font-semibold text-[11px] px-2 py-0.5">
             <Zap className="w-3.5 h-3.5" /> REMOTE BUZZ
           </Badge>
         );
       case "denied":
       default:
         return (
-          <Badge className="bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 flex items-center gap-1 font-semibold">
+          <Badge className="bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 flex items-center gap-1 font-semibold text-[11px] px-2 py-0.5">
             <XCircle className="w-3.5 h-3.5" /> DENIED
           </Badge>
         );
@@ -247,24 +264,24 @@ export default function AdminGate() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Top Banner / Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-card via-card to-card/70 p-6 rounded-2xl border border-border shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-card via-card to-card/70 p-5 sm:p-6 rounded-2xl border border-border shadow-sm">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
               <DoorClosed className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                 Smart Gate Access Hub
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                 Control automated turnstiles, tune early check-in buffers, and monitor live scans.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-start md:self-auto">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Gateway Online
@@ -274,9 +291,9 @@ export default function AdminGate() {
             size="sm"
             onClick={fetchGateData}
             disabled={loading}
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-1.5 h-8 text-xs"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
@@ -285,16 +302,16 @@ export default function AdminGate() {
       {/* Hero Remote Gate Unlock Card */}
       <Card className="border-primary/20 shadow-sm relative overflow-hidden bg-gradient-to-br from-card via-card to-primary/5">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-primary font-bold text-sm tracking-wide uppercase">
-                <Zap className="w-4 h-4" /> Quick Remote Gate Override
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-primary font-bold text-xs tracking-wide uppercase">
+                <Zap className="w-3.5 h-3.5" /> Quick Remote Gate Override
               </div>
-              <h2 className="text-xl font-bold text-foreground">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground">
                 Buzz Open Entrance Gate Remotely
               </h2>
-              <p className="text-sm text-muted-foreground max-w-xl">
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
                 Need to let in a player with a flat phone battery or manual pass? Tap below to release
                 the 12V electromagnetic lock from anywhere in the arena.
               </p>
@@ -302,7 +319,7 @@ export default function AdminGate() {
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* Pulse Duration Selector */}
-              <div className="flex items-center gap-2 bg-muted/60 p-1 rounded-xl border border-border">
+              <div className="flex items-center justify-center gap-1.5 bg-muted/60 p-1 rounded-xl border border-border">
                 {[5, 10, 15, 30].map((sec) => (
                   <button
                     key={sec}
@@ -324,7 +341,7 @@ export default function AdminGate() {
                 size="lg"
                 onClick={handleRemoteUnlock}
                 disabled={unlocking || activeCountdown > 0}
-                className={`font-bold transition-all px-6 shadow-md ${
+                className={`font-bold transition-all px-5 sm:px-6 shadow-md h-10 sm:h-11 text-xs sm:text-sm ${
                   activeCountdown > 0
                     ? "bg-emerald-600 hover:bg-emerald-600 text-white animate-pulse"
                     : "bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -332,11 +349,11 @@ export default function AdminGate() {
               >
                 {activeCountdown > 0 ? (
                   <span className="flex items-center gap-2">
-                    <DoorOpen className="w-5 h-5" /> Gate Open ({activeCountdown}s)
+                    <DoorOpen className="w-4 h-4" /> Gate Open ({activeCountdown}s)
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <Zap className="w-5 h-5" /> Buzz Gate Open Now
+                    <Zap className="w-4 h-4" /> Buzz Gate Open Now
                   </span>
                 )}
               </Button>
@@ -364,26 +381,26 @@ export default function AdminGate() {
       </Card>
 
       {/* Grid: Timing & Hardware Config */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
         {/* Card 1: Gate Timing Rules */}
         <Card className="border-border shadow-sm">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center gap-2 text-foreground font-semibold">
-              <Clock className="w-5 h-5 text-primary" />
+              <Clock className="w-4 h-4 text-primary" />
               <CardTitle className="text-base">Entry Timing & Check-In Rules</CardTitle>
             </div>
-            <CardDescription>
+            <CardDescription className="text-xs">
               Configure how early players can enter and lock release duration.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSaveConfig} className="space-y-4">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="earlyArrival" className="text-sm font-semibold">
+                  <Label htmlFor="earlyArrival" className="text-xs sm:text-sm font-semibold">
                     Early Arrival Buffer
                   </Label>
-                  <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-foreground font-semibold">
+                  <span className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded text-foreground font-semibold">
                     {config.earlyArrivalMinutes} mins before slot
                   </span>
                 </div>
@@ -400,18 +417,19 @@ export default function AdminGate() {
                     })
                   }
                   required
+                  className="h-9 text-sm"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground">
                   Example: If set to 15 mins, a 6:00 PM booking can be scanned starting at 5:45 PM.
                 </p>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="unlockDuration" className="text-sm font-semibold">
+                  <Label htmlFor="unlockDuration" className="text-xs sm:text-sm font-semibold">
                     Gate Unlock Pulse Duration
                   </Label>
-                  <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-foreground font-semibold">
+                  <span className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded text-foreground font-semibold">
                     {config.unlockDurationSeconds} seconds
                   </span>
                 </div>
@@ -428,17 +446,18 @@ export default function AdminGate() {
                     })
                   }
                   required
+                  className="h-9 text-sm"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground">
                   How long the lock cuts power after a valid scan to let the team enter.
                 </p>
               </div>
 
               <div className="pt-2">
-                <Button type="submit" disabled={savingConfig} className="w-full">
+                <Button type="submit" disabled={savingConfig} className="w-full h-9 text-xs font-semibold">
                   {savingConfig ? (
                     <span className="flex items-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin" /> Saving Changes...
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving Changes...
                     </span>
                   ) : (
                     "Save Timing Changes"
@@ -451,30 +470,30 @@ export default function AdminGate() {
 
         {/* Card 2: Hardware Gateway Credentials */}
         <Card className="border-border shadow-sm">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center gap-2 text-foreground font-semibold">
-              <Key className="w-5 h-5 text-primary" />
+              <Key className="w-4 h-4 text-primary" />
               <CardTitle className="text-base">Hardware Authentication</CardTitle>
             </div>
-            <CardDescription>
+            <CardDescription className="text-xs">
               Security credentials to paste into the ESP32 gate controller code.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Gate Secret Key (X-Gate-Key)</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm font-semibold">Gate Secret Key (X-Gate-Key)</Label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Input
                     type={showKey ? "text" : "password"}
                     value={config.secretKey}
                     onChange={(e) => setConfig({ ...config, secretKey: e.target.value })}
-                    className="font-mono text-xs pr-10"
+                    className="font-mono text-xs pr-9 h-9"
                   />
                   <button
                     type="button"
                     onClick={() => setShowKey(!showKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -483,18 +502,18 @@ export default function AdminGate() {
                   type="button"
                   variant="outline"
                   onClick={handleCopyKey}
-                  className="shrink-0 flex items-center gap-1.5"
+                  className="shrink-0 flex items-center gap-1.5 h-9 text-xs"
                 >
-                  {copiedKey ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                   {copiedKey ? "Copied" : "Copy"}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Matches the <code className="font-mono">GATE_SECRET</code> constant in the ESP32 C++ firmware.
+              <p className="text-[11px] text-muted-foreground">
+                Matches the <code className="font-mono">GATE_SECRET</code> in your ESP32 C++ code.
               </p>
             </div>
 
-            <div className="rounded-xl bg-muted/50 p-4 border border-border/80 space-y-2 text-xs">
+            <div className="rounded-xl bg-muted/50 p-3 sm:p-3.5 border border-border/80 space-y-2 text-xs">
               <div className="flex justify-between items-center text-muted-foreground">
                 <span>Hardware Gateway ID:</span>
                 <span className="font-mono font-semibold text-foreground">main_gate</span>
@@ -509,37 +528,37 @@ export default function AdminGate() {
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-start gap-2">
+            <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>
-                All scan attempts are cryptographically validated against slot reservations and bank payment status in real-time.
+              <span className="text-[11px]">
+                Validates slot reservations and bank payment status in real-time before buzzing lock.
               </span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Real-time Gate Access Logs Table */}
+      {/* Real-time Gate Access Logs Card */}
       <Card className="border-border shadow-sm">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
           <div>
             <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-primary" />
-              <CardTitle className="text-lg">Real-Time Gate Scan Logs</CardTitle>
+              <Activity className="w-4 h-4 text-primary" />
+              <CardTitle className="text-base sm:text-lg">Real-Time Gate Scan Logs</CardTitle>
             </div>
-            <CardDescription>
+            <CardDescription className="text-xs">
               Live activity stream of QR scans and access decisions at the gate.
             </CardDescription>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[140px] text-xs h-9">
+              <SelectTrigger className="w-[145px] text-xs h-8">
                 <SelectValue placeholder="Filter Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Events</SelectItem>
+                <SelectItem value="all">All Events ({logs.length})</SelectItem>
                 <SelectItem value="granted">Granted Only</SelectItem>
                 <SelectItem value="denied">Denied Only</SelectItem>
                 <SelectItem value="manual">Manual Overrides</SelectItem>
@@ -547,8 +566,82 @@ export default function AdminGate() {
             </Select>
           </div>
         </CardHeader>
+
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* ============================================================== */}
+          {/* MOBILE VIEW (< md): Responsive Vertical Cards                  */}
+          {/* ============================================================== */}
+          <div className="md:hidden divide-y divide-border/60">
+            {paginatedLogs.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-xs">
+                <DoorClosed className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                No gate scan events found for this filter.
+              </div>
+            ) : (
+              paginatedLogs.map((log) => {
+                const formattedDate = log.scanned_at
+                  ? format(new Date(log.scanned_at), "dd MMM, hh:mm:ss a")
+                  : "N/A";
+
+                return (
+                  <div key={log.id} className="p-4 space-y-2.5 hover:bg-muted/30 transition-colors">
+                    {/* Top Row: Player Name + Status Badge */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-sm text-foreground truncate">
+                          {log.customer_name || "Unknown Player"}
+                        </h4>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                          <MapPin className="w-3 h-3 text-primary shrink-0" />
+                          <span className="truncate">{log.turf_name || "N/A"}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        {getStatusBadge(log.status)}
+                      </div>
+                    </div>
+
+                    {/* Middle Grid: Timestamp & Gate */}
+                    <div className="grid grid-cols-2 gap-2 bg-muted/40 rounded-lg p-2 text-xs">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase font-semibold block">
+                          Scanned Time
+                        </span>
+                        <span className="font-mono text-foreground font-medium text-[11px]">
+                          {formattedDate}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase font-semibold block">
+                          Gate ID
+                        </span>
+                        <span className="font-mono text-foreground font-medium text-[11px]">
+                          {log.gate_id || "main_gate"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Result Note */}
+                    {log.reason && (
+                      <div className="flex items-center justify-between text-[11px] pt-1 text-muted-foreground border-t border-border/40">
+                        <span className="text-[10px] uppercase font-mono text-muted-foreground/70">
+                          Result
+                        </span>
+                        <span className="font-mono text-foreground/90 font-medium truncate max-w-[220px]">
+                          {log.reason}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* ============================================================== */}
+          {/* DESKTOP VIEW (>= md): Full Clean Data Table                     */}
+          {/* ============================================================== */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="text-xs uppercase bg-muted/60 text-muted-foreground border-y border-border">
                 <tr>
@@ -561,7 +654,7 @@ export default function AdminGate() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredLogs.length === 0 ? (
+                {paginatedLogs.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground text-sm">
                       <DoorClosed className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -569,7 +662,7 @@ export default function AdminGate() {
                     </td>
                   </tr>
                 ) : (
-                  filteredLogs.map((log) => {
+                  paginatedLogs.map((log) => {
                     const formattedDate = log.scanned_at
                       ? format(new Date(log.scanned_at), "dd MMM, hh:mm:ss a")
                       : "N/A";
@@ -604,6 +697,51 @@ export default function AdminGate() {
               </tbody>
             </table>
           </div>
+
+          {/* ============================================================== */}
+          {/* PAGINATION BAR (25 per page)                                   */}
+          {/* ============================================================== */}
+          {filteredLogs.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-border bg-muted/20">
+              <div className="text-xs text-muted-foreground order-2 sm:order-1 text-center sm:text-left">
+                Showing{" "}
+                <span className="font-semibold text-foreground">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-semibold text-foreground">
+                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredLogs.length)}
+                </span>{" "}
+                of <span className="font-semibold text-foreground">{filteredLogs.length}</span> scan events
+              </div>
+
+              <div className="flex items-center gap-2 order-1 sm:order-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 px-2.5 text-xs flex items-center gap-1"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                </Button>
+
+                <div className="flex items-center gap-1 px-2 text-xs font-semibold text-muted-foreground">
+                  <span className="text-foreground">{currentPage}</span> / <span>{totalPages}</span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="h-8 px-2.5 text-xs flex items-center gap-1"
+                >
+                  Next <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

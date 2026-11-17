@@ -421,7 +421,7 @@ router.post('/manual-unlock', authMiddleware, async (req, res) => {
 // -------------------------------------------------------------
 router.get('/logs', authMiddleware, async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
     const result = await pool.query(
       `SELECT * FROM gate_access_logs ORDER BY scanned_at DESC LIMIT $1`,
       [limit]
