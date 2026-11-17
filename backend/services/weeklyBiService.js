@@ -420,7 +420,7 @@ async function generateWeeklyExecutiveSummary({ dispatchWhatsApp = true, trailin
 
   // Dispatch to Admin WhatsApp if enabled
   if (dispatchWhatsApp) {
-    const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
+    const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
     const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
 
     sendTextMessage({ to: adminPhone, text: summaryText }).catch((err) =>

@@ -140,10 +140,12 @@ JWT_SECRET=your-secure-jwt-secret-string
 FRONTEND_URL=http://localhost:5173
 GEMINI_API_KEY=your_gemini_api_key
 
-# WhatsApp Cloud API Bot
+# WhatsApp Cloud API Bot & Admin Alerts
 WHATSAPP_TOKEN=your_meta_system_user_token
 PHONE_NUMBER_ID=your_registered_phone_number_id
 WHATSAPP_VERIFY_TOKEN=trimurti_arena_secret_2026
+ADMIN_NOTIFICATION_PHONE=917083738373
+WHATSAPP_BOT_NUMBER=919595153006
 
 # Google Business Profile API (AI Review Management)
 GOOGLE_BUSINESS_CLIENT_ID=your_google_client_id.apps.googleusercontent.com

@@ -449,7 +449,7 @@ router.post('/:id/register', async (req, res) => {
       });
 
       // 3. Notify Admin's Personal WhatsApp in Real-Time
-      const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
+      const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
       const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
       const adminAlert =
 `⚡ *TOURNAMENT REGISTRATION AUTO-APPROVED* 🏆🏦

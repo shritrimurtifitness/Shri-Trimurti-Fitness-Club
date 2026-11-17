@@ -1079,7 +1079,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       });
 
       // 3. Notify Admin's personal WhatsApp in real-time
-      const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
+      const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
       const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
       const couponNote = couponCode ? `\n🎟️ *Coupon Applied:* ${couponCode} (-₹${couponDiscount})` : '';
       const coinsNote = coinsRedeemed > 0 ? `\n🪙 *Trimurti Coins:* ${coinsRedeemed} TC (-₹${coinsDiscountAmount})` : '';

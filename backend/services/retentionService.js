@@ -300,7 +300,7 @@ async function runChurnAnalysis({ io = null, sendWhatsAppDigest = true } = {}) {
 
   // 5. Send compiled Admin WhatsApp Digest if enabled
   if (sendWhatsAppDigest && processedPlayers.length > 0) {
-    const adminPhoneRaw = (process.env.ADMIN_PHONE || '919595153006').replace(/\D/g, '');
+    const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
     const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
 
     let digestText = `📊 *WEEKEND RETENTION ALERT* (${processedPlayers.length} Regular Teams Inactive)\n\n`;

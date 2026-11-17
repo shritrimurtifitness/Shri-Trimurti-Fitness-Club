@@ -644,6 +644,8 @@ Create a `.env` file in the `backend/` directory based on the following referenc
 | `PHONE_NUMBER_ID` | **Yes** | 15-digit ID | Meta WhatsApp Cloud API registered phone number ID |
 | `WHATSAPP_VERIFY_TOKEN`| No | `trimurti_arena_secret_2026` | Webhook verification token configured in Meta App Dashboard |
 | `WHATSAPP_WABA_ID` | No | Numeric ID | WhatsApp Business Account ID |
+| `WHATSAPP_BOT_NUMBER` | No | `919595153006` | WhatsApp Bot registered number (used for self-messaging prevention) |
+| `ADMIN_NOTIFICATION_PHONE`| No | `917083738373` | Admin personal WhatsApp number for executive summaries and alerts |
 | `BANK_SMS_SECRET` | No | `trimurti_bank_secret_2026` | MacroDroid webhook auth token for bank SMS alerts |
 | `RETENTION_SECRET` | No | `trimurti_retention_secret_2026`| cron-job.org auth token for Thursday churn predictor |
 | `BI_SECRET` | No | `trimurti_bi_secret_2026` | cron-job.org auth token for Monday executive summary |

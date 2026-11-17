@@ -16,7 +16,7 @@ const { sendTextMessage } = require('./whatsapp');
  * Normalizes phone number for admin WhatsApp dispatch
  */
 function getAdminPhone() {
-  const raw = process.env.ADMIN_PHONE || '919595153006';
+  const raw = process.env.ADMIN_NOTIFICATION_PHONE || '917083738373';
   const clean = raw.replace(/\D/g, '');
   return clean.startsWith('91') ? clean : `91${clean}`;
 }

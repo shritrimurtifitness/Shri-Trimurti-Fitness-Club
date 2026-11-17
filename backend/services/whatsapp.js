@@ -20,6 +20,13 @@ async function sendTextMessage({ to, text, previewUrl = false }) {
     return { success: true, mock: true };
   }
 
+  // Prevent sending to bot's own number (Meta Error 100 Invalid parameter)
+  const botNumber = (process.env.WHATSAPP_BOT_NUMBER || '919595153006').replace(/\D/g, '');
+  if (phone === botNumber) {
+    console.warn(`[WHATSAPP SKIPPED] Cannot send message to bot's own number (${phone}). Ensure ADMIN_NOTIFICATION_PHONE is set to admin's personal number.`);
+    return { success: false, skipped: true, error: 'Cannot send message to bot own number' };
+  }
+
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',

@@ -6,7 +6,7 @@ const whatsappService = require('./whatsapp');
 const notificationScheduler = require('./notificationScheduler');
 const loyaltyService = require('./loyaltyService');
 
-const DEFAULT_ADMIN_PHONE = '917083738373';
+const DEFAULT_ADMIN_NOTIFICATION_PHONE = '917083738373';
 
 /**
  * Generates an HMAC-SHA256 token for 1-tap admin action links
@@ -45,7 +45,7 @@ async function isAuthorizedAdmin(phone) {
   const cleanPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
   const phone10 = rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
 
-  const configuredAdmin = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_PHONE).replace(/\D/g, '');
+  const configuredAdmin = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_NOTIFICATION_PHONE).replace(/\D/g, '');
   const configuredAdmin10 = configuredAdmin.length === 12 && configuredAdmin.startsWith('91') 
     ? configuredAdmin.substring(2) 
     : configuredAdmin;
@@ -85,7 +85,7 @@ async function notifyAdminNewBooking({ bookingId, io }) {
     if (res.rows.length === 0) return { success: false, error: 'Booking not found' };
 
     const b = res.rows[0];
-    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_PHONE).replace(/\D/g, '');
+    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_NOTIFICATION_PHONE).replace(/\D/g, '');
     const bookingCode = b.id.substring(0, 8).toUpperCase();
     const turfName = b.turf_name || (b.facility_type === 'football' ? 'Football Turf' : 'Cricket Turf');
     const dateStr = typeof b.date === 'string' ? b.date.substring(0, 10) : new Date(b.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -473,7 +473,7 @@ function renderAdminResultHtml({ success, alreadyProcessed, bookingCode, custome
  */
 async function notifyAdminTournamentRegistration({ registrationId, tournamentName, teamName, captainName, captainPhone, entryFee, utrNumber, io = null }) {
   try {
-    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_PHONE).replace(/\D/g, '');
+    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_NOTIFICATION_PHONE).replace(/\D/g, '');
     const cleanPhone = (captainPhone || '').replace(/\D/g, '');
     const phone10 = cleanPhone.startsWith('91') && cleanPhone.length === 12 ? cleanPhone.slice(2) : cleanPhone;
     const cleanUtr = utrNumber ? String(utrNumber).trim() : 'N/A';
@@ -660,7 +660,7 @@ If this is a mistake or typo, please contact our tournament desk immediately at 
 }
 
 module.exports = {
-  DEFAULT_ADMIN_PHONE,
+  DEFAULT_ADMIN_NOTIFICATION_PHONE,
   generateAdminActionToken,
   verifyAdminActionToken,
   isAuthorizedAdmin,
