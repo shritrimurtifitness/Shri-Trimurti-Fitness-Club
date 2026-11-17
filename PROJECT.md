@@ -291,10 +291,10 @@ Eliminates manual admin approval for UPI payments:
    - **Case B (SMS arrives first $\rightarrow$ Customer submits second)**: Caches the bank credit in `bank_sms_credits` (30-minute validity). When the player submits their UTR, the fast-path check matches the pre-cached credit and approves the booking **on the spot**.
 5. **Unrelated Payment Protection**: Personal transfers or canteen payments are isolated in the ledger and will never confirm a turf booking unless the UTR matches.
 
-### 5.2 Vision AI Payment Screenshot OCR
+### 5.2 Vision AI Payment Screenshot OCR & Instant 2-Phase Response
 - Customers who book via WhatsApp or mobile don't need to manually type 12-digit numbers.
-- When an image receipt is received, `receiptOcrService.js` routes it to **Gemini 3.5 Flash Vision**.
-- The model extracts the 12-digit UTR, last 4 digits, payment app name, and amount paid.
+- **Phase 1 (Instant Ack < 0.5s):** As soon as an image arrives for an active booking session, the bot immediately triggers WhatsApp read receipts (`markMessageAsRead` to show blue checkmarks) and dispatches an instant waiting message (*"📸 Payment screenshot received! ⏳ Scanning your UPI reference with AI for Cricket Turf / Football Turf, please wait a few seconds... ⚡"*). This completely eliminates user anxiety and avoids redundant re-uploads.
+- **Phase 2 (Background Vision OCR):** In the background, `receiptOcrService.js` routes the downloaded image to **Gemini 3.5 Flash Vision** to extract the 12-digit UTR, last 4 digits, payment app name, and amount paid.
 - Automatically initiates verification and notifies the customer: *"📸 Payment Screenshot Verified! Detected UPI Ref ID ending in 2715 via PhonePe."*
 
 ### 5.3 1-Ring Missed-Call Instant Booking Agent
@@ -699,6 +699,9 @@ node scratch/test_retention_e2e.js
 
 # 4. Test Weekly BI Executive Summary & SQL Math (19/19 test cases)
 node scratch/test_weekly_bi_e2e.js
+
+# 5. Test Instant Payment Screenshot Acknowledgement Flow
+node scratch/test_screenshot_ack.js
 ```
 
 ### 10.5 Frontend Production Build

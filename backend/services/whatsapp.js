@@ -583,6 +583,38 @@ async function sendAuthOtpMessage({ to, otp }) {
   }
 }
 
+/**
+ * Marks an incoming WhatsApp message as read (triggers blue checkmarks).
+ */
+async function markMessageAsRead(messageId) {
+  if (!process.env.WHATSAPP_TOKEN || !process.env.PHONE_NUMBER_ID || !messageId) {
+    return { success: true, mock: true };
+  }
+
+  try {
+    const res = await axios.post(
+      `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        status: 'read',
+        message_id: messageId,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return { success: true, data: res.data };
+  } catch (err) {
+    // Non-critical if read status fails to update
+    const errorData = err.response ? err.response.data : { message: err.message };
+    console.warn(`[WHATSAPP READ RECEIPT WARNING] messageId ${messageId}:`, errorData.message || JSON.stringify(errorData));
+    return { success: false, error: errorData };
+  }
+}
+
 module.exports = {
   normalizePhone,
   sendTextMessage,
@@ -593,4 +625,5 @@ module.exports = {
   sendBookingConfirmationTicket,
   sendAuthOtpMessage,
   sendMissedCallNotification,
+  markMessageAsRead,
 };

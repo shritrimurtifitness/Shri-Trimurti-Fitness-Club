@@ -40,6 +40,7 @@ A comprehensive, production-grade sports facility management, autonomous booking
 - **2-Way WhatsApp Conversational Bot:** Full-featured conversational reservation engine powered by Meta WhatsApp Cloud API and Google Gemini AI.
 - **1-Ring Missed-Call Booking:** Instant trigger sending interactive booking menus to callers without airtime charges.
 - **0%-Fee Direct Arena UPI:** Dynamic UPI QR code generation with instant payment verification via UTR entry or Computer Vision screenshot OCR.
+- **Instant 2-Phase Screenshot Response:** Delivers sub-500ms WhatsApp acknowledgement and read receipts upon receiving payment screenshots, eliminating drop-off anxiety while Gemini Vision OCR processes the slip in the background.
 - **Cryptographic Digital Entry Passes:** Verifiable QR passes with team cost-split calculator and 1-tap WhatsApp squad sharing.
 
 ### 2. Loyalty Rewards & Stealth Coupons (Stacking Engine)
@@ -183,7 +184,10 @@ node scratch/test_retention_e2e.js
 # 4. Test Weekly BI Executive Summary & SQL Math (19/19 tests)
 node scratch/test_weekly_bi_e2e.js
 
-# 5. Frontend Production Bundle Check
+# 5. Test Instant Payment Screenshot Acknowledgement Flow
+node scratch/test_screenshot_ack.js
+
+# 6. Frontend Production Bundle Check
 npm run build --prefix frontend
 ```
 

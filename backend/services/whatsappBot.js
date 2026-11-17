@@ -1,12 +1,14 @@
 const pool = require('../config/db');
 const cache = require('../config/cache');
 const { normalizeTo10Digits } = require('../utils/phone');
+const whatsapp = require('./whatsapp');
 const {
   sendTextMessage,
   sendImageMessage,
   sendInteractiveButtons,
   sendInteractiveList,
-} = require('./whatsapp');
+  markMessageAsRead,
+} = whatsapp;
 const adminBookingService = require('./adminBookingService');
 const receiptOcrService = require('./receiptOcrService');
 const bankSmsMatchingService = require('./bankSmsMatchingService');
@@ -1939,6 +1941,20 @@ Please check the spelling or proceed with payment of *₹${activeSession.price}*
     if (mediaId || base64Data || text === 'PAYMENT_SCREENSHOT_UPLOADED') {
       if (mediaId || base64Data) {
         console.log(`[BOT OCR] Processing payment screenshot for ${from} (Slot: ${activeSession.slotId})...`);
+
+        // 1. Mark incoming message as read (blue checkmarks) immediately
+        if (messageId) {
+          whatsapp.markMessageAsRead(messageId).catch((err) =>
+            console.warn('[BOT OCR] Failed to mark message as read:', err.message)
+          );
+        }
+
+        // 2. Instant visual acknowledgement (< 0.5s) so the player knows the screenshot was received
+        await whatsapp.sendTextMessage({
+          to: from,
+          text: `📸 *Payment screenshot received!* ⏳\n\n🔍 Reading your UPI reference / UTR number with AI for *${activeSession.turfName}*...\n_Please wait a few seconds..._ ⚡`,
+        }).catch((err) => console.error('[BOT OCR] Failed to send instant ack:', err.message));
+
         const ocrResult = await receiptOcrService.processReceiptImage({
           mediaId,
           mimeType,
