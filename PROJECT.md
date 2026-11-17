@@ -11,9 +11,11 @@
 **SHRI TRIMURTI FITNESS CLUB** (internally code-named **Turfbook Pro** / **TurfZone**) is a production-grade sports facility management and autonomous booking platform built specifically for contemporary multi-sport complexes. The system serves three primary user personas:
 
 1. **Customers:**
-   - Browse facilities, view real-time live court availability, book Cricket and Football turfs or snooker/pool tables.
+   - Browse facilities, view real-time live court availability, book Cricket Turf and Football Turf or snooker/pool tables.
    - Contact verification via dual WhatsApp Phone OTP or Email OTP.
    - Multi-channel booking: Responsive Web App, 2-Way Conversational WhatsApp Bot, or 1-Ring Missed-Call Instant Booking.
+   - **Trimurti Coins Loyalty Rewards:** Earn ₹1 value per coin on completed bookings, level up tiers (Rookie to Elite), and redeem coins seamlessly.
+   - **Stackable Discounts:** Redeem both promo coupons and Trimurti Coins simultaneously with ₹300 operational floor protection.
    - 0%-fee Direct Arena UPI with UTR entry or instant Vision AI payment screenshot OCR verification.
    - Live socket auto-approval with 15-minute slot hold guarantee and real-time gate pass issuance.
    - Download verifiable digital entry passes with cryptographic QR codes, calculate team cost-splits, and share passes directly to WhatsApp squads.
@@ -30,6 +32,7 @@
    - Real-time venue occupancy tracking via the **Live Occupancy Pulse**.
    - **Bank SMS Auto-Verification Engine:** Automatically verifies UPI payments directly from Android bank SMS alerts (SBI, Bank of Maharashtra, HDFC, Axis, etc.) and auto-approves slots in < 3 seconds.
    - **1-Tap WhatsApp Verification:** Approve or reject bookings directly from phone notifications with secure HMAC short-links.
+   - **Google Business Profile AI Review Automation:** Automated review monitoring and context-aware Gemini AI reply synthesis.
    - **Smart Churn & Retention Predictor:** Weekly automated detection of inactive regular teams, live weekend slot check, and 1-tap WhatsApp invitations.
    - **Weekly Business Intelligence Brief:** Every Monday at 8:00 AM, delivers a C-suite WhatsApp summary of 7-day revenue, sport split, dead-zone slot monetization, and player sentiment.
    - Full coupon and discount engine, operational expense logging, tournament management, staff RBAC permissions, and immutable audit logs.
@@ -120,6 +123,19 @@ ShriTrimurtiFitness/
 ├── package.json                   # Root monorepo convenience scripts
 ├── .gitignore                     # Monorepo git ignore rules
 │
+├── docs/                          # Comprehensive Architectural & Integration Documentation
+│   ├── README.md                  # Master documentation index
+│   ├── google-business-api-setup.md # Google Business Profile API OAuth credentials & Case ID
+│   ├── trimurti-coins-loyalty-system-plan.md # Loyalty rewards, tier multipliers, 30-day expiry
+│   ├── whatsapp-engine-coupon-integration-plan.md # Bidirectional coupon & coin stacking logic
+│   ├── private-coupons-stealth-architecture-plan.md # Stealth coupon engine and anti-abuse caps
+│   ├── bank-sms-auto-verification-plan.md # MacroDroid bank SMS verification workflow
+│   ├── automated-weekly-bi-executive-summary-plan.md # Monday morning automated BI executive brief
+│   ├── smart-churn-reengagement-plan.md # 7/14/30-day dormant squad retention crons
+│   ├── whatsapp-reminders-feedback-plan.md # Matchday reminders & Google review collection
+│   ├── whatsapp-bot-implementation-plan.md # Meta WhatsApp Cloud API conversational flows
+│   └── landing-page-analysis.md   # UX/UI conversion rate optimization breakdown
+│
 ├── frontend/                      # React 18 + Vite + TypeScript Client
 │   ├── package.json               # Frontend dependencies and Vite build scripts
 │   ├── vite.config.ts             # Bundler config, PWA manifest & Workbox rules
@@ -184,6 +200,7 @@ ShriTrimurtiFitness/
     │   ├── payments.js            # Razorpay orders, Bank SMS webhook (/bank-sms)
     │   ├── whatsapp.js            # Meta webhook, missed-call trigger (/missed-call)
     │   ├── retention.js           # Churn analysis cron trigger (/churn-analysis) & logs
+    │   ├── loyalty.js             # Trimurti Coins balance lookup, preview, and redemption
     │   ├── coupons.js             # Coupon validation and redemption tracking
     │   ├── analytics.js           # Analytics stats, settle-up, weekly executive summary
     │   ├── tournaments.js         # Tournament management & registrations
@@ -197,6 +214,8 @@ ShriTrimurtiFitness/
     ├── services/                  # Specialized autonomous engines
     │   ├── whatsapp.js            # WhatsApp Cloud API client (text, image, interactive)
     │   ├── whatsappBot.js         # Conversational booking bot & state machine
+    │   ├── loyaltyService.js      # Trimurti Coins loyalty engine, tier multipliers & expiry
+    │   ├── couponService.js       # Stealth coupon validation & atomic redemption recording
     │   ├── adminBookingService.js # 1-tap admin action links, passes, notifications
     │   ├── receiptOcrService.js   # Gemini 3.5 Flash Vision OCR for payment screenshots
     │   ├── bankSmsParser.js       # Fast regex + Gemini fallback parser for bank SMS
@@ -355,6 +374,28 @@ Eliminates manual admin approval for UPI payments:
 - Digital referee stopwatch for walk-in pool and snooker tables.
 - Staff start a session upon arrival; the system computes elapsed time down to the minute, calculates total bill based on hourly rate tables, logs payment mode, and closes out table availability.
 
+### 5.15 Trimurti Coins Loyalty Rewards System (`loyaltyService.js`)
+- **Direct Currency Equivalence (`1 Coin = ₹1`):** Every completed booking awards player coins based on dynamic tier progression:
+  - **Rookie:** 1.0x (1 coin per ₹100 spent)
+  - **Pro:** 1.25x (1.25 coins per ₹100 spent)
+  - **Legend:** 1.5x (1.5 coins per ₹100 spent)
+  - **Elite:** 2.0x (2.0 coins per ₹100 spent)
+- **Automatic 30-Day Expiry:** Unused coins expire after 30 days to drive repeat booking velocity.
+- **₹300 Operational Price Floor:** Coin redemption is strictly capped via `maxRedeemableCoins = Math.min(spendableBalance, slotPrice - 300)` so that no reservation ever operates below arena overhead costs.
+- **Atomic Balance Updates:** Redemptions and grants are executed inside PostgreSQL transactions with row-level locks on `loyalty_accounts` and ledger entries in `loyalty_transactions`.
+
+### 5.16 Bidirectional Coupon & Loyalty Coin Stacking Engine
+- Allows players to redeem **both** a promotional coupon and their Trimurti Coins simultaneously on the same reservation across both the Web Engine and the Meta WhatsApp Engine.
+- **Order-Independent Stacking:** Supports applying coins first then a coupon, or applying a coupon first then coins.
+- **Combined Price Floor:** Total discount is evaluated as `finalPayable = Math.max(300, grandTotal - totalDiscount)`. If the coupon already brings the slot price to ₹300, coin redemption is gracefully prevented with an informative message.
+- **Dynamic UPI QR Code Regeneration:** In the WhatsApp bot, applying or removing either discount dynamically generates and returns a new UPI QR image reflecting the exact updated amount.
+- **Independent Removal Buttons:** Provides `[❌ Remove Coins]` and `[❌ Remove Coupon]` buttons that preserve the remaining discount without resetting the entire booking flow.
+
+### 5.17 Google Business Profile AI Review Response Automation
+- **OAuth 2.0 Integration:** Integrated with Google Cloud project `trimurti-automation` (Project #`34745779149`) with verified Location ID `8011133562872577261` and official Google allowlist Support Case `0-3671000041644`.
+- **Automated Review Ingestion & Gemini Synthesis:** Monitors incoming Google Maps reviews and synthesizes personalized, context-aware replies matching user sentiment and referencing specific facility amenities (Cricket Turf pitch bounce, Football Turf turf quality, lighting, parking).
+- **Hybrid Admin Approval Workflow:** Drafts are dispatched to the venue owner's WhatsApp with a 1-tap approval link before publishing to Google Maps.
+
 ---
 
 ## 6. Complete API Reference
@@ -483,6 +524,13 @@ All routes are mounted under `/api`.
 | `POST` | `/testimonials` | Bearer | Create featured testimonial |
 | `PATCH`| `/testimonials/:id/feature` | Bearer | Toggle display on public homepage |
 
+### 6.13 Loyalty Rewards & Trimurti Coins (`/api/loyalty`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/loyalty/status/:phone` | Public | Fetch player loyalty profile, spendable balance, tier, and coin breakdown |
+| `POST` | `/loyalty/preview` | Public | Preview maximum coin redemption against slot price with ₹300 floor enforcement |
+| `GET` | `/loyalty/history/:phone` | Public | Ledger of earned, spent, and expired coin transactions |
+
 ---
 
 ## 7. Scheduled Automation Jobs (`cron-job.org`)
@@ -597,6 +645,10 @@ Create a `.env` file in the `backend/` directory based on the following referenc
 | `BREVO_API_KEY` | No | Brevo v3 Key | Dual-provider transactional email service |
 | `BREVO_SENDER_EMAIL` | No | `hello@shritrimurtifitnessclub.in`| Verified sender email address |
 | `RESEND_API_KEY` | No | `re_...` | Secondary transactional email fallback provider |
+| `GOOGLE_BUSINESS_CLIENT_ID` | No | OAuth Client ID | Google Cloud OAuth 2.0 Web Client ID for review bot |
+| `GOOGLE_BUSINESS_CLIENT_SECRET` | No | OAuth Client Secret | Google Cloud OAuth 2.0 Client Secret |
+| `GOOGLE_BUSINESS_REFRESH_TOKEN` | No | Refresh Token (`1//...`) | Permanent Google OAuth 2.0 refresh token |
+| `GOOGLE_BUSINESS_LOCATION_ID` | No | Numeric ID (`8011133562872577261`) | Verified Google Maps Business Profile location ID |
 
 ---
 
@@ -636,13 +688,16 @@ npm run dev
 ### 10.4 Running Automated Verification Test Suites
 The project includes self-contained end-to-end automated test suites in the `scratch/` directory:
 ```bash
-# 1. Test Bank SMS Auto-Verification Engine (10/10 test cases)
+# 1. Test Coupon + Loyalty Coin Stacking Engine (35/35 test cases)
+node scratch/test_stacked_coupon_loyalty.js
+
+# 2. Test Bank SMS Auto-Verification Engine (10/10 test cases)
 node scratch/test_bank_sms_e2e.js
 
-# 2. Test Smart Churn & Squad Retention Predictor (8/8 test cases)
+# 3. Test Smart Churn & Squad Retention Predictor (8/8 test cases)
 node scratch/test_retention_e2e.js
 
-# 3. Test Weekly BI Executive Summary & SQL Math (19/19 test cases)
+# 4. Test Weekly BI Executive Summary & SQL Math (19/19 test cases)
 node scratch/test_weekly_bi_e2e.js
 ```
 
@@ -652,6 +707,11 @@ cd frontend
 npm run build
 # Compiles optimized bundles to frontend/dist with Workbox Service Worker assets
 ```
+
+### 10.6 Documentation Maintenance Policy
+To guarantee documentation integrity across iterative releases:
+- Whenever any feature, API endpoint, database schema change, discount rule, or operational workflow is added or modified in the codebase, both **`README.md`** and **`PROJECT.md`** must be updated in sync.
+- Architectural specifications, integration guides, and environment runbooks must be indexed in **`docs/README.md`**.
 
 ---
 
