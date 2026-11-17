@@ -145,6 +145,7 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/retention', require('./routes/retention'));
 app.use('/api/loyalty', require('./routes/loyalty'));
+app.use('/api/gate', require('./routes/gate'));
 
 // 1-Tap Admin Quick Verification Short Links
 if (bookingsRoutes.handleQuickVerify) {
@@ -302,6 +303,25 @@ server.listen(PORT, async () => {
 
     // Ensure at least one setting row exists
     await pool.query(`INSERT INTO site_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+
+    // Smart Gate Access Control Migration
+    await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS gate_secret_key TEXT DEFAULT 'trimurti_gate_secret_2026'`);
+    await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS gate_early_arrival_minutes INTEGER DEFAULT 15`);
+    await pool.query(`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS gate_unlock_duration_seconds INTEGER DEFAULT 10`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS gate_access_logs (
+        id SERIAL PRIMARY KEY,
+        booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
+        qr_token TEXT,
+        customer_name TEXT,
+        turf_name TEXT,
+        status VARCHAR(20) NOT NULL,
+        reason TEXT,
+        gate_id VARCHAR(50) DEFAULT 'main_gate',
+        scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
 
     console.log('[MIGRATION] Schema ready');
