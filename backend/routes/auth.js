@@ -32,7 +32,7 @@ router.get('/staff-profiles', async (req, res) => {
 
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1 AND role IN ($2, $3)', [email, 'admin', 'staff']);
@@ -42,12 +42,17 @@ router.post('/login', loginLimiter, async (req, res) => {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
+    const expiresIn = rememberMe ? '30d' : '24h';
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [], token_version: user.token_version }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '24h' }
+      { expiresIn }
     );
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [] } });
+    res.json({ 
+      token, 
+      expiresIn,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [] } 
+    });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -55,7 +60,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
 router.post('/login-pin', loginLimiter, async (req, res) => {
   try {
-    const { email, pin } = req.body;
+    const { email, pin, rememberMe } = req.body;
     if (!email || !pin) return res.status(400).json({ error: 'Email and PIN required' });
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1 AND role IN ($2, $3)', [email, 'admin', 'staff']);
@@ -65,12 +70,17 @@ router.post('/login-pin', loginLimiter, async (req, res) => {
     const valid = await bcrypt.compare(pin, user.pin_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid PIN' });
 
+    const expiresIn = rememberMe ? '30d' : '24h';
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [], token_version: user.token_version }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '24h' }
+      { expiresIn }
     );
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [] } });
+    res.json({ 
+      token, 
+      expiresIn,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [] } 
+    });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -153,7 +163,7 @@ router.put('/pin', authMiddleware, async (req, res) => {
 // Staff Login via PIN (Selection flow)
 router.post('/login-staff-pin', loginLimiter, async (req, res) => {
   try {
-    const { id, pin } = req.body;
+    const { id, pin, rememberMe = true } = req.body;
     if (!id || !pin) return res.status(400).json({ error: 'Staff ID and PIN required' });
 
     const result = await pool.query('SELECT * FROM users WHERE id = $1 AND role = $2', [id, 'staff']);
@@ -163,12 +173,17 @@ router.post('/login-staff-pin', loginLimiter, async (req, res) => {
     const valid = await bcrypt.compare(pin, user.pin_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid PIN' });
 
+    const expiresIn = rememberMe ? '30d' : '24h';
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [], token_version: user.token_version }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '24h' }
+      { expiresIn }
     );
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [] } });
+    res.json({ 
+      token, 
+      expiresIn,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, allowed_tabs: user.allowed_tabs || [] } 
+    });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

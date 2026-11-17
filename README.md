@@ -63,6 +63,7 @@ A comprehensive, production-grade sports facility management, autonomous booking
 
 ### 5. Staff Floor Terminal & Admin Dashboard
 - **6-Digit PIN Quick-Login:** Frictionless tablet access for ground staff.
+- **Extended 30-Day Session & "Remember Me":** Optional 30-day persistent authentication token (`expiresIn: '30d'`) with auto-remembered email to prevent daily session expiration.
 - **High-Speed HTML5 QR Entry Scanner:** Verify player gate passes with camera or barcode reader.
 - **Live Occupancy Pulse:** Real-time WebSocket match and court presence monitoring.
 - **Instagram Story Ad Studio:** Instant branded promotional graphics generation with venue branding.

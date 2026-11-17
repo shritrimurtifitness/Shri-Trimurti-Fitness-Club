@@ -514,8 +514,9 @@ All routes are mounted under `/api`.
 ### 6.11 Staff RBAC & Identity (`/api/auth` & `/api/staff`)
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `POST` | `/auth/login` | Public | Admin email + password authentication (returns JWT) |
-| `POST` | `/auth/pin-login` | Public | Staff 6-digit numeric PIN fast login |
+| `POST` | `/auth/login` | Public | Admin email + password authentication (returns JWT; supports `rememberMe` for 30d vs 24h) |
+| `POST` | `/auth/login-pin` | Public | Admin 4-digit PIN authentication (supports `rememberMe` for 30d vs 24h) |
+| `POST` | `/auth/login-staff-pin` | Public | Staff 6-digit numeric PIN terminal fast login (default 30d session) |
 | `POST` | `/auth/forgot-password` | Public | Request password recovery email |
 | `POST` | `/auth/reset-password` | Public | Set new password with secure token |
 | `GET` | `/staff` | Bearer | List staff members and permission sets (`allowed_tabs`) |

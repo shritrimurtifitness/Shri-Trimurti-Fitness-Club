@@ -8,9 +8,10 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 
 export default function AdminLogin() {
-  const [email, setEmail] = useState("shritrimurtifitness@gmail.com");
+  const [email, setEmail] = useState(() => localStorage.getItem("savedAdminEmail") || "shritrimurtifitness@gmail.com");
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem("adminRememberMe") !== "false");
   const [loginMode, setLoginMode] = useState<"password" | "pin">("password");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -31,10 +32,18 @@ export default function AdminLogin() {
       }
 
       const response = loginMode === "password"
-        ? await api.post('/auth/login', { email, password })
-        : await api.post('/auth/login-pin', { email, pin });
+        ? await api.post('/auth/login', { email, password, rememberMe })
+        : await api.post('/auth/login-pin', { email, pin, rememberMe });
 
       localStorage.setItem("adminToken", response.data.token);
+      if (rememberMe) {
+        localStorage.setItem("savedAdminEmail", email);
+        localStorage.setItem("adminRememberMe", "true");
+      } else {
+        localStorage.removeItem("savedAdminEmail");
+        localStorage.setItem("adminRememberMe", "false");
+      }
+
       const user = response.data.user;
       toast.success(user.role === "admin" ? "Welcome back, Admin!" : `Welcome, ${user.name}!`);
       navigate("/admin");
@@ -133,6 +142,20 @@ export default function AdminLogin() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            <div className="flex items-center justify-between py-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-background accent-emerald-500 cursor-pointer"
+                />
+                <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                  Keep me logged in for 30 days
+                </span>
+              </label>
+            </div>
 
             <Button type="submit" disabled={isSubmitting} className="w-full bg-gradient-turf text-primary-foreground font-bold shadow-turf hover:opacity-95 h-11 disabled:opacity-70">
               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (

@@ -52,7 +52,8 @@ export default function StaffLogin() {
     try {
       const res = await api.post('/auth/login-staff-pin', {
         id: selectedProfile?.id,
-        pin: pin
+        pin: pin,
+        rememberMe: true,
       });
       localStorage.setItem("adminToken", res.data.token);
       toast.success(`Welcome, ${res.data.user.name}!`);
