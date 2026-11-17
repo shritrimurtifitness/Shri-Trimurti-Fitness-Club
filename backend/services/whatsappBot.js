@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 const cache = require('../config/cache');
-const { normalizeTo10Digits } = require('../utils/phone');
+const { normalizeTo10Digits, getAdminNotificationPhones } = require('../utils/phone');
 const whatsapp = require('./whatsapp');
 const {
   sendTextMessage,
@@ -1079,8 +1079,7 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
       });
 
       // 3. Notify Admin's personal WhatsApp in real-time
-      const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
-      const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
+      const adminPhones = getAdminNotificationPhones();
       const couponNote = couponCode ? `\n🎟️ *Coupon Applied:* ${couponCode} (-₹${couponDiscount})` : '';
       const coinsNote = coinsRedeemed > 0 ? `\n🪙 *Trimurti Coins:* ${coinsRedeemed} TC (-₹${coinsDiscountAmount})` : '';
       const adminAlert =
@@ -1096,7 +1095,9 @@ async function handleUtrSubmission({ from, utr, session, io, userName = '' }) {
 
 ✅ Pre-cached Bank SMS matched! Official Entry Pass with QR code generated and sent to customer.`;
 
-      sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+      for (const adminPhone of adminPhones) {
+        sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+      }
 
       const instantMsg =
 `⚡ *INSTANT BANK VERIFICATION CONFIRMED!* 🏏⚽

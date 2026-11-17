@@ -5,8 +5,7 @@ const mailer = require('../utils/mailer');
 const whatsappService = require('./whatsapp');
 const notificationScheduler = require('./notificationScheduler');
 const loyaltyService = require('./loyaltyService');
-
-const DEFAULT_ADMIN_NOTIFICATION_PHONE = '917083738373';
+const { getAdminNotificationPhones, DEFAULT_ADMIN_NOTIFICATION_PHONE } = require('../utils/phone');
 
 /**
  * Generates an HMAC-SHA256 token for 1-tap admin action links
@@ -45,12 +44,13 @@ async function isAuthorizedAdmin(phone) {
   const cleanPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
   const phone10 = rawPhone.length === 12 && rawPhone.startsWith('91') ? rawPhone.substring(2) : rawPhone;
 
-  const configuredAdmin = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_NOTIFICATION_PHONE).replace(/\D/g, '');
-  const configuredAdmin10 = configuredAdmin.length === 12 && configuredAdmin.startsWith('91') 
-    ? configuredAdmin.substring(2) 
-    : configuredAdmin;
+  const adminPhones = getAdminNotificationPhones();
+  const isConfigured = adminPhones.some((p) => {
+    const p10 = p.length === 12 && p.startsWith('91') ? p.substring(2) : p;
+    return cleanPhone === p || phone10 === p10;
+  });
 
-  if (cleanPhone === configuredAdmin || phone10 === configuredAdmin10) {
+  if (isConfigured) {
     return true;
   }
 
@@ -85,7 +85,7 @@ async function notifyAdminNewBooking({ bookingId, io }) {
     if (res.rows.length === 0) return { success: false, error: 'Booking not found' };
 
     const b = res.rows[0];
-    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_NOTIFICATION_PHONE).replace(/\D/g, '');
+    const adminPhones = getAdminNotificationPhones();
     const bookingCode = b.id.substring(0, 8).toUpperCase();
     const turfName = b.turf_name || (b.facility_type === 'football' ? 'Football Turf' : 'Cricket Turf');
     const dateStr = typeof b.date === 'string' ? b.date.substring(0, 10) : new Date(b.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -119,55 +119,57 @@ async function notifyAdminNewBooking({ bookingId, io }) {
 ✅ *Approve:* ${shortApproveUrl}
 ❌ *Reject:* ${shortRejectUrl}`;
 
-    // 1. Attempt interactive buttons first (works within 24h customer window)
-    let sendResult = await whatsappService.sendInteractiveButtons({
-      to: adminPhone,
-      headerText: 'Shri Trimurti Fitness Club',
-      bodyText: adminAlertText,
-      buttons: [
-        { id: `BTN_ADMIN_APPROVE_${b.id}`, title: '✅ Approve Payment' },
-        { id: `BTN_ADMIN_REJECT_${b.id}`, title: '❌ Reject Payment' },
-      ],
-    });
-
-    // 2. If outside 24h window (or interactive buttons fail), send approved Meta Template
-    if (!sendResult.success) {
-      console.log(`[ADMIN ALERT] Interactive buttons failed (24h window), attempting Meta template admin_booking_alert...`);
-      sendResult = await whatsappService.sendWhatsAppMessage({
-        phone: adminPhone,
-        template_name: 'admin_booking_alert',
-        params: [
-          bookingCode,
-          turfName,
-          dateStr,
-          timeStr,
-          b.customer_name,
-          (b.customer_phone || '').replace(/\D/g, ''),
-          String(amount),
-          utr,
-        ],
-        quickReplyPayloads: [
-          `BTN_ADMIN_APPROVE_${b.id}`,
-          `BTN_ADMIN_REJECT_${b.id}`,
-        ],
-        languageCode: 'en',
-      });
-    }
-
-    // 3. Fall back to plain text if template is still pending review or fails
-    if (!sendResult.success) {
-      console.log(`[ADMIN ALERT] Template fallback failed, attempting plain text fallback...`);
-      sendResult = await whatsappService.sendTextMessage({
+    for (const adminPhone of adminPhones) {
+      // 1. Attempt interactive buttons first (works within 24h customer window)
+      let sendResult = await whatsappService.sendInteractiveButtons({
         to: adminPhone,
-        text: adminAlertText,
+        headerText: 'Shri Trimurti Fitness Club',
+        bodyText: adminAlertText,
+        buttons: [
+          { id: `BTN_ADMIN_APPROVE_${b.id}`, title: '✅ Approve Payment' },
+          { id: `BTN_ADMIN_REJECT_${b.id}`, title: '❌ Reject Payment' },
+        ],
       });
+
+      // 2. If outside 24h window (or interactive buttons fail), send approved Meta Template
+      if (!sendResult.success) {
+        console.log(`[ADMIN ALERT] Interactive buttons failed for ${adminPhone}, attempting Meta template admin_booking_alert...`);
+        sendResult = await whatsappService.sendWhatsAppMessage({
+          phone: adminPhone,
+          template_name: 'admin_booking_alert',
+          params: [
+            bookingCode,
+            turfName,
+            dateStr,
+            timeStr,
+            b.customer_name,
+            (b.customer_phone || '').replace(/\D/g, ''),
+            String(amount),
+            utr,
+          ],
+          quickReplyPayloads: [
+            `BTN_ADMIN_APPROVE_${b.id}`,
+            `BTN_ADMIN_REJECT_${b.id}`,
+          ],
+          languageCode: 'en',
+        });
+      }
+
+      // 3. Fall back to plain text if template is still pending review or fails
+      if (!sendResult.success) {
+        console.log(`[ADMIN ALERT] Template fallback failed for ${adminPhone}, attempting plain text fallback...`);
+        await whatsappService.sendTextMessage({
+          to: adminPhone,
+          text: adminAlertText,
+        });
+      }
     }
 
     if (io) {
       io.emit('booking_updated');
     }
 
-    return { success: true, bookingCode, adminPhone };
+    return { success: true, bookingCode, adminPhone: adminPhones[0], adminPhones };
   } catch (err) {
     console.error('[NOTIFY ADMIN ERROR]', err);
     return { success: false, error: err.message };
@@ -473,7 +475,7 @@ function renderAdminResultHtml({ success, alreadyProcessed, bookingCode, custome
  */
 async function notifyAdminTournamentRegistration({ registrationId, tournamentName, teamName, captainName, captainPhone, entryFee, utrNumber, io = null }) {
   try {
-    const adminPhone = (process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_NOTIFICATION_PHONE).replace(/\D/g, '');
+    const adminPhones = getAdminNotificationPhones();
     const cleanPhone = (captainPhone || '').replace(/\D/g, '');
     const phone10 = cleanPhone.startsWith('91') && cleanPhone.length === 12 ? cleanPhone.slice(2) : cleanPhone;
     const cleanUtr = utrNumber ? String(utrNumber).trim() : 'N/A';
@@ -490,46 +492,48 @@ async function notifyAdminTournamentRegistration({ registrationId, tournamentNam
 
 Please verify payment in club bank account.`;
 
-    // 1. Try interactive buttons first (inside 24h window)
-    let sendResult = await whatsappService.sendInteractiveButtons({
-      to: adminPhone,
-      headerText: 'Shri Trimurti Fitness Club',
-      bodyText: adminAlertText,
-      buttons: [
-        { id: `BTN_TRN_APPROVE_${registrationId}`, title: '✅ Approve Team' },
-        { id: `BTN_TRN_REJECT_${registrationId}`, title: '❌ Reject Team' },
-      ],
-    });
-
-    // 2. Fall back to approved Meta Template admin_tournament_alert (outside 24h window)
-    if (!sendResult.success) {
-      console.log(`[TOURNAMENT ADMIN ALERT] Interactive buttons failed (24h window), attempting Meta template admin_tournament_alert...`);
-      sendResult = await whatsappService.sendWhatsAppMessage({
-        phone: adminPhone,
-        template_name: 'admin_tournament_alert',
-        params: [
-          tournamentName,
-          teamName,
-          captainName,
-          cleanPhone,
-          feeStr,
-          cleanUtr,
-        ],
-        quickReplyPayloads: [
-          `BTN_TRN_APPROVE_${registrationId}`,
-          `BTN_TRN_REJECT_${registrationId}`,
-        ],
-        languageCode: 'en',
-      });
-    }
-
-    // 3. Plain text fallback if template is still in review or fails
-    if (!sendResult.success) {
-      console.log(`[TOURNAMENT ADMIN ALERT] Template failed, attempting plain text fallback...`);
-      sendResult = await whatsappService.sendTextMessage({
+    for (const adminPhone of adminPhones) {
+      // 1. Try interactive buttons first (inside 24h window)
+      let sendResult = await whatsappService.sendInteractiveButtons({
         to: adminPhone,
-        text: adminAlertText,
+        headerText: 'Shri Trimurti Fitness Club',
+        bodyText: adminAlertText,
+        buttons: [
+          { id: `BTN_TRN_APPROVE_${registrationId}`, title: '✅ Approve Team' },
+          { id: `BTN_TRN_REJECT_${registrationId}`, title: '❌ Reject Team' },
+        ],
       });
+
+      // 2. Fall back to approved Meta Template admin_tournament_alert (outside 24h window)
+      if (!sendResult.success) {
+        console.log(`[TOURNAMENT ADMIN ALERT] Interactive buttons failed for ${adminPhone}, attempting Meta template admin_tournament_alert...`);
+        sendResult = await whatsappService.sendWhatsAppMessage({
+          phone: adminPhone,
+          template_name: 'admin_tournament_alert',
+          params: [
+            tournamentName,
+            teamName,
+            captainName,
+            cleanPhone,
+            feeStr,
+            cleanUtr,
+          ],
+          quickReplyPayloads: [
+            `BTN_TRN_APPROVE_${registrationId}`,
+            `BTN_TRN_REJECT_${registrationId}`,
+          ],
+          languageCode: 'en',
+        });
+      }
+
+      // 3. Plain text fallback if template is still in review or fails
+      if (!sendResult.success) {
+        console.log(`[TOURNAMENT ADMIN ALERT] Template failed for ${adminPhone}, attempting plain text fallback...`);
+        await whatsappService.sendTextMessage({
+          to: adminPhone,
+          text: adminAlertText,
+        });
+      }
     }
 
     return { success: true };

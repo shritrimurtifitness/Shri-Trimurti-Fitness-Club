@@ -11,7 +11,7 @@ const adminBookingService = require('../services/adminBookingService');
 const bankSmsMatchingService = require('../services/bankSmsMatchingService');
 const loyaltyService = require('../services/loyaltyService');
 const couponService = require('../services/couponService');
-const { normalizeTo10Digits, formatTime12h } = require('../utils/phone');
+const { normalizeTo10Digits, formatTime12h, getAdminNotificationPhones } = require('../utils/phone');
 
 router.post('/', bookingLimiter, async (req, res) => {
   try {
@@ -1134,8 +1134,7 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
       }
 
       // 3. Notify Admin's personal WhatsApp in real-time
-      const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
-      const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
+      const adminPhones = getAdminNotificationPhones();
       const adminAlert =
 `⚡ *AUTO-APPROVED BY BANK SMS* 🏦
 
@@ -1149,7 +1148,9 @@ router.post('/submit-upi', bookingLimiter, async (req, res) => {
 
 ✅ Pre-cached Bank SMS matched! Official Entry Pass with QR code generated and sent to customer.`;
 
-      whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+      for (const adminPhone of adminPhones) {
+        whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+      }
     } else {
       // Send standard pending verification email alert to customer
       if (cleanEmail) {

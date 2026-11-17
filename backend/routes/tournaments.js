@@ -7,7 +7,7 @@ const mailer = require('../utils/mailer');
 const whatsappService = require('../services/whatsapp');
 const adminBookingService = require('../services/adminBookingService');
 const bankSmsMatchingService = require('../services/bankSmsMatchingService');
-const { normalizeTo10Digits } = require('../utils/phone');
+const { normalizeTo10Digits, getAdminNotificationPhones } = require('../utils/phone');
 
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
@@ -449,8 +449,7 @@ router.post('/:id/register', async (req, res) => {
       });
 
       // 3. Notify Admin's Personal WhatsApp in Real-Time
-      const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
-      const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
+      const adminPhones = getAdminNotificationPhones();
       const adminAlert =
 `⚡ *TOURNAMENT REGISTRATION AUTO-APPROVED* 🏆🏦
 
@@ -462,7 +461,9 @@ router.post('/:id/register', async (req, res) => {
 
 ✅ Pre-cached Bank SMS matched! Team Match Pass issued automatically.`;
 
-      whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+      for (const adminPhone of adminPhones) {
+        whatsappService.sendTextMessage({ to: adminPhone, text: adminAlert }).catch(() => {});
+      }
     } else {
       // Send confirmation receipt email if email provided
       if (cleanEmail) {

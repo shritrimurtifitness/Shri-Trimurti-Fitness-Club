@@ -49,8 +49,34 @@ function formatTime12h(timeStr) {
   return `${hour}:${m} ${meridiem}`;
 }
 
+const DEFAULT_ADMIN_NOTIFICATION_PHONE = '917083738373';
+
+/**
+ * Parses ADMIN_NOTIFICATION_PHONE (supporting single number or comma/semicolon/space separated list)
+ * Returns an array of clean international format numbers (e.g. ['917083738373', '919876543210'])
+ * Automatically filters out the bot's own WhatsApp number and duplicate entries.
+ */
+function getAdminNotificationPhones() {
+  const raw = process.env.ADMIN_NOTIFICATION_PHONE || DEFAULT_ADMIN_NOTIFICATION_PHONE;
+  const botNumber = (process.env.WHATSAPP_BOT_NUMBER || '919595153006').replace(/\D/g, '');
+
+  const entries = String(raw).split(/[,;\s]+/);
+  const phones = [];
+
+  for (const entry of entries) {
+    const wa = toWhatsAppPhone(entry);
+    if (wa && wa !== botNumber && !phones.includes(wa)) {
+      phones.push(wa);
+    }
+  }
+
+  return phones.length > 0 ? phones : [DEFAULT_ADMIN_NOTIFICATION_PHONE];
+}
+
 module.exports = {
   normalizeTo10Digits,
   toWhatsAppPhone,
   formatTime12h,
+  DEFAULT_ADMIN_NOTIFICATION_PHONE,
+  getAdminNotificationPhones,
 };

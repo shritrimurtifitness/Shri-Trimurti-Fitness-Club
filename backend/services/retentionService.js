@@ -6,7 +6,7 @@
 
 const pool = require('../config/db');
 const { sendTextMessage } = require('./whatsapp');
-const { normalizeTo10Digits } = require('../utils/phone');
+const { normalizeTo10Digits, getAdminNotificationPhones } = require('../utils/phone');
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -300,8 +300,7 @@ async function runChurnAnalysis({ io = null, sendWhatsAppDigest = true } = {}) {
 
   // 5. Send compiled Admin WhatsApp Digest if enabled
   if (sendWhatsAppDigest && processedPlayers.length > 0) {
-    const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
-    const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
+    const adminPhones = getAdminNotificationPhones();
 
     let digestText = `📊 *WEEKEND RETENTION ALERT* (${processedPlayers.length} Regular Teams Inactive)\n\n`;
 
@@ -319,9 +318,11 @@ async function runChurnAnalysis({ io = null, sendWhatsAppDigest = true } = {}) {
 
     digestText += `━━━━━━━━━━━━━━━━━━━━\n💡 Tap any invite link above to open WhatsApp with the personalized draft pre-filled!`;
 
-    sendTextMessage({ to: adminPhone, text: digestText }).catch((err) =>
-      console.error('[RETENTION ADMIN DIGEST ERROR]', err.message)
-    );
+    for (const adminPhone of adminPhones) {
+      sendTextMessage({ to: adminPhone, text: digestText }).catch((err) =>
+        console.error(`[RETENTION ADMIN DIGEST ERROR to ${adminPhone}]`, err.message)
+      );
+    }
   }
 
   if (io) {

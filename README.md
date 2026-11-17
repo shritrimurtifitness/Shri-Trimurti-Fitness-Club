@@ -144,7 +144,7 @@ GEMINI_API_KEY=your_gemini_api_key
 WHATSAPP_TOKEN=your_meta_system_user_token
 PHONE_NUMBER_ID=your_registered_phone_number_id
 WHATSAPP_VERIFY_TOKEN=trimurti_arena_secret_2026
-ADMIN_NOTIFICATION_PHONE=917083738373
+ADMIN_NOTIFICATION_PHONE=917083738373, 919876543210  # Supports single or comma-separated multiple admin phones
 WHATSAPP_BOT_NUMBER=919595153006
 
 # Google Business Profile API (AI Review Management)

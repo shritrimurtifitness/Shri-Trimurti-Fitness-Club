@@ -11,14 +11,16 @@ const pool = require('../config/db');
 const { parseBankSms } = require('./bankSmsParser');
 const adminBookingService = require('./adminBookingService');
 const { sendTextMessage } = require('./whatsapp');
+const { getAdminNotificationPhones } = require('../utils/phone');
 
 /**
- * Normalizes phone number for admin WhatsApp dispatch
+ * Normalizes phone numbers for admin WhatsApp dispatch (supports multiple admins)
  */
+function getAdminPhones() {
+  return getAdminNotificationPhones();
+}
 function getAdminPhone() {
-  const raw = process.env.ADMIN_NOTIFICATION_PHONE || '917083738373';
-  const clean = raw.replace(/\D/g, '');
-  return clean.startsWith('91') ? clean : `91${clean}`;
+  return getAdminPhones()[0];
 }
 
 /**
@@ -101,8 +103,8 @@ async function processIncomingBankSms({ rawSms, sender = '', io = null }) {
         [booking.id, creditRecordId]
       );
 
-      // Send confirmation alert to Admin's personal WhatsApp
-      const adminPhone = getAdminPhone();
+      // Send confirmation alert to Admin personal WhatsApp(s)
+      const adminPhones = getAdminPhones();
       const dateStr = typeof booking.date === 'string' ? booking.date.substring(0, 10) : new Date(booking.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       const timeStr = `${booking.start_time.substring(0, 5)} - ${booking.end_time.substring(0, 5)}`;
 
@@ -119,9 +121,11 @@ async function processIncomingBankSms({ rawSms, sender = '', io = null }) {
 
 ✅ Player Gate Entry Pass QR code has been issued automatically. No action needed!`;
 
-      sendTextMessage({ to: adminPhone, text: adminAlert }).catch((err) =>
-        console.error('[BANK SMS ADMIN ALERT ERROR]', err.message)
-      );
+      for (const adminPhone of getAdminPhones()) {
+        sendTextMessage({ to: adminPhone, text: adminAlert }).catch((err) =>
+          console.error(`[BANK SMS ADMIN ALERT ERROR to ${adminPhone}]`, err.message)
+        );
+      }
 
       return {
         success: true,
@@ -167,7 +171,7 @@ async function processIncomingBankSms({ rawSms, sender = '', io = null }) {
         [trn.id, creditRecordId]
       );
 
-      const adminPhone = getAdminPhone();
+      const adminPhones = getAdminPhones();
       const adminAlert =
 `⚡ *TOURNAMENT REGISTRATION AUTO-APPROVED* 🏆🏦
 
@@ -179,9 +183,11 @@ async function processIncomingBankSms({ rawSms, sender = '', io = null }) {
 
 ✅ Team Confirmation Pass issued automatically to Captain!`;
 
-      sendTextMessage({ to: adminPhone, text: adminAlert }).catch((err) =>
-        console.error('[BANK SMS TRN ADMIN ALERT ERROR]', err.message)
-      );
+      for (const adminPhone of getAdminPhones()) {
+        sendTextMessage({ to: adminPhone, text: adminAlert }).catch((err) =>
+          console.error(`[BANK SMS TRN ADMIN ALERT ERROR to ${adminPhone}]`, err.message)
+        );
+      }
 
       return {
         success: true,

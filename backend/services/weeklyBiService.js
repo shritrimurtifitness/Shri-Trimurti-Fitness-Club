@@ -6,6 +6,7 @@
 
 const pool = require('../config/db');
 const { sendTextMessage } = require('./whatsapp');
+const { getAdminNotificationPhones } = require('../utils/phone');
 
 /**
  * Returns the date range for the most recently completed week (Mon - Sun).
@@ -420,12 +421,12 @@ async function generateWeeklyExecutiveSummary({ dispatchWhatsApp = true, trailin
 
   // Dispatch to Admin WhatsApp if enabled
   if (dispatchWhatsApp) {
-    const adminPhoneRaw = (process.env.ADMIN_NOTIFICATION_PHONE || '917083738373').replace(/\D/g, '');
-    const adminPhone = adminPhoneRaw.startsWith('91') ? adminPhoneRaw : `91${adminPhoneRaw}`;
-
-    sendTextMessage({ to: adminPhone, text: summaryText }).catch((err) =>
-      console.error('[WEEKLY BI ADMIN WHATSAPP DISPATCH ERROR]', err.message)
-    );
+    const adminPhones = getAdminNotificationPhones();
+    for (const adminPhone of adminPhones) {
+      sendTextMessage({ to: adminPhone, text: summaryText }).catch((err) =>
+        console.error(`[WEEKLY BI ADMIN WHATSAPP DISPATCH ERROR to ${adminPhone}]`, err.message)
+      );
+    }
   }
 
   if (io) {
