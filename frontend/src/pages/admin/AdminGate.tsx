@@ -72,7 +72,8 @@ export default function AdminGate() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isOverrideOpenMobile, setIsOverrideOpenMobile] = useState<boolean>(true);
-  const [isConfigOpenMobile, setIsConfigOpenMobile] = useState<boolean>(false);
+  const [isTimingOpenMobile, setIsTimingOpenMobile] = useState<boolean>(false);
+  const [isHardwareOpenMobile, setIsHardwareOpenMobile] = useState<boolean>(false);
 
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -415,48 +416,40 @@ export default function AdminGate() {
         </div>
       </Card>
 
-      {/* Grid: Timing & Hardware Config (Collapsible Accordion on Mobile, 2-Col Grid on Desktop) */}
-      <div className="space-y-4">
-        {/* Mobile Collapsible Header Bar (< md) */}
-        <div
-          onClick={() => setIsConfigOpenMobile(!isConfigOpenMobile)}
-          className="md:hidden flex items-center justify-between p-4 rounded-2xl border border-border bg-card/80 hover:bg-card cursor-pointer shadow-sm transition-all"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary">
-              <Sliders className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-foreground">Gate Timing & Hardware Key</h3>
-              <p className="text-[11px] text-muted-foreground">
-                {config.earlyArrivalMinutes}m buffer • {config.unlockDurationSeconds}s unlock pulse
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px] text-muted-foreground">
-              {isConfigOpenMobile ? "Collapse" : "Configure"}
-            </Badge>
-            <div className="text-muted-foreground p-1">
-              {isConfigOpenMobile ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </div>
-          </div>
-        </div>
-
-        {/* Content Grid: Toggled on mobile, always visible on desktop */}
-        <div className={`${isConfigOpenMobile ? "block space-y-4" : "hidden"} md:grid md:grid-cols-2 md:space-y-0 gap-5 sm:gap-6`}>
+      {/* Grid: Timing & Hardware Config (Independently Collapsible on Mobile, 2-Col Grid on Desktop) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* Card 1: Gate Timing Rules */}
-        <Card className="border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2 text-foreground font-semibold">
-              <Clock className="w-4 h-4 text-primary" />
-              <CardTitle className="text-base">Entry Timing & Check-In Rules</CardTitle>
+        <Card className="border-border shadow-sm overflow-hidden">
+          {/* Header (Clickable on Mobile, Static on Desktop) */}
+          <div
+            onClick={() => setIsTimingOpenMobile(!isTimingOpenMobile)}
+            className="p-4 sm:p-5 flex items-center justify-between cursor-pointer md:cursor-default hover:bg-muted/30 md:hover:bg-transparent transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm sm:text-base text-foreground">
+                  Entry Timing & Check-In Rules
+                </h3>
+                <p className="text-[11px] sm:text-xs text-muted-foreground">
+                  {config.earlyArrivalMinutes}m buffer • {config.unlockDurationSeconds}s unlock pulse
+                </p>
+              </div>
             </div>
-            <CardDescription className="text-xs">
-              Configure how early players can enter and lock release duration.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            <div className="flex items-center gap-2 md:hidden">
+              <Badge variant="outline" className="text-[10px] text-muted-foreground font-semibold">
+                {isTimingOpenMobile ? "Collapse" : "Edit"}
+              </Badge>
+              <div className="text-muted-foreground p-1">
+                {isTimingOpenMobile ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </div>
+          </div>
+
+          {/* Card Body: Collapsible on mobile, always visible on desktop */}
+          <div className={`${isTimingOpenMobile ? "block" : "hidden md:block"} p-4 sm:p-6 pt-2 md:pt-4 border-t border-border/50 md:border-t-0`}>
             <form onSubmit={handleSaveConfig} className="space-y-4">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -528,21 +521,41 @@ export default function AdminGate() {
                 </Button>
               </div>
             </form>
-          </CardContent>
+          </div>
         </Card>
 
         {/* Card 2: Hardware Gateway Credentials */}
-        <Card className="border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2 text-foreground font-semibold">
-              <Key className="w-4 h-4 text-primary" />
-              <CardTitle className="text-base">Hardware Authentication</CardTitle>
+        <Card className="border-border shadow-sm overflow-hidden">
+          {/* Header (Clickable on Mobile, Static on Desktop) */}
+          <div
+            onClick={() => setIsHardwareOpenMobile(!isHardwareOpenMobile)}
+            className="p-4 sm:p-5 flex items-center justify-between cursor-pointer md:cursor-default hover:bg-muted/30 md:hover:bg-transparent transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                <Key className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm sm:text-base text-foreground">
+                  Hardware Authentication
+                </h3>
+                <p className="text-[11px] sm:text-xs text-muted-foreground">
+                  Secret key & ESP32 gateway setup
+                </p>
+              </div>
             </div>
-            <CardDescription className="text-xs">
-              Security credentials to paste into the ESP32 gate controller code.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2 md:hidden">
+              <Badge variant="outline" className="text-[10px] text-muted-foreground font-semibold">
+                {isHardwareOpenMobile ? "Collapse" : "View"}
+              </Badge>
+              <div className="text-muted-foreground p-1">
+                {isHardwareOpenMobile ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </div>
+          </div>
+
+          {/* Card Body: Collapsible on mobile, always visible on desktop */}
+          <div className={`${isHardwareOpenMobile ? "block" : "hidden md:block"} p-4 sm:p-6 pt-2 md:pt-4 border-t border-border/50 md:border-t-0 space-y-4`}>
             <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm font-semibold">Gate Secret Key (X-Gate-Key)</Label>
               <div className="flex items-center gap-2">
@@ -597,9 +610,8 @@ export default function AdminGate() {
                 Validates slot reservations and bank payment status in real-time before buzzing lock.
               </span>
             </div>
-          </CardContent>
+          </div>
         </Card>
-      </div>
       </div>
 
       {/* Real-time Gate Access Logs Card */}
