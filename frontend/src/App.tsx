@@ -27,6 +27,7 @@ import AdminClosures from "./pages/admin/AdminClosures";
 import AdminAdStudio from "./pages/admin/AdminAdStudio";
 import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 import AdminScanner from "./pages/admin/AdminScanner";
+import AdminGate from "./pages/admin/AdminGate";
 import AdminPresence from "./pages/admin/AdminPresence";
 import AdminStaff from "./pages/admin/AdminStaff";
 import AdminCoupons from "./pages/admin/AdminCoupons";
@@ -91,6 +92,7 @@ const App = () => (
               }
             >
               <Route index element={<AdminDashboard />} />
+              <Route path="gate" element={<AdminGate />} />
               <Route path="bookings" element={<AdminBookings />} />
               <Route path="calendar" element={<AdminCalendar />} />
               <Route path="scan" element={<AdminScanner />} />
