@@ -52,9 +52,9 @@ async function handleChurnAnalysisTrigger(req, res) {
   }
 }
 
-// cron-job.org webhook trigger
-router.post('/churn-analysis', handleChurnAnalysisTrigger);
-router.get('/churn-analysis', handleChurnAnalysisTrigger);
+// cron-job.org webhook trigger & Admin manual trigger
+router.post('/churn-analysis', authMiddleware.optional, handleChurnAnalysisTrigger);
+router.get('/churn-analysis', authMiddleware.optional, handleChurnAnalysisTrigger);
 
 // Admin: Get retention logs & at-risk regular squads
 router.get('/logs', authMiddleware, async (req, res) => {

@@ -421,8 +421,8 @@ async function handleWeeklySummaryWebhook(req, res) {
   }
 }
 
-router.post('/weekly-executive-summary', handleWeeklySummaryWebhook);
-router.get('/weekly-executive-summary', handleWeeklySummaryWebhook);
+router.post('/weekly-executive-summary', authMiddleware.optional, handleWeeklySummaryWebhook);
+router.get('/weekly-executive-summary', authMiddleware.optional, handleWeeklySummaryWebhook);
 
 // Admin: Get historical weekly executive summaries
 router.get('/weekly-summaries', authMiddleware, async (req, res) => {

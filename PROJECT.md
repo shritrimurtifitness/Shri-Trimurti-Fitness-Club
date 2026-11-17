@@ -318,7 +318,9 @@ Eliminates manual admin approval for UPI payments:
 - **Conversion Hook**: If the captain replies *"yes"*, *"book"*, or *"karo book"*, the WhatsApp bot locks the slot, marks the outreach as `converted`, and sends the UPI QR code!
 
 ### 5.5 Automated Weekly Turf Business Intelligence (Executive Summary)
-- Runs on a scheduled trigger via **cron-job.org** (`POST /api/analytics/weekly-executive-summary`) every **Monday at 8:00 AM IST** (`0 8 * * 1`).
+- Dual-trigger execution:
+  1. **Automated Scheduled Cron:** Runs via **cron-job.org** (`POST /api/analytics/weekly-executive-summary`) every **Monday at 8:00 AM IST** (`0 8 * * 1`) with webhook header verification (`x-bi-secret`).
+  2. **Admin On-Demand Generation:** Admin can click **"Generate Live Executive Summary"** on the `/admin/analytics` dashboard at any time using their Admin Bearer JWT token (authenticated seamlessly via `authMiddleware.optional` without 401 session expiration).
 - **The 4 Metric Pillars (Deterministic SQL)**:
   1. *Financial Health*: Total Revenue, Cricket Turf vs Football Turf split, Week-over-Week Growth %, and best revenue day.
   2. *Dead-Zone Slot Opportunity*: Peak hours occupancy % vs weekday afternoon (12 PM – 4 PM) occupancy %, and count of vacant daytime slots.
@@ -431,7 +433,7 @@ All routes are mounted under `/api`.
 ### 6.3 Customer Retention & Churn (`/api/retention`)
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `POST/GET` | `/retention/churn-analysis` | Secret | cron-job.org trigger for Thursday churn prediction |
+| `POST/GET` | `/retention/churn-analysis` | Bearer / Secret | cron-job.org trigger (`x-retention-secret`) & Admin manual trigger via `authMiddleware.optional` |
 | `GET` | `/retention/logs` | Bearer | Admin view of at-risk regular teams and outreach history |
 | `POST` | `/retention/logs/:id/snooze` | Bearer | Snooze customer outreach for 14 days |
 | `POST` | `/retention/logs/:id/mark-sent`| Bearer | Mark outreach invite as dispatched |
@@ -440,7 +442,7 @@ All routes are mounted under `/api`.
 ### 6.4 Weekly Business Intelligence & Analytics (`/api/analytics`)
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `POST/GET` | `/analytics/weekly-executive-summary` | Secret | cron-job.org trigger for Monday 8:00 AM executive brief |
+| `POST/GET` | `/analytics/weekly-executive-summary` | Bearer / Secret | cron-job.org trigger (`x-bi-secret`) & Admin live trigger via `authMiddleware.optional` |
 | `GET` | `/analytics/weekly-summaries` | Bearer | Historical weekly executive reports list |
 | `GET` | `/analytics` | Bearer | Live analytics dashboard (revenue, utilization, peak hours) |
 | `POST` | `/analytics/settle` | Bearer | End-of-day cash batch settlement |

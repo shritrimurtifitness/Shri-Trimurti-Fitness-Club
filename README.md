@@ -58,7 +58,7 @@ A comprehensive, production-grade sports facility management, autonomous booking
 ### 4. Autonomous Retention & AI Operations
 - **Google Business Profile AI Review Automation:** Automated review monitoring and context-aware Gemini AI reply synthesis for customer reviews on Google Maps.
 - **Smart Churn Predictor:** Automated cron detecting inactive regular squads at 7, 14, and 30-day thresholds with 1-tap WhatsApp re-engagement invites.
-- **Weekly BI Executive Brief:** Monday morning WhatsApp summary reporting 7-day revenue, sport split, vacant daytime slot monetization, and player sentiment.
+- **Weekly BI Executive Brief:** Monday morning WhatsApp summary reporting 7-day revenue, sport split, vacant daytime slot monetization, and player sentiment. Supports both scheduled cron execution and on-demand trigger from Admin Analytics dashboard via `authMiddleware.optional`.
 - **Match Reminders & Review Collector:** Automated 2-hour pre-match reminders and post-match feedback collection flows.
 
 ### 5. Staff Floor Terminal & Admin Dashboard
@@ -188,7 +188,10 @@ node scratch/test_weekly_bi_e2e.js
 # 5. Test Instant Payment Screenshot Acknowledgement Flow
 node scratch/test_screenshot_ack.js
 
-# 6. Frontend Production Bundle Check
+# 6. Test Admin Executive Summary & Churn Auth Dual Mode
+node scratch/test_executive_summary_auth.js
+
+# 7. Frontend Production Bundle Check
 npm run build --prefix frontend
 ```
 
