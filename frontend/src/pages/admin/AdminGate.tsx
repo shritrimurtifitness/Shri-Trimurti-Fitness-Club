@@ -19,8 +19,11 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   MapPin,
   Calendar,
+  Sliders,
 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -68,6 +71,8 @@ export default function AdminGate() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isOverrideOpenMobile, setIsOverrideOpenMobile] = useState<boolean>(true);
+  const [isConfigOpenMobile, setIsConfigOpenMobile] = useState<boolean>(false);
 
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -302,13 +307,43 @@ export default function AdminGate() {
       {/* Hero Remote Gate Unlock Card */}
       <Card className="border-primary/20 shadow-sm relative overflow-hidden bg-gradient-to-br from-card via-card to-primary/5">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-        <CardContent className="p-5 sm:p-6">
+        
+        {/* Mobile Accordion Header (< md) */}
+        <div
+          onClick={() => setIsOverrideOpenMobile(!isOverrideOpenMobile)}
+          className="md:hidden flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <Zap className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-foreground">Remote Gate Override</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Buzz lock open ({unlockDuration}s pulse)
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {activeCountdown > 0 && (
+              <Badge className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30 text-[10px] animate-pulse">
+                Open ({activeCountdown}s)
+              </Badge>
+            )}
+            <div className="text-muted-foreground p-1">
+              {isOverrideOpenMobile ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </div>
+          </div>
+        </div>
+
+        {/* Card Content: Collapsible on mobile, always open on desktop */}
+        <div className={`${isOverrideOpenMobile ? "block" : "hidden md:block"} p-5 sm:p-6 ${isOverrideOpenMobile ? "pt-0 md:pt-6" : ""}`}>
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-primary font-bold text-xs tracking-wide uppercase">
+              <div className="hidden md:flex items-center gap-2 text-primary font-bold text-xs tracking-wide uppercase">
                 <Zap className="w-3.5 h-3.5" /> Quick Remote Gate Override
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-foreground">
+              <h2 className="text-base sm:text-xl font-bold text-foreground">
                 Buzz Open Entrance Gate Remotely
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
@@ -377,11 +412,39 @@ export default function AdminGate() {
               </motion.div>
             )}
           </AnimatePresence>
-        </CardContent>
+        </div>
       </Card>
 
-      {/* Grid: Timing & Hardware Config */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+      {/* Grid: Timing & Hardware Config (Collapsible Accordion on Mobile, 2-Col Grid on Desktop) */}
+      <div className="space-y-4">
+        {/* Mobile Collapsible Header Bar (< md) */}
+        <div
+          onClick={() => setIsConfigOpenMobile(!isConfigOpenMobile)}
+          className="md:hidden flex items-center justify-between p-4 rounded-2xl border border-border bg-card/80 hover:bg-card cursor-pointer shadow-sm transition-all"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <Sliders className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-foreground">Gate Timing & Hardware Key</h3>
+              <p className="text-[11px] text-muted-foreground">
+                {config.earlyArrivalMinutes}m buffer • {config.unlockDurationSeconds}s unlock pulse
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+              {isConfigOpenMobile ? "Collapse" : "Configure"}
+            </Badge>
+            <div className="text-muted-foreground p-1">
+              {isConfigOpenMobile ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </div>
+          </div>
+        </div>
+
+        {/* Content Grid: Toggled on mobile, always visible on desktop */}
+        <div className={`${isConfigOpenMobile ? "block space-y-4" : "hidden"} md:grid md:grid-cols-2 md:space-y-0 gap-5 sm:gap-6`}>
         {/* Card 1: Gate Timing Rules */}
         <Card className="border-border shadow-sm">
           <CardHeader className="pb-3">
@@ -536,6 +599,7 @@ export default function AdminGate() {
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
 
       {/* Real-time Gate Access Logs Card */}
