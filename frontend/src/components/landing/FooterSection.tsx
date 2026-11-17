@@ -42,10 +42,10 @@ interface ContactInfo {
 
 export default function FooterSection() {
   const [contact, setContact] = useState<ContactInfo>({
-    address: "Kudire Factory , Sangrul Fata , Koparde",
+    address: "Near Yashwant Bank, Kuditre Factory , Koparde",
     phone: "+91 9595153006",
     email: "shritrimurtifitness@gmail.com",
-    working_hours: "Mon–Sun: 5:00 AM – 11:00 PM",
+    working_hours: "Mon–Sun: 6:00 AM – 12:00 AM",
     facebook_url: "",
     instagram_url: "",
     twitter_url: "",

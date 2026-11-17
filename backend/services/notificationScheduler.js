@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { sendInteractiveButtons, sendTextMessage, sendWhatsAppMessage } = require('./whatsapp');
+const settingsService = require('./settingsService');
 
 // In-memory timer registries to avoid continuous polling of Neon DB
 // Map<bookingId, NodeJS.Timeout>
@@ -96,6 +97,7 @@ function scheduleBookingNotifications(booking) {
           ? 'Match-grade footballs, team bibs, and goal posts are all set up for your squad.'
           : 'High-grade cricket bats, tennis balls, and stumps are all set up for your squad.';
 
+        const settings = await settingsService.getLiveSettings();
         const slotTimeLabel = `${formatTime12h(startTime)} – ${formatTime12h(endTime)}`;
         const reminderMsg =
 `${sportEmoji} *MATCH REMINDER — SHRI TRIMURTI FITNESS CLUB*
@@ -105,7 +107,7 @@ Hi *${customerName}*! Your match session is coming up in 45 minutes! 🔥
 🏟️ *Facility:* ${turfName}
 📅 *Date:* Today (${dateStr})
 ⏰ *Slot Time:* ${slotTimeLabel}
-📍 *Location:* Kudire Factory, Sangrul Fata, Koparde
+📍 *Location:* ${settings.address}
 
 💡 *Dugout Ready:*
 ${dugoutEquipment}

@@ -13,14 +13,16 @@ interface ContactInfo {
   email: string;
   working_hours: string;
   map_embed_url?: string;
+  google_maps_url?: string;
 }
 
 export default function ContactSection() {
   const [contact, setContact] = useState<ContactInfo>({
-    address: "Kudire Factory , Sangrul Fata , Koparde",
+    address: "Near Yashwant Bank, Kuditre Factory , Koparde",
     phone: "+91 9595153006",
     email: "shritrimurtifitness@gmail.com",
-    working_hours: "Mon–Sun: 5:00 AM – 11:00 PM",
+    working_hours: "Mon–Sun: 6:00 AM – 12:00 AM",
+    google_maps_url: "https://maps.app.goo.gl/XCxniFWMMtnfw2MJA",
     map_embed_url: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3821.6516423908665!2d74.120735!3d16.6943068!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc1adfbed242d0d%3A0x78d9a54fdca8460e!2sShri%20Trimurti%20Fitness%20Club!5e0!3m2!1sen!2sin!4v1794397156504!5m2!1sen!2sin",
   });
 
@@ -41,6 +43,7 @@ export default function ContactSection() {
             phone: res.data.phone || prev.phone,
             email: res.data.email || prev.email,
             working_hours: res.data.working_hours || prev.working_hours,
+            google_maps_url: res.data.google_maps_url || prev.google_maps_url,
             map_embed_url: res.data.map_embed_url || prev.map_embed_url,
           }));
         }
@@ -189,7 +192,7 @@ export default function ContactSection() {
 
             {contact.address && (
               <a
-                href="https://maps.app.goo.gl/XCxniFWMMtnfw2MJA"
+                href={contact.google_maps_url || (contact.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contact.address)}` : "https://maps.app.goo.gl/XCxniFWMMtnfw2MJA")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full px-5 py-3.5 bg-gradient-turf text-primary-foreground rounded-xl font-bold text-sm shadow-turf hover:opacity-95 transition-opacity"
@@ -292,7 +295,7 @@ export default function ContactSection() {
             />
           ) : (
             <div className="w-full h-[360px] flex items-center justify-center text-muted-foreground text-sm">
-              Kudire Factory , Sangrul Fata , Koparde
+              {contact.address || "Near Yashwant Bank, Kuditre Factory , Koparde"}
             </div>
           )}
         </div>

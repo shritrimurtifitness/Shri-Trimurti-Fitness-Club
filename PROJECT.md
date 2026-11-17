@@ -222,6 +222,7 @@ ShriTrimurtiFitness/
     │   ├── bankSmsMatchingService.js # 2-way matching engine for UPI payments
     │   ├── retentionService.js    # SQL churn detection + Gemini personalized copywriting
     │   ├── weeklyBiService.js     # 7-day SQL financial aggregations + executive synthesis
+    │   ├── settingsService.js     # Live arena settings cache (address, phone, Google Maps, UPI)
     │   └── notificationScheduler.js # Match reminders and post-match feedback surveys
     └── utils/                     # Utility modules (dual-provider mailer, phone normalizer)
 ```
@@ -395,6 +396,16 @@ Eliminates manual admin approval for UPI payments:
 - **OAuth 2.0 Integration:** Integrated with Google Cloud project `trimurti-automation` (Project #`34745779149`) with verified Location ID `8011133562872577261` and official Google allowlist Support Case `0-3671000041644`.
 - **Automated Review Ingestion & Gemini Synthesis:** Monitors incoming Google Maps reviews and synthesizes personalized, context-aware replies matching user sentiment and referencing specific facility amenities (Cricket Turf pitch bounce, Football Turf turf quality, lighting, parking).
 - **Hybrid Admin Approval Workflow:** Drafts are dispatched to the venue owner's WhatsApp with a 1-tap approval link before publishing to Google Maps.
+
+### 5.18 Dynamic Arena Settings & Real-Time Location Distribution (`settingsService.js`)
+- **Centralized Live Settings Cache:** Ingests arena address, phone, email, operating hours, Google Maps directions link, and UPI payment credentials from `site_settings` table and caches them in Redis (`site:settings`).
+- **Zero-Hardcoding Architecture:** Eliminates static address strings across the entire stack. Any update made in `/admin/settings` automatically invalidates the Redis cache and propagates in real time to:
+  1. *WhatsApp Conversational Bot:* Replies to "where is turf", "location", "address", and "map" queries with live address and directions.
+  2. *Automated Match Reminders:* Injects verified arena address into pre-match WhatsApp notifications.
+  3. *Booking Passes & Tickets:* Renders accurate location and Google Maps link on WhatsApp confirmation passes.
+  4. *Gemini AI Digital Manager:* Dynamically updates the conversational prompt context with live location, hours, and manager phone.
+  5. *Web Landing Engine:* Populates Hero section badge, Contact card, and turn-by-turn navigation buttons with live database values.
+
 
 ---
 

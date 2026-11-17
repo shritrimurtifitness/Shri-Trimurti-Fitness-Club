@@ -91,15 +91,18 @@ function uploadBytes(sessionId) {
   uploadReq.end();
 }
 
+const settingsService = require('../services/settingsService');
+
 // 3. Update WhatsApp Business Profile
-function updateProfile(handle) {
+async function updateProfile(handle) {
+  const settings = await settingsService.getLiveSettings();
   const payload = JSON.stringify({
     messaging_product: 'whatsapp',
     profile_picture_handle: handle,
     about: 'Shri Trimurti Fitness Club — Official WhatsApp',
-    description: 'Book Cricket & Football Turf at Shri Trimurti Fitness Club in Koparde. Floodlit grounds, instant slot booking, 0% platform fee.',
-    address: 'Kudire Factory, Sangrul Fata, Koparde, Maharashtra 416205',
-    email: 'shritrimurtifitness@gmail.com',
+    description: 'Book Cricket Turf & Football Turf at Shri Trimurti Fitness Club in Koparde. Floodlit grounds, instant slot booking, 0% platform fee.',
+    address: settings.address,
+    email: settings.email,
     websites: ['https://shritrimurtifitnessclub.in']
   });
 

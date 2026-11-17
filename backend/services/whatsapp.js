@@ -1,6 +1,7 @@
 const axios = require('axios');
 const pool = require('../config/db');
 const { toWhatsAppPhone } = require('../utils/phone');
+const settingsService = require('./settingsService');
 
 /**
  * Normalizes a phone number to standard international format (e.g. 919595153006)
@@ -469,6 +470,8 @@ async function sendBookingConfirmationTicket({
     paymentModeText = `💳 *Payment Mode:* ${methodLabel}\n`;
   }
 
+  const settings = await settingsService.getLiveSettings();
+
   // 3. Send Detailed Booking Confirmation Receipt with Action Buttons
   const message = 
 `🎉 *BOOKING CONFIRMED — SHRI TRIMURTI FITNESS CLUB*
@@ -480,8 +483,8 @@ Hi *${customerName || 'Player'}*! Your booking is confirmed. We look forward to 
 📅 *Date:* ${date}
 ⏰ *Slot(s):* ${formattedSlots}
 ${paymentText}
-${paymentModeText}📍 *Location:* Kudire Factory, Sangrul Fata, Koparde, Maharashtra
-🗺️ *Map:* https://maps.app.goo.gl/XCxniFWMMtnfw2MJA
+${paymentModeText}📍 *Location:* ${settings.address}
+🗺️ *Map:* ${settings.google_maps_url}
 
 ⚠️ *Player Instructions:*
 1. Arrive 10–15 minutes before your scheduled slot.

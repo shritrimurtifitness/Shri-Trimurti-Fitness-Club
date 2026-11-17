@@ -4,6 +4,7 @@
  */
 
 const pool = require('../config/db');
+const settingsService = require('./settingsService');
 
 // In-memory conversation history per phone number (retained for 30 minutes)
 const conversationMemory = new Map();
@@ -34,20 +35,26 @@ function updateMemory(phone, userMessage, aiResponse) {
 }
 
 /**
- * System knowledge base for the AI Assistant
+ * Builds dynamic system knowledge base for the AI Assistant based on live arena settings
  */
-const SYSTEM_INSTRUCTION = `
+function buildSystemInstruction(settings = {}) {
+  const address = settings.address || 'Near Yashwant Bank, Kuditre Factory , Koparde';
+  const mapsUrl = settings.google_maps_url || 'https://maps.app.goo.gl/XCxniFWMMtnfw2MJA';
+  const phone = settings.phone || '+91 9595153006';
+  const hours = settings.working_hours || 'Open 7 days a week, 5:00 AM to 11:00 PM';
+
+  return `
 You are "Trimurti Fitness Club Assistant", the official, friendly, front-desk digital manager for Shri Trimurti Fitness Club in Koparde (near Kolhapur, Maharashtra).
 
 ARENA DETAILS:
 - Name: Shri Trimurti Fitness Club
-- Location: Kudire Factory, Sangrul Fata, Koparde, Maharashtra
-- Google Maps: https://maps.app.goo.gl/XCxniFWMMtnfw2MJA
-- Google Review Link: https://maps.app.goo.gl/XCxniFWMMtnfw2MJA
+- Location: ${address}
+- Google Maps: ${mapsUrl}
+- Google Review Link: ${mapsUrl}
 - Facilities:
   1. Cricket Turf: High-density synthetic grass, full-perimeter safety netting, powerful LED floodlights, professional batting/bowling crease. High-grade cricket bats, tennis balls, and stumps are provided completely free on-site!
   2. Football Turf: Shock-absorbing turf for 8v8 matches, full perimeter safety netting, quality footballs and bibs provided.
-- Operating Hours: Open 7 days a week, 5:00 AM to 11:00 PM.
+- Operating Hours: ${hours}
 - Pricing:
   - Cricket Day (5:00 AM - 6:00 PM): ₹700 / Hour
   - Cricket Night Floodlights (6:00 PM - 11:00 PM): ₹900 / Hour (Mon-Fri) • ₹1,000 / Hour (Sat-Sun)
@@ -58,7 +65,7 @@ ARENA DETAILS:
   2. Online on Website: https://shritrimurtifitnessclub.in/book
 - Amenities: Free on-site vehicle parking (cars & bikes), covered player dugout & spectator lounge, hygienic washrooms and changing area, chilled drinking water & energy drinks, free high-speed Wi-Fi.
 - Rain & Weather Policy: In case of heavy rain or bad weather, sessions are happily rescheduled to another vacant slot.
-- Corporate / Tournaments / Full-day bookings: Special packages available. Manager: +91 9595153006.
+- Corporate / Tournaments / Full-day bookings: Special packages available. Manager: ${phone}.
 
 YOUR PERSONA & BEHAVIOR:
 - Warm, polite, energetic, sporty tone (like an enthusiastic turf manager).
@@ -73,6 +80,7 @@ YOUR PERSONA & BEHAVIOR:
 - If the user asks about live slot availability, check the available slots or suggest they check the website link.
 - Never make up fake slots or rates that contradict the arena rules.
 `;
+}
 
 /**
  * Helper to query available slots today from Neon DB
@@ -165,7 +173,11 @@ async function generateAIResponse({ phone, userMessage }) {
       },
     ];
 
-    // 3. Call Google Gemini API (with automatic fallback to available flash models)
+    // 3. Fetch live dynamic arena settings for system instruction
+    const settings = await settingsService.getLiveSettings();
+    const systemPrompt = buildSystemInstruction(settings);
+
+    // 4. Call Google Gemini API (with automatic fallback to available flash models)
     const candidateModels = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
     let candidateText = null;
 
@@ -178,7 +190,7 @@ async function generateAIResponse({ phone, userMessage }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               system_instruction: {
-                parts: [{ text: SYSTEM_INSTRUCTION }],
+                parts: [{ text: systemPrompt }],
               },
               contents: contents,
               generationConfig: {

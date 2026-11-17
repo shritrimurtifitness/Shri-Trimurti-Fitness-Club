@@ -267,7 +267,14 @@ export default function HeroSection() {
                       Cricket • Football
                     </span>
                     <h4 className="text-white text-xs sm:text-sm font-semibold flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3 text-zinc-400" /> Koparde, Sangrul Fata
+                      <MapPin className="w-3 h-3 text-zinc-400 shrink-0" />
+                      <span className="truncate max-w-[200px] sm:max-w-[260px]">
+                        {settings?.address
+                          ? (settings.address.length > 28
+                              ? settings.address.split(",").slice(-2).join(", ").trim()
+                              : settings.address)
+                          : "Kuditre, Koparde"}
+                      </span>
                     </h4>
                   </div>
                 </div>

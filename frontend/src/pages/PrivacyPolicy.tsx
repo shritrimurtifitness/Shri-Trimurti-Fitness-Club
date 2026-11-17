@@ -1,8 +1,22 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Shield, CheckCircle, Mail, Phone, MapPin } from "lucide-react";
+import api from "@/lib/api";
 
 export default function PrivacyPolicy() {
+  const [contact, setContact] = useState({
+    address: "Near Yashwant Bank, Kuditre Factory , Koparde",
+    phone: "+91 9595153006",
+    email: "shritrimurtifitness@gmail.com",
+  });
+
+  useEffect(() => {
+    api.get("/settings/contact")
+      .then((res) => {
+        if (res.data) setContact((prev) => ({ ...prev, ...res.data }));
+      })
+      .catch(() => {});
+  }, []);
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-2xl backdrop-blur-md">
@@ -88,9 +102,9 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">6. Contact Information</h2>
             <p className="mb-2">If you have any questions regarding this Privacy Policy or your data, please contact us:</p>
             <div className="space-y-1 text-slate-400 text-sm">
-              <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-400" /> Kudire Factory, Sangrul Fata, Koparde, Maharashtra 416204</div>
-              <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-emerald-400" /> +91 9595153006</div>
-              <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-emerald-400" /> shritrimurtifitness@gmail.com</div>
+              <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-400" /> {contact.address}</div>
+              <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-emerald-400" /> {contact.phone}</div>
+              <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-emerald-400" /> {contact.email}</div>
             </div>
           </section>
         </div>

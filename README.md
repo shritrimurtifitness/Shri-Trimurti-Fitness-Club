@@ -66,6 +66,7 @@ A comprehensive, production-grade sports facility management, autonomous booking
 - **High-Speed HTML5 QR Entry Scanner:** Verify player gate passes with camera or barcode reader.
 - **Live Occupancy Pulse:** Real-time WebSocket match and court presence monitoring.
 - **Instagram Story Ad Studio:** Instant branded promotional graphics generation with venue branding.
+- **Dynamic Arena Settings & Live Location Sync:** Address, Google Maps directions, contact phone, operating hours, and UPI QR details configured in Admin Settings are cached in Redis (`site:settings`) and dynamically streamed to the Web Landing page, WhatsApp bot location inquiries, automated matchday reminders, entry passes, and the Gemini AI assistant with 0 hardcoding.
 
 ---
 
