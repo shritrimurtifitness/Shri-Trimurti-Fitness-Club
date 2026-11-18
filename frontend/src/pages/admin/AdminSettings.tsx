@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { User, Mail, Lock, ShieldAlert, Download, LogOut, ShieldCheck, Trash2, AlertTriangle, KeyRound, MapPin, Phone, Clock, Globe, MessageSquare, QrCode, IndianRupee, Check, Sparkles, Upload, Loader2, CheckCircle2, Coins, Award, Trophy, Search, Gift } from "lucide-react";
+import { User, Mail, Lock, ShieldAlert, Download, LogOut, ShieldCheck, Trash2, AlertTriangle, KeyRound, MapPin, Phone, Clock, Globe, MessageSquare, QrCode, IndianRupee, Check, Sparkles, Upload, Loader2, CheckCircle2, Coins, Award, Trophy, Search, Gift, RefreshCw, CalendarX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -38,6 +38,8 @@ export default function AdminSettings() {
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [resetConfirmText, setResetConfirmText] = useState("");
+  const [purgeConfirmText, setPurgeConfirmText] = useState("");
+  const [purging, setPurging] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Contact Settings
@@ -268,6 +270,24 @@ export default function AdminSettings() {
       setResetConfirmText("");
       setTimeout(() => window.location.reload(), 2000);
     } catch { toast.error("Data reset failed"); }
+  };
+
+  const handlePurgeTestData = async () => {
+    if (purgeConfirmText !== "RESET BOOKINGS") {
+      return toast.error("Please type RESET BOOKINGS to confirm");
+    }
+    setPurging(true);
+    const toastId = toast.loading("Purging test bookings and customer records...");
+    try {
+      const res = await api.post('/settings/purge-test-data');
+      toast.success(res.data?.message || "Test data purged successfully!", { id: toastId });
+      setPurgeConfirmText("");
+      setTimeout(() => window.location.reload(), 1800);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to purge test data", { id: toastId });
+    } finally {
+      setPurging(false);
+    }
   };
 
   const handleSaveContact = async (e: React.FormEvent) => {
@@ -1192,54 +1212,167 @@ export default function AdminSettings() {
           {activeTab === "system" && (
             <div className="space-y-6 animate-in fade-in duration-300">
               {/* Danger Zone */}
-              <section className="border-2 border-destructive/20 bg-destructive/5 rounded-2xl p-6 space-y-5">
+              <section className="border-2 border-destructive/20 bg-destructive/5 rounded-2xl p-6 space-y-6">
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="w-6 h-6 text-destructive" />
-                  <h3 className="font-heading font-bold text-lg text-destructive">Danger Zone</h3>
+                  <div>
+                    <h3 className="font-heading font-bold text-lg text-destructive">Danger Zone & Production Reset</h3>
+                    <p className="text-xs text-muted-foreground">Destructive actions for platform maintenance. Use with extreme caution.</p>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">Destructive actions. Use with extreme caution. No undo available.</p>
 
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="flex-1 font-bold gap-2">
-                        <Trash2 className="w-4 h-4" /> Reset Website Data
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="bg-card border-border border">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                          <AlertTriangle className="w-5 h-5" /> Are you absolutely sure?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription className="text-muted-foreground">
-                          This will delete ALL bookings, payments, and non-admin users. Your admin account and turfs will remain safe, but the platform will be reset to a factory state.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <div className="p-4 bg-muted rounded-xl space-y-2">
-                        <p className="text-xs font-bold uppercase text-muted-foreground">Type <span className="text-destructive">DELETE ALL DATA</span> to confirm</p>
-                        <Input
-                          value={resetConfirmText}
-                          onChange={(e) => setResetConfirmText(e.target.value)}
-                          placeholder="Type confirmation text here"
-                          className="bg-background border-destructive/30 focus-visible:ring-destructive"
-                        />
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Option 1: Purge Test Bookings & Customer Data */}
+                  <div className="bg-card border-2 border-amber-500/30 dark:border-amber-500/20 rounded-xl p-5 flex flex-col justify-between space-y-4 shadow-sm hover:border-amber-500/50 transition-all">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          Recommended for Launch
+                        </span>
+                        <CalendarX className="w-5 h-5 text-amber-500" />
                       </div>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel className="bg-secondary">Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleResetData}
-                          className="bg-destructive text-white hover:bg-destructive/90"
-                          disabled={resetConfirmText !== "DELETE ALL DATA"}
-                        >
-                          Process Factory Reset
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                      <h4 className="font-heading font-bold text-base text-foreground">Purge Test Bookings & Customer Data</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Cleans out all test bookings, payment logs, revenue statistics, loyalty wallets, and customer accounts (<span className="font-mono text-[11px] text-foreground">role = user</span>).
+                      </p>
+                      <div className="pt-2 border-t border-border/50 text-[11px] space-y-1 text-muted-foreground">
+                        <div className="text-emerald-500 font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                          <span>Preserves Turfs (Cricket & Football), Slots, Pricing, Tournaments & Admin/Staff</span>
+                        </div>
+                        <div className="text-amber-500 font-semibold flex items-center gap-1.5">
+                          <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                          <span>Instantly resets all time slots to unbooked & ready for live public bookings</span>
+                        </div>
+                      </div>
+                    </div>
 
-                  <Button variant="outline" className="flex-1 font-bold border-destructive/30 text-destructive hover:bg-destructive hover:text-white" onClick={() => toast.info("Feature coming soon")}>
-                    Delete Non-Admin Users
-                  </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          className="w-full font-bold border-amber-500/40 text-amber-500 hover:bg-amber-500 hover:text-white dark:hover:text-black gap-2 mt-2"
+                        >
+                          <RefreshCw className="w-4 h-4" /> Purge Test Data & Reset Slots
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-card border-border border max-w-lg">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2 text-amber-500">
+                            <AlertTriangle className="w-5 h-5" /> Reset Test Data for Fresh Launch?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed space-y-2">
+                            <span>This action will permanently delete all test bookings, payments, customer activity logs, and customer user accounts.</span>
+                            <div className="bg-secondary/40 border border-border/50 rounded-lg p-3 my-2 space-y-1.5 text-foreground">
+                              <p className="font-semibold text-xs text-emerald-500">✅ Strictly Preserved:</p>
+                              <ul className="list-disc list-inside text-[11px] text-muted-foreground space-y-0.5 ml-1">
+                                <li>All Turfs (Cricket Turf & Football Turf facilities)</li>
+                                <li>Time Slots & Slot generation templates</li>
+                                <li>Pricing plans & weekend tariffs</li>
+                                <li>Admin & Staff user accounts with credentials</li>
+                                <li>Tournaments, Gallery images, and Testimonials</li>
+                                <li>Site contact info, UPI QR, & settings</li>
+                              </ul>
+                              <p className="font-semibold text-xs text-destructive pt-1">❌ Wiped / Purged:</p>
+                              <ul className="list-disc list-inside text-[11px] text-muted-foreground space-y-0.5 ml-1">
+                                <li>All bookings, payments, and revenue statistics</li>
+                                <li>Customer accounts (<code className="text-destructive font-mono">role = user</code>)</li>
+                                <li>Trimurti Coins wallets & loyalty logs</li>
+                                <li>Bank SMS match logs, WhatsApp logs, and OTP records</li>
+                              </ul>
+                            </div>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="p-4 bg-muted/80 rounded-xl space-y-2 border border-border/50">
+                          <p className="text-xs font-bold uppercase text-muted-foreground">
+                            Type <span className="text-amber-500 font-mono">RESET BOOKINGS</span> to confirm
+                          </p>
+                          <Input
+                            value={purgeConfirmText}
+                            onChange={(e) => setPurgeConfirmText(e.target.value)}
+                            placeholder="RESET BOOKINGS"
+                            className="bg-background border-amber-500/30 focus-visible:ring-amber-500 font-mono uppercase"
+                          />
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-secondary" onClick={() => setPurgeConfirmText("")}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handlePurgeTestData}
+                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2"
+                            disabled={purgeConfirmText !== "RESET BOOKINGS" || purging}
+                          >
+                            {purging ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                            Confirm Purge & Reset Slots
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+
+                  {/* Option 2: Full Factory Reset */}
+                  <div className="bg-card border-2 border-destructive/20 rounded-xl p-5 flex flex-col justify-between space-y-4 shadow-sm hover:border-destructive/40 transition-all">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-destructive/10 text-destructive border border-destructive/20">
+                          Total Wipe
+                        </span>
+                        <Trash2 className="w-5 h-5 text-destructive" />
+                      </div>
+                      <h4 className="font-heading font-bold text-base text-destructive">Full Factory Reset</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Total wipe that clears turfs, pricing plans, slot templates, gallery images, testimonials, bookings, and all customer data back to empty factory state.
+                      </p>
+                      <div className="pt-2 border-t border-border/50 text-[11px] space-y-1 text-muted-foreground">
+                        <div className="text-destructive font-semibold flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Deletes turfs, slot templates, gallery & testimonials</span>
+                        </div>
+                        <div className="text-muted-foreground flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                          <span>Preserves Admin account only</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="w-full font-bold gap-2 mt-2">
+                          <Trash2 className="w-4 h-4" /> Full Factory Reset
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-card border-border border max-w-lg">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                            <AlertTriangle className="w-5 h-5" /> Execute Complete Factory Reset?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
+                            This will delete EVERYTHING: turfs, slots, pricing plans, slot templates, gallery photos, testimonials, and all customer bookings. Only your admin credentials will remain.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="p-4 bg-muted/80 rounded-xl space-y-2 border border-border/50">
+                          <p className="text-xs font-bold uppercase text-muted-foreground">
+                            Type <span className="text-destructive font-mono">DELETE ALL DATA</span> to confirm
+                          </p>
+                          <Input
+                            value={resetConfirmText}
+                            onChange={(e) => setResetConfirmText(e.target.value)}
+                            placeholder="DELETE ALL DATA"
+                            className="bg-background border-destructive/30 focus-visible:ring-destructive font-mono uppercase"
+                          />
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-secondary" onClick={() => setResetConfirmText("")}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleResetData}
+                            className="bg-destructive text-white hover:bg-destructive/90 font-bold"
+                            disabled={resetConfirmText !== "DELETE ALL DATA"}
+                          >
+                            Process Factory Reset
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </section>
             </div>

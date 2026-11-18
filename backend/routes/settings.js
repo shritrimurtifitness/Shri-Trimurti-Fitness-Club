@@ -162,8 +162,88 @@ router.post('/upload-qr', authMiddleware, qrUpload.single('qr_image'), async (re
   }
 });
 
-// Reset Website Data (Danger Zone)
+// Purge Test Bookings & Customer Data (Admin only)
+// Strictly preserves turfs (Cricket & Football), slots, slot_templates, pricing_plans, tournaments, site_settings, and admin/staff users.
+router.post('/purge-test-data', authMiddleware, async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Only administrators can purge test data.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Truncate all transactional tables, bookings, payments, and customer activity logs
+    await client.query(`
+      TRUNCATE 
+        bookings,
+        payments,
+        coupon_redemptions,
+        gate_access_logs,
+        bank_sms_credits,
+        churn_outreach_logs,
+        user_loyalty_wallets,
+        loyalty_transactions,
+        weekly_executive_summaries,
+        whatsapp_logs,
+        otp_verifications,
+        password_resets,
+        missed_calls,
+        expenses,
+        table_sessions
+      RESTART IDENTITY CASCADE
+    `);
+
+    // 2. Delete customer accounts (role = 'user') - strictly preserve admin and staff
+    const deletedUsers = await client.query("DELETE FROM users WHERE role NOT IN ('admin', 'staff') RETURNING id");
+
+    // 3. Reset existing slots so they are immediately available for fresh bookings
+    const resetSlots = await client.query('UPDATE slots SET is_available = true RETURNING id');
+
+    await client.query('COMMIT');
+
+    // 4. Invalidate complete Redis cache
+    await cache.flush();
+
+    // 5. Log audit trail
+    await logAction(
+      req.user.id, 
+      'PURGE_TEST_DATA', 
+      `Purged test data: cleared bookings, payments, customer logs, ${deletedUsers.rowCount} customer accounts, and refreshed ${resetSlots.rowCount} slots. Facilities (Cricket Turf, Football Turf), templates, pricing, and admin accounts preserved.`
+    );
+
+    // 6. Broadcast real-time Socket.IO notifications
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('booking_updated');
+      io.emit('stats_updated');
+      io.emit('loyalty_updated');
+      io.emit('settings_updated');
+    }
+
+    res.json({
+      success: true,
+      message: 'All test bookings, payments, stats, and customer accounts have been successfully purged. Facilities, time slots, and admin accounts are preserved.',
+      purged: {
+        customersDeleted: deletedUsers.rowCount,
+        slotsRefreshed: resetSlots.rowCount,
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Purge test data failed:', err);
+    res.status(500).json({ error: 'Failed to purge test data: ' + err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Reset Website Data (Danger Zone - Full Factory Reset)
 router.post('/reset-data', authMiddleware, async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Only administrators can perform factory reset.' });
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

@@ -408,6 +408,18 @@ Eliminates manual admin approval for UPI payments:
   4. *Gemini AI Digital Manager:* Dynamically updates the conversational prompt context with live location, hours, and manager phone.
   5. *Web Landing Engine:* Populates Hero section badge, Contact card, and turn-by-turn navigation buttons with live database values.
 
+### 5.19 Purge Test Data & Production Clean Slate Engine (`/api/settings/purge-test-data`)
+- **Purpose:** Enables administrators to safely purge all development and testing records (test bookings, dummy UPI payments, simulated revenue figures, testing loyalty wallets, and customer accounts) to prepare the arena for public live operations.
+- **Strict Facility & Configuration Preservation:** Unlike a destructive factory reset, this engine strictly protects and preserves:
+  1. *Sports Facilities:* **Cricket Turf** and **Football Turf** (`turfs`) are never touched.
+  2. *Daily Time Slots:* All pre-generated slots remain in place; their booking and lock statuses are instantly reset via `UPDATE slots SET is_available = true` so they are immediately available for real customers.
+  3. *Slot Templates & Tariffs:* Operating hours, slot configurations, and tiered pricing plans (`slot_templates`, `pricing_plans`) are preserved intact.
+  4. *Administrator & Staff Accounts:* Secure passwords, PINs, and credentials for `admin` and `staff` roles remain active; only customer test accounts (`role = 'user'`) are removed.
+  5. *Arena Content & Marketing:* Tournaments, registered tournament rosters, gallery images, testimonials, coupons, and site settings are fully preserved.
+- **Transactional Atomic Execution:** Runs inside a PostgreSQL `BEGIN ... COMMIT` transaction truncating transactional root tables (`bookings`, `payments`, `coupon_redemptions`, `gate_access_logs`, `bank_sms_credits`, `churn_outreach_logs`, `user_loyalty_wallets`, `loyalty_transactions`, `weekly_executive_summaries`, `whatsapp_logs`, `otp_verifications`, `password_resets`, `missed_calls`, `expenses`, `table_sessions`) with `RESTART IDENTITY CASCADE`.
+- **System Invalidation & Realtime Sync:** Calls `await cache.flush()` to clear all cached slot queries and analytics dashboards from Redis, records an immutable audit log entry (`PURGE_TEST_DATA`), and broadcasts Socket.IO events (`booking_updated`, `stats_updated`, `loyalty_updated`, `settings_updated`) to update connected client screens instantly.
+- **Fail-Safe UI Confirmation:** Located in the Admin Settings "Danger Zone & Production Reset" tab, requiring administrators to explicitly type `RESET BOOKINGS` before the action can be processed.
+
 
 ---
 
@@ -531,6 +543,8 @@ All routes are mounted under `/api`.
 | `GET` | `/settings` | Public | Get public settings (UPI ID, QR URL, timings, phone, Google Rating) |
 | `PUT` | `/settings` | Bearer | Update arena configuration, UPI details, and tax rates |
 | `POST` | `/settings/upload-qr` | Bearer | Upload official arena UPI QR graphic to Cloudinary |
+| `POST` | `/settings/purge-test-data` | Bearer (Admin) | Purges all test bookings, payments, customer accounts, and logs while preserving Cricket Turf, Football Turf, time slots, pricing plans, and admin/staff accounts |
+| `POST` | `/settings/reset-data` | Bearer (Admin) | Destructive total factory reset wiping turfs, pricing, slot templates, bookings, and customer data |
 | `GET` | `/gallery` | Public | Fetch gallery media assets sorted by display order |
 | `POST` | `/gallery` | Bearer | Add new gallery image via Cloudinary CDN |
 | `DELETE`| `/gallery/:id` | Bearer | Remove gallery image asset |

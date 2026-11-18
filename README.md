@@ -68,6 +68,7 @@ A comprehensive, production-grade sports facility management, autonomous booking
 - **Live Occupancy Pulse:** Real-time WebSocket match and court presence monitoring.
 - **Instagram Story Ad Studio:** Instant branded promotional graphics generation with venue branding.
 - **Dynamic Arena Settings & Live Location Sync:** Address, Google Maps directions, contact phone, operating hours, and UPI QR details configured in Admin Settings are cached in Redis (`site:settings`) and dynamically streamed to the Web Landing page, WhatsApp bot location inquiries, automated matchday reminders, entry passes, and the Gemini AI assistant with 0 hardcoding.
+- **Production Clean Slate (Purge Test Data):** Dedicated administrative engine in the Danger Zone allowing managers to purge test bookings, payments, revenue statistics, loyalty wallets, and customer accounts (`role = 'user'`) while **strictly preserving** Cricket Turf & Football Turf facilities, daily time slots (reset to available), pricing tariffs, tournaments, and admin/staff accounts.
 
 ---
 
@@ -194,7 +195,10 @@ node scratch/test_screenshot_ack.js
 # 6. Test Admin Executive Summary & Churn Auth Dual Mode
 node scratch/test_executive_summary_auth.js
 
-# 7. Frontend Production Bundle Check
+# 7. Test Purge Test Data & Clean Slate API
+node scratch/test_purge_endpoint.js
+
+# 8. Frontend Production Bundle Check
 npm run build --prefix frontend
 ```
 
